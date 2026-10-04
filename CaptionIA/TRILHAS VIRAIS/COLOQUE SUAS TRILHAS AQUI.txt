@@ -1,0 +1,9 @@
+TRILHAS VIRAIS — biblioteca da aba Autotrilha
+=============================================
+
+Cada SUBPASTA aqui vira uma CATEGORIA na aba (Dinâmica > Autotrilha).
+Cada arquivo de áudio (mp3, wav, m4a...) vira uma trilha da lista —
+o nome do arquivo é o nome que aparece pro aluno.
+
+Quer adicionar? Solte o áudio na categoria certa (ou crie uma pasta
+nova) e clique em Atualizar na aba.

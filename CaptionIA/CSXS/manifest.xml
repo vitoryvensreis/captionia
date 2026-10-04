@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ExtensionManifest Version="9.0" ExtensionBundleId="com.editbest" ExtensionBundleVersion="3.1.0"
+    ExtensionBundleName="Caption IA" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <ExtensionList>
+        <Extension Id="com.editbest.panel" Version="3.1.0" />
+    </ExtensionList>
+    <ExecutionEnvironment>
+        <HostList>
+            <Host Name="AEFT" Version="[16.0,99.9]" />
+            <Host Name="PPRO" Version="[13.0,99.9]" />
+        </HostList>
+        <LocaleList>
+            <Locale Code="All" />
+        </LocaleList>
+        <RequiredRuntimeList>
+            <RequiredRuntime Name="CSXS" Version="9.0" />
+        </RequiredRuntimeList>
+    </ExecutionEnvironment>
+    <DispatchInfoList>
+        <Extension Id="com.editbest.panel">
+            <DispatchInfo>
+                <Resources>
+                    <MainPath>./index.html</MainPath>
+                    <!-- ENTREGA: o hostscript vai como .jsxbin; o .jsx cru nao viaja junto. -->
+                    <ScriptPath>./jsx/hostscript.jsxbin</ScriptPath>
+                    <CEFCommandLine>
+                        <Parameter>--enable-nodejs</Parameter>
+                        <Parameter>--mixed-context</Parameter>
+                    </CEFCommandLine>
+                </Resources>
+                <Lifecycle>
+                    <AutoVisible>true</AutoVisible>
+                </Lifecycle>
+                <UI>
+                    <Type>Panel</Type>
+                    <Menu>Caption IA</Menu>
+                    <Icons>
+                        <Icon Type="Normal">./icons/logo.png</Icon>
+                        <Icon Type="RollOver">./icons/logo_rollover.png</Icon>
+                        <Icon Type="DarkNormal">./icons/logo.png</Icon>
+                        <Icon Type="DarkRollOver">./icons/logo_rollover.png</Icon>
+                    </Icons>
+                    <Geometry>
+                        <Size>
+                            <Height>600</Height>
+                            <Width>720</Width>
+                        </Size>
+                        <MinSize>
+                            <Height>400</Height>
+                            <Width>380</Width>
+                        </MinSize>
+                    </Geometry>
+                </UI>
+            </DispatchInfo>
+        </Extension>
+    </DispatchInfoList>
+</ExtensionManifest>

@@ -1,0 +1,20 @@
+# Sistema / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+
+# Temporários / caches locais
+*.tmp
+*.bak
+*.swp
+.cache/
+__pycache__/
+
+# Segredos e arquivos locais
+.env
+.env.*
+credentials.json
+
+# Pacotes gerados
+*.zip

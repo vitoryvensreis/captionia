@@ -1,0 +1,21 @@
+Caption IA 3.1.0 — validação offline
+=================================
+
+Executado antes do empacotamento:
+
+[OK] Sintaxe dos 29 arquivos JavaScript do painel (`node --check`).
+[OK] Manifest CSXS parseado como XML e versão 3.1.0 confirmada.
+[OK] 79/79 arquivos .fsm decodificados e `definition.json` lido.
+[OK] 79/79 modelos com pelo menos um campo de texto.
+[OK] 79/79 modelos com frame 1080x1920.
+[OK] 79/79 modelos com duração declarada válida (7, 10 ou 12 s no pacote analisado).
+[OK] SFX sync: caso de 8 palavras em 0,2 s / 30 fps / passo 3 resultou em frames únicos; 6 eventos sem espaço foram omitidos e nenhum começou no fim do bloco.
+[OK] Cache reverso: substituir o arquivo no mesmo caminho alterou a chave do cache.
+[OK] Pré-escuta: -24 dB, 0 dB e +12 dB produziram ganhos lineares diferentes.
+[OK] SFX ausente: o mix manteve o item persistido e não regravou uma lista reduzida.
+[OK] Armazenamento de chave: migração, gravação e leitura verificadas no fallback local; a rotina Windows usa DPAPI CurrentUser e precisa do teste final em Windows/Premiere.
+[OK] Auto-distribuição: caminho de fallback preserva todas as palavras e não descarta silenciosamente um bloco por falta de modelo compatível.
+[OK] hostscript.jsxbin preservado sem alteração (SHA-256 idêntico ao pacote de origem).
+
+Limite desta validação:
+- Não é possível executar o host Adobe neste ambiente. Inserção real na timeline, renderização da animação, undo e DPAPI dentro do Premiere devem seguir o checklist TESTE_PREMIERE.md.

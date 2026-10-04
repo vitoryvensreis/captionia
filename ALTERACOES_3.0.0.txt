@@ -1,0 +1,19 @@
+Caption IA — histórico herdado da versão 3.0.0
+
+editBest 3.0.0
+================
+
+- Rebrand completo do nome público Frame Speed -> editBest.
+- ExtensionBundleId: com.editbest
+- Extension ID: com.editbest.panel
+- Login removido.
+- Logout removido.
+- Validação de sessão removida.
+- Revalidação automática removida.
+- Endpoint antigo de autenticação removido.
+- Atualizador remoto antigo desativado/removido.
+- EULA obrigatório de primeira execução removido.
+- Painel abre diretamente após instalar.
+- CSS e assets exclusivos do login/EULA removidos.
+- Chaves internas framespeed_* preservadas por compatibilidade com projetos/configurações antigos.
+- hostscript.jsxbin preservado intacto.

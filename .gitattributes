@@ -1,0 +1,14 @@
+# Arquivos binários do plugin — não tentar diff textual
+*.jsxbin binary
+*.fsm binary
+*.fsa binary
+*.mogrt binary
+*.epr binary
+*.prproj binary
+*.wav binary
+*.m4a binary
+*.mp3 binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary

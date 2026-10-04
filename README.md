@@ -1,0 +1,38 @@
+# Caption IA 3.1.0 — versão livre / sem login
+
+Esta árvore foi criada a partir do pacote recuperado do FrameSpeed 2.2.
+
+## Alterações realizadas
+- Nome público alterado para **Caption IA**.
+- Nome público e menu do CEP alterados para **Caption IA**.
+- IDs internos `com.editbest` / `com.editbest.panel` foram preservados por compatibilidade e para evitar duplicar a extensão em projetos/instalações existentes.
+- Versão alterada para **3.1.0**.
+- Tela de login removida.
+- Cliente de autenticação e chamadas `login.php`, `validate.php` e `logout.php` removidos do plugin.
+- Revalidação periódica de sessão removida.
+- Dependência do endpoint remoto de atualização antigo removida.
+- Tela EULA de primeira execução removida para o painel abrir direto.
+- Botão de logout, nome de usuário e atalho do Instagram antigo removidos.
+- Textos públicos `Frame Speed` / `Victoframe` trocados por `Caption IA`.
+- Instalador BAT por usuário incluído.
+
+## Compatibilidade intencional
+As chaves internas `framespeed_*`, alguns nomes de funções `fs*` e nomes temporários foram **mantidos**.
+Isso é proposital: mudar tudo de uma vez pode quebrar preferências já salvas, integrações com o
+`hostscript.jsxbin` recuperado e arquivos de projeto antigos. O nome exibido ao usuário é Caption IA.
+
+## Backend do Premiere
+`jsx/hostscript.jsxbin` continua sendo o backend recuperado da versão 2.2. Ele foi mantido intacto
+para preservar as funções do Premiere enquanto o código fonte `.jsx` é reconstruído.
+
+## Instalação
+Execute `INSTALAR_CAPTION_IA.bat`, feche e abra o Premiere e procure:
+**Janela > Extensões > Caption IA**.
+
+O instalador migra automaticamente uma instalação anterior da pasta `editBest` para `CaptionIA`.
+Os diretórios de dados em `Documentos/editBest` continuam sendo usados internamente por compatibilidade,
+principalmente para preservar preferências, cache e a chave Groq já salva.
+
+
+## Correções 3.1.0
+Veja `ALTERACOES_3.1.0.txt`. Esta versão inclui correções de metadados .fsm, encaixe de texto, SFX, paginação, instalação segura e persistência verificada da chave de API.

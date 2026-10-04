@@ -1,0 +1,27 @@
+Caption IA 3.1.0
+================
+
+CORRECOES PRINCIPAIS
+- B01: leitura dos metadados .fsm corrigida: decodifica antes de ler definition.json e usa cache por arquivo/versao.
+- R01: selecao automatica passou a medir largura de glifos com fonte/tamanho declarados no MOGRT e margem de area segura; tenta redistribuir/trocar de modelo e, quando necessario, divide o bloco preservando todas as palavras em vez de descarta-lo silenciosamente.
+- B02: SFX automatico quantiza por frame, remove horarios duplicados e nao dispara no fim do bloco; preview informa eventos omitidos.
+- B03: cache de SFX reverso agora depende de caminho + tamanho + data de modificacao + versao do processamento.
+- B04: pre-escuta de SFX respeita o ganho em dB (Web Audio quando disponivel).
+- B05: SFX temporariamente ausente nao e mais apagado do mix; ajustes ficam preservados e ha botao Localizar.
+- B06: setas de navegacao das legendas funcionam entre paginas de 200 itens.
+- B07: chave da API usa armazenamento persistente separado; no Windows, protecao DPAPI por usuario; gravacao e verificada antes de confirmar sucesso.
+- R02: instalador transacional com staging, validacao, backup e restauracao em falha.
+
+MELHORIAS DE USO
+- Mix automatico aumentado de 5 para 24 SFX.
+- Seletor de SFX aceita varios arquivos de uma vez.
+- SFX da biblioteca do painel tambem aparecem no seletor do automatico.
+- Identidade visual migrada para paleta azul do Caption IA.
+
+COMPATIBILIDADE
+- Chaves framespeed_* internas continuam preservadas quando necessarias para projetos/configuracoes antigos.
+- hostscript.jsxbin foi mantido intacto.
+
+VALIDACAO
+- Sintaxe dos 29 JavaScripts validada com Node; os 79/79 .fsm retornaram definition.json, texto, duracao e 1080x1920.
+- A validacao final de insercao/render/undo ainda precisa ser feita dentro do Premiere, porque o backend nativo distribuido esta em hostscript.jsxbin.

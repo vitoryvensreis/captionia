@@ -1,0 +1,2816 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Caption IA</title>
+    <link rel="stylesheet" href="css/style.css?v=9">
+<!-- ====================================================================
+         TELA BRANCA TEM QUE TER NOME (22/08/2026, um aluno no Windows: o
+         painel abre e fica em branco). Erro de JS no carregamento derruba a
+         interface inteira e o CEP não mostra NADA — nem no Premiere, nem pro
+         suporte. Este bloco é o PRIMEIRO da página, inline de propósito: ele
+         precisa existir antes de qualquer script que possa quebrar.
+         Ele faz duas coisas:
+           1. captura erro de JS e de script que não carregou, e desenha o
+              motivo na tela (com o que fazer e um botão pra copiar);
+           2. se em 8s o painel não tiver montado, mostra o mesmo cartão —
+              cobre a falha silenciosa (script que trava sem lançar erro).
+         ==================================================================== -->
+    <script>
+    (function () {
+        var jaMostrou = false;
+        // O CARTÃO SÓ APARECE SE O PAINEL NÃO MONTOU (22/08, lição na hora:
+        // um erro TARDIO e inofensivo — o defineProperty do fim do main.js —
+        // fez o cartão cobrir um painel que estava são. Erro que acontece
+        // depois da interface existir não é tela branca: ele é anotado e
+        // aparece só no diagnóstico, sem tapar a tela de quem está
+        // trabalhando.
+        var anotados = [];
+        function montou() {
+            try {
+                return !!document.querySelector('.sidebar-tab, #dyn-panel, #dynamic-categories-container');
+            } catch (e) { return false; }
+        }
+        function cartao(titulo, detalhe) {
+            if (jaMostrou) { return; }
+            anotados.push(titulo + ' | ' + detalhe);
+            try { window.FS_ERROS = anotados; } catch (e0) {}
+            if (montou()) { return; }   // painel de pé: não tapa a tela
+            jaMostrou = true;
+            try {
+                var d = document.createElement('div');
+                d.id = 'fs-erro-fatal';
+                d.style.cssText = 'position:fixed;inset:0;z-index:999999;background:#151515;color:#ddd;'
+                    + 'font:12px/1.6 -apple-system,Segoe UI,Arial,sans-serif;padding:18px;overflow:auto;';
+                var texto = 'Caption IA ' + (window.FS_VERSAO || '') + '\n' + titulo + '\n' + detalhe
+                    + '\n' + navigator.userAgent;
+                d.innerHTML =
+                    '<div style="font-size:14px;font-weight:700;color:#E8A33D;margin-bottom:8px;">'
+                  + 'O painel não conseguiu abrir</div>'
+                  + '<div style="margin-bottom:10px;">' + titulo + '</div>'
+                  + '<pre style="white-space:pre-wrap;word-break:break-word;background:#0e0e0e;border:1px solid #333;'
+                  + 'border-radius:6px;padding:8px;font-size:11px;color:#bbb;">' + detalhe + '</pre>'
+                  + '<div style="margin:10px 0;color:#aaa;">Tente nesta ordem:<br>'
+                  + '1. Feche e abra o Premiere.<br>'
+                  + '2. Se continuar, desinstale e instale de novo pelo instalador oficial.<br>'
+                  + '3. Se ainda assim continuar, mande o texto abaixo pro suporte do Caption IA.</div>'
+                  + '<button id="fs-erro-copiar" style="background:#E8A33D;color:#151515;border:none;'
+                  + 'border-radius:6px;padding:7px 12px;font-size:12px;cursor:pointer;">Copiar detalhes</button>';
+                (document.body || document.documentElement).appendChild(d);
+                var b = document.getElementById('fs-erro-copiar');
+                if (b) {
+                    b.addEventListener('click', function () {
+                        var ta = document.createElement('textarea');
+                        ta.value = texto;
+                        d.appendChild(ta);
+                        ta.select();
+                        try { document.execCommand('copy'); b.textContent = 'Copiado'; } catch (e) { b.textContent = 'Selecione o texto acima'; }
+                        d.removeChild(ta);
+                    });
+                }
+            } catch (e) {}
+        }
+        window.addEventListener('error', function (ev) {
+            // erro de SCRIPT que não carregou (src quebrado) vem sem message
+            if (ev && ev.target && ev.target.tagName === 'SCRIPT') {
+                cartao('Um arquivo do painel não carregou.', 'script: ' + (ev.target.src || '?'));
+                return;
+            }
+            var m = (ev && ev.message) ? ev.message : 'erro desconhecido';
+            var onde = (ev && ev.filename) ? (ev.filename + ':' + ev.lineno + ':' + ev.colno) : '';
+            cartao('Erro ao carregar o painel.', m + (onde ? ('\n' + onde) : ''));
+        }, true);
+        window.addEventListener('unhandledrejection', function (ev) {
+            var m = '';
+            try { m = String((ev && ev.reason && (ev.reason.message || ev.reason)) || ''); } catch (e) {}
+            cartao('Uma tarefa do painel falhou.', m);
+        });
+        // rede de segurança: painel que não montou em 8s também tem nome
+        setTimeout(function () {
+            if (montou()) { return; }
+            var pintou = false;
+            try { pintou = document.body && document.body.children.length > 3; } catch (e2) {}
+            if (pintou) { return; }
+            cartao('O painel abriu mas não montou a interface.',
+                'Nenhum elemento da tela foi criado em 8 segundos.'
+                + (anotados.length ? ('\n\nErros anotados:\n' + anotados.join('\n')) : ''));
+        }, 8000);
+    })();
+    </script>
+    <script src="js/CSInterface.js"></script>
+    <!-- o cofre entra ANTES do main.js: ele devolve as chaves que o cache
+         novo do CEP nao tem, e o main.js ja le as preferencias inteiras -->
+    <script src="js/cofre.js"></script>
+    <script src="js/secure_storage.js"></script>
+    <script src="js/patches_3_1.js"></script>
+    <!-- 05/09/2026: o seletor de arquivo NATIVO do CEP (abre na frente do Premiere).
+         Todo botão que abre arquivo passa por ele; ver o cabeçalho do arquivo. -->
+    <script src="js/seletor.js"></script>
+    <script src="js/legendas-projeto.js"></script>
+<script src="js/main.js"></script>
+    <script src="js/srt_modal.js"></script>
+    <script src="js/premiere_fix.js"></script>
+    <script src="js/transcription.js"></script>
+    <script src="js/autosfx.js"></script>
+    <script src="js/autotrilha.js"></script>
+    <script src="js/sfxopcoes.js"></script>
+    <script src="js/captions.js"></script>
+    <script src="js/autodistribute.js"></script>
+    <script src="js/painel.js"></script>
+    <script src="js/repeticoes.js"></script>
+    <script src="js/autocut.js"></script>
+    <script src="js/autoedit.js"></script>
+    <script src="js/jlcut.js"></script>
+    <script src="js/styleclone.js"></script>
+    <script src="js/prfpset.js"></script>
+    <script src="js/fxpresets.js"></script>
+    <script src="js/animtexto.js"></script>
+    <script src="js/dinamica.js"></script>
+    <script src="js/guias.js"></script>
+    <script src="js/clientes.js"></script>
+    <script src="js/colorpicker.js"></script>
+    <script src="js/gradiente.js"></script>
+</head>
+<body>
+
+<!-- APP PRINCIPAL -->
+<div id="app-content" class="app-shell">
+
+    <!-- HEADER: marca Caption IA + título + ações -->
+    <header class="app-header">
+        <button class="header-brand" title="Caption IA">
+            <img src="icons/fs_logo.webp" alt="Caption IA" class="brand-mark">
+            <span class="brand-text">Caption IA</span>
+            <!-- Versão preenchida pelo script no fim do arquivo, a partir do
+                 CURRENT_VERSION do main.js (fonte única da verdade). -->
+            <span class="brand-version" id="brand-version"
+                  style="font-size:9px;font-weight:700;opacity:.5;margin-left:5px;letter-spacing:.02em;white-space:nowrap;"></span>
+        </button>
+
+        <div class="header-search">
+            <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+            </svg>
+            <input type="text" id="global-search" placeholder="Buscar templates..." autocomplete="off">
+        </div>
+
+        <div class="header-actions">
+<!-- Slider de zoom dos previews -->
+            <div class="zoom-control" title="Tamanho do preview">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="7" height="7"/>
+                    <rect x="14" y="3" width="7" height="7"/>
+                    <rect x="3" y="14" width="7" height="7"/>
+                    <rect x="14" y="14" width="7" height="7"/>
+                </svg>
+                <input type="range" id="preview-zoom" min="1" max="4" step="1" value="2">
+            </div>
+
+            <!-- Botão Estilo -->
+            <button id="btn-font-config" class="icon-btn" title="Estilo — cores e fontes">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="4 7 4 4 20 4 20 7"/>
+                    <line x1="9" y1="20" x2="15" y2="20"/>
+                    <line x1="12" y1="4" x2="12" y2="20"/>
+                </svg>
+            </button>
+
+            <!-- Menu hambúrguer (preferências) -->
+            <button id="btn-settings-menu" class="icon-btn" title="Preferências">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="4" y1="6" x2="20" y2="6"/>
+                    <line x1="4" y1="12" x2="20" y2="12"/>
+                    <line x1="4" y1="18" x2="20" y2="18"/>
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- BANNER DE UPDATE (legado, fica oculto) -->
+    <div id="update-banner" class="update-banner hidden">
+        <span class="update-text">🔔 Nova versão disponível (<span id="update-version"></span>)!</span>
+        <button id="btn-update" class="btn-update">Atualizar</button>
+    </div>
+
+    <!-- BARRA DE FUNÇÕES — horizontal, largura total do painel.
+         Antes as abas viviam na lateral: numa coluna de 220px os rótulos
+         eram cortados ("T...", "F..."). Aqui cada função tem a largura do
+         próprio nome e a barra acompanha o painel, do estreito ao largo. -->
+        <nav class="fs-toolbar">
+                <button class="sidebar-tab active" data-filter="all" title="Todos os templates">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 7h18M3 12h18M3 17h18"/>
+                    </svg>
+                    <span>Todos</span>
+                </button>
+                <button class="sidebar-tab" data-filter="favorites" title="Favoritos">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                    </svg>
+                    <span>Favoritos</span>
+                </button>
+        <span class="fs-toolbar-sep"></span>
+                <!-- AUTOEDIT — a função-mãe: rege corte, legendas, zoom, transição
+                     e SFX em sequência. Primeira do grupo de ferramentas de
+                     propósito: é a vitrine. Etapas entram uma por vez (hoje só o
+                     corte roda de verdade; ver js/autoedit.js). -->
+                <button class="sidebar-tab" data-filter="autoedit" title="O Caption IA edita por você: corte, legendas, zoom, transição e SFX — em sequência" data-tool="1" id="autoedit-tab">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>
+                    </svg>
+                    <span>AutoEdit</span>
+                </button>
+                <button class="sidebar-tab" data-filter="auto-aplicar" title="Auto-aplicar: o plugin escolhe e aplica os templates" data-tool="1" id="autodist-tab">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M15 4V2m0 20v-2M8.5 8.5 7 7m10 10-1.5-1.5M4 15H2m20 0h-2"/>
+                        <path d="m3 21 9-9 2 2-9 9z"/><circle cx="15" cy="9" r="4"/>
+                    </svg>
+                    <span>Auto</span>
+                </button>
+                <button class="sidebar-tab" data-filter="autocut" title="Cortar silêncios e respiros" data-tool="1" id="autocut-tab">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/>
+                        <path d="M20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12"/>
+                    </svg>
+                    <span>AutoCut</span>
+                </button>
+                
+                <button class="sidebar-tab" data-filter="dinamica" title="Zoom, transição, J/L Cut e presets de efeito" data-tool="1" id="dyn-tab">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 12h4l3-8 4 16 3-8h4"/>
+                    </svg>
+                    <span>Dinâmica</span>
+                </button>
+                <button class="sidebar-tab" data-filter="copiar-estilo" title="Copiar o estilo de uma legenda para outras" data-tool="1" id="style-clone-tab">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="9" y="9" width="12" height="12" rx="2"/>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                    </svg>
+                    <span>Clonar</span>
+                </button>
+                <button class="sidebar-tab" data-tool="1" data-filter="sfx-auto" title="Distribuir SFX nas legendas automaticamente" id="autosfx-tab">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a9 9 0 0 1 0 14"/>
+                    </svg>
+                    <span>SFX Auto</span>
+                </button>
+    </nav>
+
+    <!-- SUB-ABAS DE FAVORITOS — "SFX Fav" e "Minha" saíram da barra de cima em
+         07/08/2026 e viraram sub-abas daqui, do mesmo jeito que a Dinâmica.
+         A barra estava virando lista e ainda vem o Auto Edit.
+
+         Só aparece quando Favoritos está escolhido. Modelos e SFX são filtros
+         da mesma grade; Minha troca o painel lateral — são coisas diferentes
+         por baixo, mas pro usuário é tudo "o que é meu". -->
+    <div class="fav-subtabs fs-vidro" id="fav-subtabs" style="display:none;">
+        <button type="button" class="dyn-subtab fs-vidro-item active" data-fav="modelos">Modelos</button>
+        <button type="button" class="dyn-subtab fs-vidro-item" data-fav="sfx">SFX</button>
+        <button type="button" class="dyn-subtab fs-vidro-item" data-fav="minha">Minha</button>
+    </div>
+
+    <!-- CORPO: sidebar + grid de previews -->
+    <main class="app-body">
+
+        <!-- SIDEBAR: árvore hierárquica de categorias/subcategorias -->
+        <aside class="app-sidebar">
+            <div id="sidebar-tree" class="sidebar-tree">
+                <!-- Árvore preenchida pelo main.js renderSidebarTree() -->
+                <p class="sidebar-loading">Carregando templates...</p>
+            </div>
+            <!-- Painel Minha Biblioteca — irmão do sidebar-tree, mesmo flex container -->
+            <div id="user-lib-panel" class="sidebar-tree">
+            </div>
+
+            <!-- MEUS PRESETS — painel de aba, no mesmo esquema do "Minha
+                 Biblioteca": fica oculto e SUBSTITUI a árvore quando a aba está
+                 ativa, em vez de dividir a lateral (dividir espremia as
+                 categorias). O JS alterna o display. -->
+            
+
+                        <!-- DINÂMICA — transição e zoom. Painel de aba, no mesmo esquema
+                 do "Presets" e do "Minha Biblioteca": fica oculto e substitui a
+                 árvore quando a aba está ativa. Saiu do modal do AutoCut a
+                 pedido do Victor, pra ficar junto das outras abas. -->
+            <div id="dyn-panel" style="display:none;flex-direction:column;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding:10px;">
+                <div class="fs-col">
+
+            <span class="transcribe-hint" style="display:block;margin-bottom:10px;">Ferramentas de timeline: movimento, corte e efeito. Legendas ficam de fora.</span>
+
+            <!-- SUB-ABAS — a Dinâmica vai receber mais funções (J-Cut, safezone) e
+                 empilhar tudo numa rolagem só já estava ficando longo. Cada função
+                 vira uma sub-aba; o status embaixo continua compartilhado.
+                 A barra rola na horizontal quando não couber. Rótulo NUNCA encolhe:
+                 foi encolher rótulo que quebrou a barra de funções lá atrás. -->
+            <div class="dyn-subtabs fs-vidro" id="dyn-subtabs">
+                <button type="button" class="dyn-subtab fs-vidro-item active" data-dyn="zoom">Zoom</button>
+                <button type="button" class="dyn-subtab fs-vidro-item" data-dyn="transicao">Transição</button>
+                <button type="button" class="dyn-subtab fs-vidro-item" data-dyn="jlcut">J/L Cut</button>
+                <button type="button" class="dyn-subtab fs-vidro-item" data-dyn="presets">Presets</button>
+                <button type="button" class="dyn-subtab fs-vidro-item" data-dyn="guias">Frame Grid</button>
+                <button type="button" class="dyn-subtab fs-vidro-item" data-dyn="animfs">Animações FS</button>
+                <button type="button" class="dyn-subtab fs-vidro-item" data-dyn="autotrilha">Autotrilha</button>
+                <!-- ANUNCIADAS ANTES DE EXISTIREM (15/08/2026, pedido do Victor:
+                     "vamos fazer isso para os usuários já ter noção e ciência
+                     que vai existir essas funções ainda"). As duas so tem o
+                     cartão de "em breve"; nao ha motor por tras delas ainda. -->
+                <button type="button" class="dyn-subtab fs-vidro-item" data-dyn="colorgrading">Color Grading</button>
+                <button type="button" class="dyn-subtab fs-vidro-item" data-dyn="teladividida">Tela Dividida</button>
+            </div>
+
+            <!-- ZOOM vem primeiro: é a função mais usada das duas.
+                 Cada bloco tem o PRÓPRIO alcance e a PRÓPRIA análise. Antes um
+                 controle só valia pros dois, e a análise misturava cortes com
+                 clipes num número que não dava pra agir em cima. -->
+            <div class="dyn-sec active" data-dyn-sec="zoom">
+            <div class="fs-bloco" style="--fs-cor:var(--brand-warn);margin-top:0;">
+                <div class="fs-bloco-titulo">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5M8 11h6M11 8v6"/>
+                    </svg>
+                    Zoom
+                    <span class="fs-bloco-sub">dá movimento</span>
+                </div>
+<!-- AS ESCOLHAS VIRARAM PASTILHA (15/08/2026, Victor: "não está prático, a
+                     pessoa tem que clicar e selecionar a opção; talvez a gente consiga
+                     fazer igual na aba do Frame Grid, lá é só clicar"). Um clique em
+                     vez de dois, e a escolha inteira fica à vista sem abrir nada.
+
+                     O <select> FICA no DOM, escondido, e continua sendo a FONTE DA
+                     VERDADE: zCfg(), loadCfg(), zAplicarPreset(), o portão do editor
+                     de curva e a visibilidade deste campo leem `.value` e não mudaram
+                     uma linha. A pastilha só escreve no select e dispara input+change,
+                     pra quem já escutava continuar escutando.
+
+                     Por isso estes ids SAÍRAM da lista do fsEnhanceMacSelects
+                     (js/main.js): enfeitar um select escondido desenharia um segundo
+                     dropdown ao lado das pastilhas. -->
+                <div class="guia-linha">
+                    <span class="guia-rot">Aplicar em</span>
+                    <span class="guia-pills">
+                        <button type="button" class="caps-pill" data-zoom-pick="zoom-scope" data-val="auto" title="O plugin escolhe os clipes">Automático</button>
+                        <button type="button" class="caps-pill" data-zoom-pick="zoom-scope" data-val="selected">Clipes selecionados</button>
+                        <button type="button" class="caps-pill" data-zoom-pick="zoom-scope" data-val="all" title="Todos os clipes de vídeo da sequência">Todos os clipes</button>
+                    </span>
+                    <select id="zoom-scope" style="display:none;">
+                        <option value="auto">Automático (o plugin escolhe)</option>
+                        <option value="selected">Clipes selecionados</option>
+                        <option value="all">Todos os clipes de vídeo</option>
+                    </select>
+                </div>
+
+                <div class="guia-linha">
+                    <span class="guia-rot">Em qual trilha</span>
+                    <span class="guia-pills">
+                        <button type="button" class="caps-pill" data-zoom-pick="zoom-track" data-val="-1" title="Uma trilha só pra todos os zooms, acima de tudo (o zoom pega vídeo e legendas juntos)">Automático</button>
+                        <button type="button" class="caps-pill" data-zoom-pick="zoom-track" data-val="1">V2</button>
+                        <button type="button" class="caps-pill" data-zoom-pick="zoom-track" data-val="2">V3</button>
+                        <button type="button" class="caps-pill" data-zoom-pick="zoom-track" data-val="3">V4</button>
+                        <button type="button" class="caps-pill" data-zoom-pick="zoom-track" data-val="4">V5</button>
+                        <button type="button" class="caps-pill" data-zoom-pick="zoom-track" data-val="5">V6</button>
+                        <button type="button" class="caps-pill" data-zoom-pick="zoom-track" data-val="6">V7</button>
+                        <button type="button" class="caps-pill" data-zoom-pick="zoom-track" data-val="7">V8</button>
+                    </span>
+                    <select id="zoom-track" style="display:none;">
+                        <option value="-1">Automático (a primeira livre acima do clipe)</option>
+                        <option value="1">V2</option>
+                        <option value="2">V3</option>
+                        <option value="3">V4</option>
+                        <option value="4">V5</option>
+                        <option value="5">V6</option>
+                        <option value="6">V7</option>
+                        <option value="7">V8</option>
+                    </select>
+                </div>
+
+                <!-- POSICAO DO ZOOM (28/08/2026, pedido do Victor: "tem usuário
+                     que prefere das duas maneiras"). Acima das legendas = o
+                     quadro inteiro pulsa, legenda junto. Abaixo = a legenda
+                     fica parada e só o vídeo pulsa. Só vale no Automático:
+                     trilha fixa escolhida (V2..V8) manda de qualquer jeito. -->
+                <div class="guia-linha">
+                    <span class="guia-rot">Legenda no zoom</span>
+                    <span class="guia-pills">
+                        <button type="button" class="caps-pill" data-zoom-pick="zoom-pos" data-val="acima" title="A camada de zoom fica acima das legendas: o quadro inteiro pulsa, legenda junto">Vai junto</button>
+                        <button type="button" class="caps-pill" data-zoom-pick="zoom-pos" data-val="abaixo" title="A camada de zoom fica abaixo das legendas: só o vídeo pulsa, a legenda fica parada">Fica parada</button>
+                    </span>
+                    <select id="zoom-pos" style="display:none;">
+                        <option value="acima">Vai junto (zoom acima das legendas)</option>
+                        <option value="abaixo">Fica parada (zoom abaixo das legendas)</option>
+                    </select>
+                </div>
+                <span class="transcribe-hint">A camada do zoom entra aqui. Nunca escreve por cima do que já está na timeline; se estiver tudo ocupado, cria uma trilha nova.</span>
+
+                <div id="zoom-quant-field">
+                    <div class="guia-linha">
+                        <span class="guia-rot">Quantidade</span>
+                        <span class="guia-pills">
+                            <button type="button" class="caps-pill" data-zoom-pick="zoom-quantidade" data-val="pouca">Pouca (15s)</button>
+                            <button type="button" class="caps-pill" data-zoom-pick="zoom-quantidade" data-val="media">Média (8s)</button>
+                            <button type="button" class="caps-pill" data-zoom-pick="zoom-quantidade" data-val="muita">Muita (4s)</button>
+                        </span>
+                        <select id="zoom-quantidade" style="display:none;">
+                            <option value="pouca">Pouca (a cada 15s)</option>
+                            <option value="media" selected>Média (a cada 8s)</option>
+                            <option value="muita">Muita (a cada 4s)</option>
+                        </select>
+                        <!-- O PREVIEW ENTROU NESTA LINHA (15/08/2026, Victor: "o
+                             botão do auto zoom não está legal"). Era uma barra de
+                             ponta a ponta encravada entre a Quantidade e o Destino,
+                             partindo a aba no meio. Aqui ele fica do tamanho do
+                             nome, ao lado do ritmo que ele previsualiza.
+                             De quebra passa a obedecer o campo: fora do Automático
+                             o #zoom-quant-field some, e um "Preview do AUTO zoom"
+                             não tinha o que fazer ali. -->
+                        <button id="btn-zoom-preview" class="btn-secondary">🔍 Preview do auto zoom</button>
+                    </div>
+                    <span class="transcribe-hint">No automático o zoom abre o vídeo, depois volta nesse ritmo. Nunca em clipes seguidos, e prefere o clipe com mais espaço.</span>
+                    <div id="zoom-summary" style="display:none;margin:8px 0;padding:8px 9px;border-radius:6px;font-size:11px;line-height:1.55;background:rgba(34,197,94,0.10);border:1px solid rgba(34,197,94,0.35);"></div>
+                </div>
+
+                <!-- Daqui pra baixo é COMO o zoom se move; acima é ONDE ele entra
+                     e quantos. A divisa faz a separação sem gastar palavra
+                     (Victor: "dividir melhor, mas sem mexer muito"). -->
+                <hr class="zoom-divisa">
+
+<!-- DESTINO (13/08/2026, Victor: "o usuário edita pro YouTube em Full HD,
+                     4K ou 2K; ele não pode funcionar só pra vertical"). O MOTOR já
+                     é independente de resolução e orientação — a escala é percentual
+                     e a ancoragem deduz o próprio quadro. O que muda entre um Reels
+                     e um YouTube é o GOSTO: no vertical o rosto ocupa mais do quadro,
+                     então a mesma porcentagem lê como movimento maior. -->
+                <div class="guia-linha">
+                    <span class="guia-rot">Destino</span>
+                    <span class="guia-pills" id="zoom-destinos">
+                        <button type="button" class="caps-pill on" data-zoom-dest="auto">Pela sequência</button>
+                        <button type="button" class="caps-pill" data-zoom-dest="vertical">Vertical</button>
+                        <button type="button" class="caps-pill" data-zoom-dest="horizontal">Horizontal</button>
+                    </span>
+                </div>
+                <span class="transcribe-hint" id="zoom-dest-txt">Ajusta a intensidade e a duração pro formato. No automático ele lê a sua sequência.</span>
+
+                <label class="fs-campo-label">Estilo do zoom</label>
+                <div class="fs-presets">
+                    <button class="fs-preset" data-zoom-preset="in-suave">In suave</button>
+                    <button class="fs-preset" data-zoom-preset="in-moderado">In moderado</button>
+                    <button class="fs-preset" data-zoom-preset="in-agressivo">In agressivo</button>
+                    <button class="fs-preset" data-zoom-preset="out-suave">Out suave</button>
+                    <button class="fs-preset" data-zoom-preset="out-moderado">Out moderado</button>
+                    <button class="fs-preset" data-zoom-preset="out-agressivo">Out agressivo</button>
+                </div>
+
+                <div class="fs-slider">
+                    <label for="zoom-intens">Intensidade <b id="zoom-intens-val">121%</b></label>
+                    <input type="range" id="zoom-intens" min="101" max="200" step="1" value="121">
+                </div>
+                <div class="fs-slider">
+                    <label for="zoom-dur">Duração <b id="zoom-dur-val">1,50s</b></label>
+                    <input type="range" id="zoom-dur" min="10" max="1500" step="5" value="150">
+                </div>
+
+                <!-- O TRIO (15/08/2026, Victor: "olha como temos muito espaço na
+                     lateral direita [...] dá para diagramar isso e deixar muito
+                     melhor a parte de suavização da curva, do modo e direção
+                     [...] ter um conteúdo maior no painel, sem sobrar bordas ou
+                     muito espaço vazio").
+
+                     Medido antes de mexer, num painel de 1499px: a linha da
+                     Direção terminava em 381px e deixava 1118px vazios; o Modo,
+                     1170px; a Suavização, 1182px. Três linhas quase inteiras de
+                     nada, uma embaixo da outra.
+
+                     As três são a mesma coisa — um nome e duas ou três opções —
+                     então viram TRÊS COLUNAS que dividem a largura, e as
+                     pastilhas esticam pra preencher a sua. A Suavização saiu do
+                     `.zoom-duo` pra entrar aqui: aquele grid já era coluna única
+                     desde 14/08 (quando a curva passou a ocupar a largura toda),
+                     ou seja, estava empilhando e mais nada.
+
+                     O editor de curva fica embaixo, com a largura inteira — é
+                     ele que ganha com espaço, não uma fileira de três botões. -->
+                <div class="zoom-trio">
+                    <div class="zoom-trio-col">
+                        <span class="guia-rot">Direção</span>
+                        <span class="guia-pills">
+                            <button type="button" class="caps-pill" data-zoom-pick="zoom-direcao" data-val="in" title="Aproxima">Zoom in</button>
+                            <button type="button" class="caps-pill" data-zoom-pick="zoom-direcao" data-val="out" title="Afasta">Zoom out</button>
+                            <button type="button" class="caps-pill" data-zoom-pick="zoom-direcao" data-val="alternate" title="Um clipe aproxima, o seguinte afasta">Alternar</button>
+                        </span>
+                        <select id="zoom-direcao" style="display:none;">
+                            <option value="in">Zoom in (aproxima)</option>
+                            <option value="out">Zoom out (afasta)</option>
+                            <option value="alternate">Alternar entre os clipes</option>
+                        </select>
+                    </div>
+
+                    <div class="zoom-trio-col">
+                        <span class="guia-rot">Modo</span>
+                        <span class="guia-pills">
+                            <button type="button" class="caps-pill" data-zoom-pick="zoom-modo" data-val="volta" title="O clipe volta ao tamanho normal no fim">Vai e volta</button>
+                            <button type="button" class="caps-pill" data-zoom-pick="zoom-modo" data-val="segura" title="O clipe fica no tamanho novo">Permanece</button>
+                        </span>
+                        <select id="zoom-modo" style="display:none;">
+                            <option value="volta">Vai e volta ao normal</option>
+                            <option value="segura">Permanece</option>
+                        </select>
+                    </div>
+
+                    <div class="zoom-trio-col">
+                        <span class="guia-rot">Suavização da curva</span>
+                        <span class="guia-pills">
+                            <button type="button" class="caps-pill" data-zoom-pick="zoom-suav" data-val="curva" title="A mais suave. É esta que abre o editor de curva embaixo">Curva calculada</button>
+                            <button type="button" class="caps-pill" data-zoom-pick="zoom-suav" data-val="bezier" title="Bezier do Premiere">Bezier</button>
+                            <button type="button" class="caps-pill" data-zoom-pick="zoom-suav" data-val="linear" title="Velocidade constante">Sem suavização</button>
+                        </span>
+                        <select id="zoom-suav" style="display:none;">
+                            <option value="curva">Curva calculada (mais suave)</option>
+                            <option value="bezier">Bezier do Premiere</option>
+                            <option value="linear">Sem suavização</option>
+                        </select>
+                        <span class="transcribe-hint">Como o movimento acelera e freia. A curva calculada é a mais suave.</span>
+                    </div>
+                </div>
+
+                <!-- "PARA ONDE O ZOOM VAI" SAIU (13/08/2026, decisão do Victor:
+                     "a maioria dos editores usa o zoom no centro mesmo, vamos
+                     tirar, só está ocupando espaço").
+                     O MOTOR ficou inteiro no hostscript (o bloco da ancoragem em
+                     fsZoomCamada + _fsZPontoDoQuadro, com prova). Pra trazer de
+                     volta basta repor a grade `#zoom-ancora` com os nove botões
+                     `data-ax`/`data-ay`: o zCfg() lê a célula acesa e, sem ela,
+                     manda 0,5/0,5 — que é o centro. Nada mais precisa mudar. -->
+                <!-- O `.zoom-duo` saiu (15/08/2026). Ele nasceu pra pôr a
+                     Suavização ao lado da curva, mas desde 14/08 a regra dele
+                     era `grid-template-columns: 1fr` — uma coluna só. Ou seja:
+                     estava empilhando e mais nada, e ainda dava a impressão de
+                     que havia uma diagramação de duas colunas viva ali.
+                     A Suavização foi pro trio; a curva fica com a largura toda,
+                     que é o que ela pede. -->
+                <div id="zoom-curva-campos">
+                    <!-- Os DOIS ease ficam colados no editor: é olhando a curva
+                         que se ajusta o valor. Separar os dois foi o erro da
+                         rodada passada. -->
+                    <div class="fs-vista">
+                        <button type="button" class="fs-vista-b fs-on" data-vista="speed">Velocidade</button>
+                        <button type="button" class="fs-vista-b" data-vista="value">Valor</button>
+                        <button type="button" class="fs-vista-b" id="btn-zoom-salvar-curva" style="margin-left:auto;" title="Guardar esta curva com um nome">+ Salvar curva</button>
+                    </div>
+                    <!-- preserveAspectRatio="xMidYMid meet" (14/08/2026, Victor: "está sobrando
+                         muita borda"). Com "meet" o SVG mantinha a proporção
+                         320x140 e CENTRALIZAVA: numa coluna larga sobravam ~225px
+                         vazios de cada lado. Com "none" o desenho estica e ocupa
+                         a coluna inteira — e a conta do ponteiro em zcInit()
+                         mudou junto, senão o clique pegaria o ponto errado. -->
+                    <!-- A CAIXA DE PROPORÇÃO (06/09/2026, Victor: "quando o painel está
+                         curto a curva fica amassada; precisaria diminuir proporcionalmente,
+                         igual quando aumenta"). A .fs-curva-caixa guarda SEMPRE a razão
+                         320:140 do desenho (padding-bottom em %), até 320px de largura;
+                         abaixo disso encolhe inteira. Com a caixa na proporção certa, o
+                         "none" acima nunca estica nada e a conta do ponteiro fica exata. -->
+                    <div class="fs-curva-caixa">
+                        <!-- o invólucro de RAZÃO: padding em % vale sobre a largura do PAI, então
+                             a razão tem que morar num filho da caixa (a caixa é quem tem os 320px).
+                             Sem isto a caixa media 43,75% da coluna inteira (656px numa coluna
+                             de 1500) e o ponteiro deixava de bater com a curva - bug de 06/09. -->
+                        <div class="fs-curva-razao">
+                            <svg id="zoom-curva" viewBox="0 0 320 140" preserveAspectRatio="none" class="fs-curva"></svg>
+                        </div>
+                    </div>
+                    <!-- OS EASE FICAM EMBAIXO DA CURVA (Victor, 14/08/2026: "a
+                         pessoa conseguiria fazer a animação e ver ao mesmo tempo
+                         quantos por cento estava"). Em cima, o olho subia e descia
+                         entre o número e o desenho. -->
+                    <div class="fs-slider">
+                        <label for="zoom-easeout">Ease Out <b id="zoom-easeout-val">25%</b></label>
+                        <input type="range" id="zoom-easeout" min="0" max="100" step="1" value="25">
+                    </div>
+                    <div class="fs-slider">
+                        <label for="zoom-easein">Ease In <b id="zoom-easein-val">50%</b></label>
+                        <input type="range" id="zoom-easein" min="0" max="100" step="1" value="50">
+                    </div>
+                    <div class="fs-curvas" id="zoom-curvas-salvas" style="display:none;"></div>
+                    <!-- Suporte Caption IA: o Victor salva as curvas no painel,
+                         exporta com este link, e o .json vira o
+                         presets/curvas_zoom.json (as curvas "de fábrica"). -->
+                    <button type="button" id="btn-zoom-exportar-curvas" class="fs-dev-only" style="background:none;border:none;padding:2px 0;font-size:10px;opacity:.45;cursor:pointer;color:inherit;text-decoration:underline;" title="Grava as curvas salvas num .json na Área de Trabalho (pra virar o conjunto de fábrica)">exportar curvas (arquivo)</button>
+                    <span class="transcribe-hint" id="zoom-curva-txt">Arraste os pontos. Clique duplo na curva adiciona ponto, no ponto remove.</span>
+                </div>
+
+                <!-- ESCONDIDO do aluno (decisão do Victor, 09/08/2026): DESLIGAR
+                     este interruptor pintava o painel inteiro de PRETO no CEP —
+                     bug de composição que não reproduz fora do Premiere e
+                     resistiu a duas correções (transform→left, chute de
+                     repintura). Os 3 interruptores idênticos do Clonar nunca
+                     deram o problema: é algo do contexto do zoom. O input FICA
+                     no DOM com checked (o Aplicar zoom lê ele — desfoque segue
+                     sempre ligado, o comportamento padrão de sempre). Alt+Shift+D
+                     devolve o controle pra investigar. -->
+                <label class="fs-toggle fs-dev-only" for="zoom-blur" style="margin-top:10px;">
+                    <span class="fs-toggle-topo">
+                        <span class="switch-label">Desfoque de movimento</span>
+                        <input type="checkbox" id="zoom-blur" class="switch-input" checked>
+                        <span class="switch-slider"></span>
+                    </span>
+                    <span class="fs-toggle-nota">Usa o Shutter Angle do Transform. Deixa o zoom menos duro.</span>
+                </label>
+
+                <div class="fs-acao-linha">
+                    <button id="btn-dyn-zoom" class="fs-acao" style="flex:1;">Aplicar zoom</button>
+                </div>
+                <!-- Desfazer com NOME, largura inteira. Antes era um "↩" de 24px
+                     colado no Aplicar: ninguém achava (nem o Victor sabia que
+                     existia, 10/08/2026). E o antigo só zerava a escala — este
+                     REMOVE as camadas de ajuste que o zoom criou. -->
+                <button id="btn-dyn-zoom-clear" class="btn-secondary" style="width:100%;margin-top:6px;" title="Remove da timeline todas as camadas de ajuste que o zoom criou">↩ Desfazer zooms</button>
+                
+            </div>
+            </div>
+
+            <div class="dyn-sec" data-dyn-sec="transicao">
+            <div class="fs-bloco" style="--fs-cor:var(--brand-warn);">
+                <div class="fs-bloco-titulo">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 6h6v12H4zM14 6h6v12h-6z"/><path d="M10 12h4"/>
+                    </svg>
+                    Transição
+                    <span class="fs-bloco-sub">suaviza o corte</span>
+                </div>
+
+                <div class="form-field">
+                    <label>Aplicar em</label>
+                    <select id="dyn-scope" style="width:100%;">
+                        <option value="auto">Automático (o plugin escolhe)</option>
+                        <option value="selected">Clipes selecionados</option>
+                        <option value="all">Todos os clipes de vídeo</option>
+                    </select>
+                </div>
+                <div class="form-field" id="dyn-intens-field">
+                    <label>Quantidade</label>
+                    <select id="dyn-intensidade" style="width:100%;">
+                        <option value="pouca">Pouca (a cada 12s)</option>
+                        <option value="media" selected>Média (a cada 6s)</option>
+                        <option value="muita">Muita (a cada 2,5s)</option>
+                    </select>
+                    <span class="transcribe-hint" id="dyn-scope-hint">No automático a transição não entra em todo corte, fica espaçada.</span>
+                </div>
+                <button id="btn-dyn-preview" class="btn-secondary" style="width:100%;">🔍 Analisar transições</button>
+                <div id="dyn-summary" style="display:none;margin:8px 0;padding:8px 9px;border-radius:6px;font-size:11px;line-height:1.55;background:rgba(34,197,94,0.10);border:1px solid rgba(34,197,94,0.35);"></div>
+
+                <div class="form-field">
+                    <label>Tipo</label>
+                    <!-- O value fica em INGLÊS de propósito: é a chave que o
+                         hostscript usa pra achar a transição nos dois idiomas
+                         (_fsNomesTransicao). O rótulo leva os dois nomes porque
+                         o aluno precisa reconhecer o efeito na aba Efeitos dele,
+                         que pode estar em português ou em inglês. -->
+                    <!-- PASTILHAS, não seletor único (13/08/2026, Victor: "só vem
+                         um tipo de transição, não tem como alternar? Vamos
+                         alternar em ordem aleatória"). Marque as que entram no
+                         rodízio: uma só = sempre ela, como era; duas ou mais =
+                         ele sorteia entre elas, sem repetir em seguida. -->
+                    <div class="guia-pills" id="dyn-trans-nomes" style="margin-top:2px;">
+                        <button type="button" class="caps-pill on" data-trans="Cross Dissolve" title="Dissolução cruzada">Cross Dissolve</button>
+                        <button type="button" class="caps-pill" data-trans="Dip to Black" title="Mergulhar no preto">Dip to Black</button>
+                        <button type="button" class="caps-pill" data-trans="Dip to White" title="Mergulhar no branco">Dip to White</button>
+                        <button type="button" class="caps-pill" data-trans="Film Dissolve" title="Dissolução de película">Film Dissolve</button>
+                        <button type="button" class="caps-pill" data-trans="Additive Dissolve" title="Dissolução aditiva">Additive Dissolve</button>
+                    </div>
+                    <span class="transcribe-hint" id="dyn-trans-txt" style="display:block;margin-top:5px;">Marque duas ou mais pra ele alternar entre elas.</span>
+                </div>
+                <div class="form-field">
+                    <label>Duração</label>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <input type="number" id="dyn-trans-frames" min="2" max="120" step="1" value="10" style="flex:0 0 72px;" title="Duração em frames">
+                        <span class="transcribe-hint">frames</span>
+                    </div>
+                    <span class="transcribe-hint">Só entra onde um clipe encosta no outro.</span>
+                </div>
+                <button id="btn-dyn-trans" class="fs-acao">Aplicar transições</button>
+            </div>
+            </div>
+
+            <!-- J/L CUT — intercalar o áudio em duas faixas e, opcionalmente,
+                 esticar as bordas. Intercalar vem primeiro porque é PRÉ-REQUISITO:
+                 numa faixa só, o áudio de dois clipes vizinhos não pode se
+                 sobrepor, então sem alternar não existe J nem L. -->
+            <div class="dyn-sec" data-dyn-sec="jlcut">
+
+            <!-- Pro ALUNO a aba mostra só este recado: o Intercalar ainda depende
+                 da sonda técnica (assinatura do moveToTrack), então o J/L não vai
+                 nesta versão. O modo dev (Alt+Shift+D) esconde o recado e devolve
+                 o painel real pra continuar o trabalho. -->
+            <!-- O CARTÃO DE "EM BREVE" (reescrito em 15/08/2026, pedido do
+                 Victor: "não precisa nenhum emoji nem nada [...] coloca o nome
+                 da equipe, o nome do nosso produto").
+
+                 Saiu o 🎬: emoji decorativo em botão e cartão é a regra de
+                 escrita dele desde 10/08 ("quanto mais clean, melhor"). Saiu
+                 também o travessão do título, pela mesma regra.
+
+                 A pastilha "Em breve" ocupa o lugar do emoji: dá o mesmo
+                 destaque visual sem enfeite, e usa a família de forma que o
+                 painel inteiro já fala. -->
+            <div class="fs-nodev-only" id="jl-embreve" style="text-align:center;padding:30px 14px 26px;">
+                <div style="display:inline-block;font-size:10px;font-weight:700;letter-spacing:.08em;
+                            text-transform:uppercase;color:var(--bg-0);background:var(--brand-warn);
+                            border-radius:999px;padding:4px 12px;margin-bottom:12px;">Em breve</div>
+                <div style="font-size:14px;font-weight:600;letter-spacing:.02em;margin-bottom:6px;">J/L Cut</div>
+                <div style="font-size:11px;color:var(--text-2);line-height:1.6;max-width:320px;margin:0 auto;">
+                    Esta função está em desenvolvimento no
+                    <b>Caption IA</b>. O J/L Cut vai deixar o áudio entrar antes do corte,
+                    ou continuar depois dele, do jeito que um editor sênior faz na mão.
+                </div>
+                <div style="font-size:10px;color:var(--text-3);line-height:1.55;max-width:320px;margin:10px auto 0;">
+                    Ela chega numa próxima versão do Caption IA. Avisamos quando estiver
+                    disponível para você baixar.
+                </div>
+            </div>
+
+            <div class="fs-dev-only">
+            <div class="fs-bloco" style="--fs-cor:var(--brand-warn);margin-top:0;">
+                <div class="fs-bloco-titulo">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 8h7v4H3zM14 12h7v4h-7z"/><path d="M10 10h4"/>
+                    </svg>
+                    Intercalar
+                    <span class="fs-bloco-sub">abre espaço pro J/L</span>
+                </div>
+
+                <div class="form-field">
+                    <label>Aplicar em</label>
+                    <select id="jl-scope" style="width:100%;">
+                        <option value="sel">Seleção, se houver (senão a faixa inteira)</option>
+                        <option value="all">Faixa inteira</option>
+                    </select>
+                </div>
+
+                <div class="form-field">
+                    <label>Faixa de origem</label>
+                    <select id="jl-origem" style="width:100%;"></select>
+                    <span class="transcribe-hint">Onde o áudio está hoje.</span>
+                </div>
+
+                <div class="form-field">
+                    <label>Faixa alternada</label>
+                    <select id="jl-alt" style="width:100%;"></select>
+                    <span class="transcribe-hint">Pra onde vai um clipe sim, outro não.</span>
+                </div>
+
+                <div class="form-field">
+                    <label>O primeiro clipe</label>
+                    <select id="jl-primeiro" style="width:100%;">
+                        <option value="origem">Fica na origem</option>
+                        <option value="alternada">Vai pra alternada</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="fs-bloco" style="--fs-cor:var(--brand-warn);">
+                <div class="fs-bloco-titulo">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 5v9a3 3 0 0 0 3 3h3"/><path d="M20 19v-9a3 3 0 0 0-3-3h-3"/>
+                    </svg>
+                    J / L Cut
+                    <span class="fs-bloco-sub">opcional</span>
+                </div>
+
+                <div class="form-field">
+                    <label>Tipo</label>
+                    <div class="fs-seg fs-vidro" id="jl-modo">
+                        <button type="button" class="fs-vidro-item active" data-jl="nenhum">Só intercalar</button>
+                        <button type="button" class="fs-vidro-item" data-jl="j">J-Cut</button>
+                        <button type="button" class="fs-vidro-item" data-jl="l">L-Cut</button>
+                    </div>
+                    <span class="transcribe-hint" id="jl-modo-hint">Só reorganiza o áudio em duas faixas, sem esticar nada.</span>
+                </div>
+
+                <div class="form-field" id="jl-dur-field" style="display:none;">
+                    <label>Sobreposição</label>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <input type="number" id="jl-dur" min="1" max="240" step="1" value="10" style="flex:0 0 72px;">
+                        <select id="jl-unidade" style="flex:1;">
+                            <option value="frames">frames</option>
+                            <option value="ms">milissegundos</option>
+                        </select>
+                    </div>
+                    <span class="transcribe-hint">Só entra onde a mídia tiver sobra pra esticar. Onde não tiver, o clipe fica como está.</span>
+                </div>
+            </div>
+
+            <div id="jl-summary" style="display:none;margin:8px 0;padding:8px 9px;border-radius:6px;font-size:11px;line-height:1.55;background:rgba(34,197,94,0.10);border:1px solid rgba(34,197,94,0.35);"></div>
+
+            <div style="display:flex;gap:8px;margin-top:10px;">
+                <button id="btn-jl-preview" class="btn-secondary" style="flex:1;">🔍 Analisar</button>
+                <button id="btn-jl-apply" class="fs-acao" style="flex:1;margin-top:0;" disabled title="Analise primeiro">Intercalar</button>
+            </div>
+            <span class="transcribe-hint" style="display:block;margin-top:6px;">Analisar não mexe na timeline: só confere o que daria pra fazer. Intercalar libera depois dela.</span>
+            <span class="transcribe-hint" style="display:block;margin-top:4px;">Antes de intercalar é feita uma cópia da sequência, pra você poder voltar.</span>
+            <button type="button" id="btn-jl-sonda" style="background:none;border:none;padding:2px 0;margin-top:4px;font-size:10px;opacity:.45;cursor:pointer;color:inherit;text-decoration:underline;" title="Pergunta ao Premiere o que dá pra fazer nesta versão (suporte Caption IA)">sonda técnica</button>
+            </div><!-- /fs-dev-only: fim do painel real do J/L -->
+            </div>
+
+            <!-- PRESETS DE EFEITO — veio da barra de cima em 07/08/2026. A barra
+                 estava virando lista, e vem mais função (Auto Edit). O conteúdo é
+                 o mesmo de antes; só o lugar mudou. -->
+            <!-- ANIMAÇÕES FS (11/08/2026): sub-aba própria, pedido do Victor —
+                 antes era um select dentro de Presets e "não ficou tão legal".
+                 Os .ffx criados por ele (Premiere não abre .ffx nem por
+                 script) viram receitas de keyframes; a grade de botões nasce
+                 do js/animtexto.js (tabela única). Um clique aplica na hora;
+                 o botão aceso (.fs-on) é a animação atual — estado é cor. -->
+            <div class="dyn-sec" data-dyn-sec="guias">
+            <!-- SAFEZONE (13/08/2026) — a guia entra como CLIPE numa trilha por
+                 cima de tudo, esticada de ponta a ponta, e o editor vê a
+                 interface do app no Program Monitor enquanto posiciona.
+                 Pastilhas em vez de botões grandes (o Victor pediu pra me
+                 inspirar na Clonar): são ESCOLHAS, não ações. -->
+            <div class="fs-bloco" style="--fs-cor:var(--brand-warn);margin-top:0;">
+                <div class="fs-bloco-titulo">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/><rect x="7" y="7" width="10" height="10" rx="1"/>
+                    </svg>
+                    Safezone
+                    <span class="fs-bloco-sub">onde a rede social cobre a tela</span>
+                </div>
+                <span class="transcribe-hint" style="display:block;margin-top:4px;">
+                    Guia por cima do vídeo mostrando o que o app tapa. Serve pra posicionar, não vai pro corte final.
+                </span>
+
+                <!-- DUAS COLUNAS (13/08/2026, Victor: "estou achando que ele
+                     tem muito espaço sobrando"). Mesma receita da Clonar, do
+                     AutoCut e do SFX: as ESCOLHAS de um lado, os AJUSTES e as
+                     AÇÕES do outro. Numa coluna só, o card ocupava a largura
+                     inteira do painel com o conteúdo encostado à esquerda. -->
+                <div class="guia-cols">
+                <div class="guia-col">
+
+                <div class="guia-linha">
+                    <span class="guia-rot">Rede social</span>
+                    <span class="guia-pills" id="guias-plataformas">
+                        <button type="button" class="caps-pill" data-guia-plat="">Nenhuma</button>
+                        <button type="button" class="caps-pill" data-guia-plat="instagram">Instagram</button>
+                        <!-- YouTube saiu em 13/08/2026: as guias de inspiração
+                             foram apagadas e só ficaram as artes do Victor
+                             (Instagram e TikTok). Botão sem arquivo devolveria
+                             "SEM_ARQUIVO" — melhor não existir. Volta na hora
+                             em que a arte do YouTube existir. -->
+                        <button type="button" class="caps-pill" data-guia-plat="tiktok">TikTok</button>
+                    </span>
+                </div>
+
+                <!-- ALCANCE (13/08/2026): "já é um padrão nosso conseguir
+                     inserir na sequência inteira ou somente no in e out; e
+                     também a opção de clipe selecionado". É ele que dá a
+                     DURAÇÃO da guia. -->
+                <div class="guia-linha">
+                    <span class="guia-rot">Onde</span>
+                    <span class="guia-pills" id="guias-escopos">
+                        <button type="button" class="caps-pill" data-guia-escopo="seq">Sequência inteira</button>
+                        <button type="button" class="caps-pill" data-guia-escopo="inout">Só no In/Out</button>
+                        <button type="button" class="caps-pill" data-guia-escopo="clipe">Clipe selecionado</button>
+                    </span>
+                </div>
+
+                <div class="guia-linha">
+                    <span class="guia-rot">Grade</span>
+                    <span class="guia-pills" id="guias-grades">
+                        <button type="button" class="caps-pill" data-guia-grade="">Nenhuma</button>
+                        <button type="button" class="caps-pill" data-guia-grade="tercos">Terços</button>
+                        <button type="button" class="caps-pill" data-guia-grade="centro">Centro</button>
+                        <button type="button" class="caps-pill" data-guia-grade="quartos">Quartos</button>
+                    </span>
+                </div>
+
+                </div>
+                <div class="guia-col">
+
+                <!-- TRILHA E OPACIDADE NA MESMA LINHA, AÇÕES NA DE BAIXO
+                     (13/08/2026, Victor: "essa parte pra escolher a trilha está
+                     horrível, ela quebra"). Antes eram três controles de
+                     tamanhos muito diferentes disputando UMA linha — o select
+                     largo, o "Tirar" miúdo e um "Pôr a guia" de ponta a ponta.
+                     Em painel largo o botão laranja virava uma barra; em painel
+                     estreito a linha quebrava no meio. Agora: os dois ajustes
+                     em cima, as duas ações embaixo com largura de botão. -->
+                <div class="guia-linha guia-linha--ajustes">
+                    <span class="guia-rot">Em qual trilha</span>
+                    <select id="guias-track" class="guia-sel">
+                        <option value="-1">Criar trilha nova em cima</option>
+                        <option value="1">V2</option>
+                        <option value="2">V3</option>
+                        <option value="3">V4</option>
+                        <option value="4">V5</option>
+                        <option value="5">V6</option>
+                        <option value="6">V7</option>
+                        <option value="7">V8</option>
+                    </select>
+                    <span class="guia-rot guia-rot--2">Opacidade</span>
+                    <input type="range" id="guias-opacidade" class="guia-opac" min="10" max="100" step="5" value="100">
+                    <span class="guia-opac-val" id="guias-opacidade-val">100%</span>
+                </div>
+
+                <div class="guia-linha guia-linha--acao">
+                    <button type="button" id="btn-guias-remover" class="btn-secondary">Tirar</button>
+                    <button type="button" id="btn-guias-aplicar" class="fs-acao">Inserir na timeline</button>
+                </div>
+
+                </div>
+                </div>
+
+                <div id="guias-formato" class="transcribe-hint" style="display:block;margin-top:7px;"></div>
+                <div id="guias-aviso" style="display:none;"></div>
+            </div>
+            </div>
+
+            <div class="dyn-sec" data-dyn-sec="animfs">
+                <span class="transcribe-hint" style="display:block;margin-bottom:10px;">Selecione a(s) legenda(s) na timeline e clique numa animação — trocar de botão troca no clipe na hora.</span>
+                <div id="fs-anim-lista" class="fs-presets"></div>
+                <button type="button" id="fs-anim-limpar" class="btn-secondary" style="width:100%;margin-top:8px;">✕ Sem animação</button>
+                <div id="fs-anim-status" class="transcribe-status"></div>
+            </div>
+
+            <!-- AUTOTRILHA (20/08/2026): biblioteca de trilhas do Victor em
+                 templates/AUTOTRILHA. Um clique mede o vídeo e cobre ele
+                 inteiro com a trilha, a -25 dB (editável por trilha). -->
+            <div class="dyn-sec" data-dyn-sec="autotrilha">
+                <!-- O BOTÃO É A FUNÇÃO (20/08): o plugin lê a transcrição,
+                     descobre o clima do vídeo e coloca a trilha da categoria
+                     certa. A lista embaixo fica pra quem quiser escolher a mão. -->
+                <button type="button" id="btn-autotrilha-auto"
+                        style="width:100%;padding:12px;margin-bottom:8px;border:none;border-radius:8px;
+                               background:var(--brand-warn,#E8A33D);color:#151515;font-size:13px;
+                               font-weight:700;cursor:pointer;">Autotrilha</button>
+                <span class="transcribe-hint" style="display:block;margin-bottom:10px;">Ele lê a transcrição, entende o clima do vídeo e coloca a trilha da categoria certa, cobrindo tudo a -25 dB. Vídeo longo recebe mais de uma música, emendadas com crossfade. Clique de novo pra trocar de trilha.</span>
+                <div id="autotrilha-status" class="transcribe-status" style="margin-bottom:10px;"></div>
+                <div style="font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--text-2);margin:4px 2px 6px;">OU ESCOLHA VOCÊ</div>
+                <div id="autotrilha-lista"></div>
+                <div style="display:flex;gap:8px;margin-top:8px;">
+                    <button type="button" id="autotrilha-atualizar" class="btn-secondary" style="flex:1;">↻ Atualizar</button>
+                    <!-- MINHAS TRILHAS (05/09/2026, Victor: "os usuários podem subir as suas
+                         próprias trilhas"): copia pra Documentos/editBest/Minhas trilhas (pasta legada de dados) e
+                         entra na lista com o MESMO Aplicar. Seletor nativo (js/seletor.js). -->
+                    <button type="button" id="autotrilha-subir" class="btn-secondary" style="flex:1;" title="Traz músicas do seu PC (mp3, wav, m4a...) pra Minhas trilhas. Elas passam pelo mesmo Aplicar: cobrem o vídeo inteiro, cortam no fim, -25 dB.">⬆ Subir trilhas</button>
+                    <button type="button" id="autotrilha-remover" class="btn-secondary" style="flex:1;">✕ Remover trilha</button>
+                </div>
+            </div>
+
+            <!-- COLOR GRADING e TELA DIVIDIDA: por enquanto so o anuncio.
+                 Diferenca importante pro cartao do J/L Cut: aquele e
+                 `fs-nodev-only` porque existe um painel de verdade atras dele,
+                 que o Alt+Shift+D revela. Aqui NAO existe nada atras — se
+                 fossem fs-nodev-only, a aba ficaria VAZIA no modo dev e
+                 pareceria defeito. Entao sao visiveis sempre. -->
+            <div class="dyn-sec" data-dyn-sec="colorgrading">
+                <div style="text-align:center;padding:30px 14px 26px;">
+                    <div style="display:inline-block;font-size:10px;font-weight:700;letter-spacing:.08em;
+                                text-transform:uppercase;color:var(--bg-0);background:var(--brand-warn);
+                                border-radius:999px;padding:4px 12px;margin-bottom:12px;">Em breve</div>
+                    <div style="font-size:14px;font-weight:600;letter-spacing:.02em;margin-bottom:6px;">Color Grading</div>
+                    <div style="font-size:11px;color:var(--text-2);line-height:1.6;max-width:340px;margin:0 auto;">
+                        Esta função está em desenvolvimento no
+                        <b>Caption IA</b>. O Color Grading vai tratar a cor do seu vídeo em um
+                        clique, com looks prontos e ajuste fino, sem você sair do painel.
+                    </div>
+                    <div style="font-size:10px;color:var(--text-3);line-height:1.55;max-width:340px;margin:10px auto 0;">
+                        Ela chega numa próxima versão do Caption IA. Avisamos quando estiver
+                        disponível para você baixar.
+                    </div>
+                </div>
+            </div>
+
+            <!-- TELA DIVIDIDA (30/08/2026): a janela recortada sobre o vídeo base.
+                 Motor no fsTelaDividida do host; toda a geometria é medida e
+                 calculada (mídia da janela, mídia do base, tela). A difusão é
+                 porcentagem livre (quinto teste do Victor) e o corte mínimo
+                 acompanha ela: a lei "corte >= difusão" evita a borda da
+                 mídia aparecer no meio do gradiente. -->
+            <div class="dyn-sec" data-dyn-sec="teladividida">
+                <span class="transcribe-hint" style="display:block;margin-bottom:10px;">Selecione <b>dois clipes</b>, um sobre o outro. O de cima vira a <b>janela</b>; o de baixo desce pra mostrar o rosto. Sem cruzamento no tempo, o plugin empilha sozinho.</span>
+
+                <div class="fs-bloco" style="--fs-cor:var(--brand-warn);margin-top:0;">
+                    <div class="fs-bloco-titulo">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 12h18"/>
+                        </svg>
+                        Tela dividida
+                        <span class="fs-bloco-sub">janela e difusão</span>
+                    </div>
+
+                    <div class="guia-linha">
+                        <span class="guia-rot">Janela</span>
+                        <span class="guia-pills">
+                            <button type="button" class="caps-pill" data-zoom-pick="td-janela" data-val="cima" title="A janela fica no alto; o vídeo base desce">Em cima</button>
+                            <button type="button" class="caps-pill" data-zoom-pick="td-janela" data-val="baixo" title="A janela fica na base; o vídeo base sobe">Embaixo</button>
+                        </span>
+                        <select id="td-janela" style="display:none;">
+                            <option value="cima">Em cima</option>
+                            <option value="baixo">Embaixo</option>
+                        </select>
+                    </div>
+
+                    <div class="guia-linha">
+                        <span class="guia-rot">Difusão</span>
+                        <input type="range" id="td-difusao" min="0" max="30" step="1" value="7" style="flex:1;min-width:0;" title="Suavização da borda da janela, em porcentagem. 0 = corte seco">
+                        <span id="td-difusao-val" style="flex:0 0 34px;text-align:right;font-size:11px;font-weight:600;color:var(--brand-warn);">7%</span>
+                    </div>
+                </div>
+
+                <button id="btn-td-aplicar" class="fs-acao caps-acao" style="width:100%;margin-top:10px;">Dividir a tela nos dois clipes</button>
+
+                <!-- AJUSTE MANUAL (30/08, pedido do Victor: "caso a pessoa
+                     queira ajustar manualmente... a posição, o corte na
+                     lateral, a difusão"). O aluno seleciona o clipe da
+                     janela, clica em Ler, e as réguas passam a escrever no
+                     clipe ao vivo. -->
+                <div class="fs-bloco" style="--fs-cor:var(--brand);margin-top:12px;">
+                    <div class="fs-bloco-titulo">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3"/><path d="M1 14h6M9 8h6M17 16h6"/>
+                        </svg>
+                        Ajuste manual
+                        <span class="fs-bloco-sub">a janela, do seu jeito</span>
+                    </div>
+                    <span class="transcribe-hint" style="display:block;margin-bottom:8px;">Selecione o clipe da janela e arraste: entra <b>em tempo real</b>.</span>
+                    <button type="button" id="btn-td-ler" class="btn-secondary" style="width:100%;" title="Puxa os valores atuais do clipe pras réguas">Ler o clipe</button>
+                    <div id="td-adj">
+                        <div class="guia-linha" style="margin-top:8px;">
+                            <span class="guia-rot">Posição</span>
+                            <input type="range" id="td-adj-pos" min="0" max="100" step="1" value="23" style="flex:1;min-width:0;" title="Altura do centro da janela na tela (0 = topo, 100 = pé)">
+                            <span id="td-adj-pos-val" style="flex:0 0 40px;text-align:right;font-size:11px;font-weight:600;color:var(--brand-warn);">23%</span>
+                        </div>
+                        <div class="guia-linha">
+                            <span class="guia-rot">Lateral</span>
+                            <input type="range" id="td-adj-lateral" min="0" max="45" step="1" value="5" style="flex:1;min-width:0;" title="Quanto cortar de cada lado da mídia da janela">
+                            <span id="td-adj-lateral-val" style="flex:0 0 40px;text-align:right;font-size:11px;font-weight:600;color:var(--brand-warn);">5%</span>
+                        </div>
+                        <div class="guia-linha">
+                            <span class="guia-rot">Vertical</span>
+                            <input type="range" id="td-adj-vertical" min="0" max="45" step="1" value="25" style="flex:1;min-width:0;" title="Quanto cortar em cima e embaixo da mídia da janela">
+                            <span id="td-adj-vertical-val" style="flex:0 0 40px;text-align:right;font-size:11px;font-weight:600;color:var(--brand-warn);">25%</span>
+                        </div>
+                        <div class="guia-linha">
+                            <span class="guia-rot">Difusão</span>
+                            <input type="range" id="td-adj-difusao" min="0" max="40" step="1" value="7" style="flex:1;min-width:0;" title="Suavização da borda da janela">
+                            <span id="td-adj-difusao-val" style="flex:0 0 40px;text-align:right;font-size:11px;font-weight:600;color:var(--brand-warn);">7%</span>
+                        </div>
+                    </div>
+                </div>
+                <div id="td-status" class="transcribe-status" style="margin-top:8px;"></div>
+            </div>
+
+            <div class="dyn-sec" data-dyn-sec="presets">
+            <!-- SÓ O QUE O ALUNO CARREGA (30/08): a varredura automática do
+                 perfil despejava a biblioteca acumulada do usuário aqui e a
+                 aba virava um rolo. Vazia por padrão; os dois botões são os
+                 únicos caminhos de entrada. -->
+            <span class="transcribe-hint" style="display:block;margin-bottom:10px;">Seus presets, só os que você carregar: um arquivo .prfpset, ou os salvos no seu Premiere.</span>
+
+            <div style="display:flex;gap:6px;">
+                <button id="btn-fx-add" class="btn-secondary" style="flex:1;" title="Adicionar um arquivo .prfpset (pack ou exportado)">＋ Arquivo</button>
+                <button id="btn-fx-meupremiere" class="btn-secondary" style="flex:1;" title="Traz os presets que você salvou no seu Premiere">Meu Premiere</button>
+                <button id="btn-fx-reload" class="btn-secondary" style="flex:0 0 auto;" title="Relê os arquivos da lista">↻</button>
+            </div>
+
+            <!-- Busca: com poucos presets ela some sozinha; com muitos é o que
+                 impede a lista de virar um rolo sem fim. -->
+            <input type="text" id="fx-busca" class="font-search-input" placeholder="Buscar preset..." style="display:none;margin-top:8px;">
+
+            <!-- Altura fixa e rolagem própria: assim a lista cresce sem empurrar
+                 o bloco de aplicar pra fora da tela. -->
+            <div id="fx-list" class="fs-lista"></div>
+
+            <!-- Arquivos de pack adicionados. Ficam aqui embaixo, fora da lista,
+                 pra ela poder ser plana: antes cada arquivo virava um cabeçalho
+                 no meio dos presets. -->
+            <div id="fx-arquivos" class="fs-arquivos" style="display:none;"></div>
+
+            <div class="fs-bloco" style="--fs-cor:var(--brand-warn);">
+                <div class="fs-bloco-titulo">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 6L9 17l-5-5"/>
+                    </svg>
+                    Aplicar
+                    <span class="fs-bloco-sub">onde e como</span>
+                </div>
+                <div class="form-field">
+                    <label>Aplicar em</label>
+                    <select id="fx-scope" style="width:100%;">
+                        <option value="selected">Legendas selecionadas</option>
+                        <option value="captions">Todas as legendas do vídeo</option>
+                        <option value="all">Todos os clipes de vídeo</option>
+                    </select>
+                    <span class="transcribe-hint">Serve pras legendas e pros clipes de vídeo.</span>
+                </div>
+                <div id="fx-status" class="transcribe-status"></div>
+            </div>
+            </div>
+
+            <div id="dyn-status" class="transcribe-status"></div>
+        </div>
+
+</div>
+
+                        <!-- COPIAR ESTILO — painel de aba. Saiu do modal Estilo porque aquele
+                 modal é pra CONFIGURAR a geração das legendas; copiar estilo é
+                 o passo de depois, quando as legendas já existem na timeline. -->
+        <div id="style-clone-panel" style="display:none;flex-direction:column;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding:10px;">
+                <div class="fs-col" id="style-clone-section">
+
+            <!-- SUB-ABAS (12/08/2026, pedido do Victor): o painel misturava
+                 dois fluxos diferentes e obrigava a rolar do "copiar" até o
+                 "colar". Agora cada fluxo tem a sua aba, do mesmo jeito que a
+                 Dinâmica — e os dois botões ficam perto do conteúdo deles. -->
+            <div class="dyn-subtabs fs-vidro" id="clone-subtabs">
+                <button type="button" class="dyn-subtab fs-vidro-item active" data-clone="copiar">Copiar e colar</button>
+                <button type="button" class="dyn-subtab fs-vidro-item" data-clone="biblioteca">FS Estilo</button>
+            </div>
+
+
+            <div class="clone-sec active" data-clone-sec="copiar">
+<div class="fs-bloco fs-bloco--copiar" style="--fs-cor:var(--brand-warn);">
+                <div class="fs-bloco-titulo">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                    </svg>
+                    Copiar
+                    <span class="fs-bloco-sub">o molde</span>
+                </div>
+                <button id="btn-style-copy" class="fs-acao" style="margin-top:0;">Copiar estilo da legenda selecionada</button>
+                <span class="transcribe-hint" id="style-clone-info" style="display:block;margin-top:7px;">Nenhum estilo copiado ainda.</span>
+                <!-- O handler deste botão existia em styleclone.js desde sempre,
+                     mas o botão tinha sumido do HTML: não havia como pedir a
+                     lista de parâmetros do template do aluno. Ele nasce
+                     escondido e APARECE sozinho quando a cópia vem sem cor —
+                     que é justo quando a lista é o caminho (13/08/2026). -->
+                <button type="button" id="btn-style-dump" class="fs-dev-only" style="background:none;border:none;padding:2px 0;margin-top:4px;font-size:10px;opacity:.5;cursor:pointer;color:inherit;text-decoration:underline;" title="Lista os parâmetros da legenda selecionada, pra descobrir como o template chama a cor">ver parâmetros da legenda</button>
+            </div>
+
+
+            <div class="fs-bloco fs-bloco--opcoes" style="--fs-cor:var(--brand-warn);">
+                <div class="fs-bloco-titulo">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>
+                    </svg>
+                    O que levar
+                    <!-- Pastilha "tudo": mesma mecânica das pastilhas de
+                         preposições — clica liga tudo, clica de novo desliga
+                         (pedido do Victor, 12/08/2026). O rótulo "O que levar
+                         junto" saiu: o título do card já diz isso. -->
+                    <button type="button" id="btn-clone-tudo" class="caps-pill" style="margin-left:auto;flex:0 0 auto;" title="Liga ou desliga todas as opções de uma vez">Ativar tudo</button>
+                </div>
+                <div class="fs-toggles">
+                    <!-- Fonte virou ESCOLHA (pedido do Victor, 12/08/2026):
+                         antes ia sempre junto e obrigava o aluno a trocar a
+                         fonte pra copiar o resto do estilo.
+
+                         OS QUATRO NASCEM LIGADOS (15/08/2026). O comentário
+                         aqui dizia "nasce LIGADO" desde 12/08, mas nenhum dos
+                         quatro <input> tinha `checked` — o padrão real era o
+                         contrário do documentado. Efeito: quem copiava um
+                         estilo sem mexer nos interruptores não recebia fonte,
+                         cor, tempo NEM posição, e o host pulava calado
+                         (skippedPos e companhia). Foi o "a posição não está
+                         vindo" do Victor, e provavelmente vários relatos de
+                         aluno antes dele.
+
+                         Ligado é o padrão certo: quem clona um estilo quer o
+                         estilo. Desligar continua sendo escolha de quem sabe
+                         o que está fazendo. -->
+                    <label class="fs-toggle" for="style-clone-font" title="Desligado, cada legenda mantém a fonte dela e recebe só o resto do estilo.">
+                        <span class="fs-toggle-topo">
+                            <span class="switch-label">Fonte</span>
+                            <input type="checkbox" id="style-clone-font" class="switch-input" checked>
+                            <span class="switch-slider"></span>
+                        </span>
+                    </label>
+                    <label class="fs-toggle" for="style-clone-color" title="Desligado, cada legenda mantém as cores dela.">
+                        <span class="fs-toggle-topo">
+                            <span class="switch-label">Cores</span>
+                            <input type="checkbox" id="style-clone-color" class="switch-input" checked>
+                            <span class="switch-slider"></span>
+                        </span>
+                    </label>
+                    <label class="fs-toggle" for="style-clone-time" title="Desligado, cada linha mantém seu tempo de entrada.">
+                        <span class="fs-toggle-topo">
+                            <span class="switch-label">Tempo de animação</span>
+                            <input type="checkbox" id="style-clone-time" class="switch-input" checked>
+                            <span class="switch-slider"></span>
+                        </span>
+                    </label>
+                    <label class="fs-toggle" for="style-clone-pos" title="Leva também a posição/escala feitas no Controle de Efeitos. Desligado, cada legenda fica onde está.">
+                        <span class="fs-toggle-topo">
+                            <span class="switch-label">Posição e escala</span>
+                            <input type="checkbox" id="style-clone-pos" class="switch-input" checked>
+                            <span class="switch-slider"></span>
+                        </span>
+                        <!-- Inclui o MOVIMENTO do clipe (Effect Controls) desde 10/08/2026:
+                             mover/escalar por fora do modelo não vinha no clone. -->
+                    </label>
+                </div>
+                <div class="form-field" id="style-clone-colormode-field">
+                    <label>Como espalhar as cores</label>
+                    <select id="style-clone-colormode" style="width:100%;">
+                        <option value="line">Cada linha recebe a cor da linha correspondente</option>
+                        <option value="all">Mesma cor em todas as linhas</option>
+                    </select>
+                    <span class="transcribe-hint">Use a segunda se seus modelos têm duas cores de propósito.</span>
+                </div>
+                <div id="style-clone-status" class="transcribe-status" style="margin-top:auto;padding-top:10px;" title="Entre modelos diferentes passa o que existir nos dois. O resultado informa o que não coube."></div>
+            </div>
+
+            <div class="fs-bloco fs-bloco--colar" style="--fs-cor:var(--brand-warn);">
+                <div class="fs-bloco-titulo">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/>
+                    </svg>
+                    Colar
+                    <span class="fs-bloco-sub">onde e o quê</span>
+                </div>
+
+                <div class="form-field">
+                    <label>Colar em</label>
+                    <select id="style-clone-target" style="width:100%;">
+                        <option value="selected">Legendas selecionadas na timeline</option>
+                        <option value="all">Todas as legendas do vídeo</option>
+                    </select>
+                </div>
+
+
+
+                <div class="fs-acao-linha">
+                    <button id="btn-style-clear" class="fs-desfazer" title="Esquece o estilo guardado">✕</button>
+                    <button id="btn-style-paste" class="fs-acao" style="flex:1;" disabled>Colar estilo</button>
+                </div>
+
+            </div>
+
+            <!-- TROCAR AS CORES (30/08, pedido do Victor: "mesmo depois de
+                 gerado, trocar somente a cor dos textos destaque"). Sem
+                 origem, sem clone: escolhe as cores, seleciona as legendas,
+                 aplica. Vale pra qualquer modelo, qualquer contagem de
+                 linhas: a linha principal (maior fonte) leva o destaque. -->
+            <div class="fs-bloco" style="--fs-cor:var(--brand-warn);">
+                <div class="fs-bloco-titulo">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="13.5" cy="6.5" r="2.5"/><circle cx="19" cy="13" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="10" cy="19" r="2.5"/>
+                    </svg>
+                    Trocar as cores
+                    <span class="fs-bloco-sub">nas legendas já aplicadas</span>
+                </div>
+                <span class="transcribe-hint" style="display:block;margin-bottom:8px;">Seleciona as legendas na timeline, escolhe as cores e aplica. Cor vazia não mexe naquele grupo. Nos modelos com degradê, o <b>+</b> abre a segunda cor (a ponta final); sem ela, só a primeira ponta muda.</span>
+                <!-- DEGRADÊ E "SECUNDÁRIO" (06/09/2026, Victor: "tem vários modelos com gradiente,
+                     tem que mudar a cor do gradiente também, tanto de apoio quanto de destaque;
+                     o nome apoio pode virar secundário"). O + é o mesmo botão do degradê do
+                     Estilo (T): abre o segundo par swatch+hex do grupo. Os ids "apoio" ficam
+                     (só o rótulo mudou). -->
+                <div class="guia-linha">
+                    <span class="guia-rot">Destaque</span>
+                    <div class="color-group" id="clone-destaque-grupo">
+                        <input type="color" id="clone-destaque-visual" class="color-swatch" value="#F59E0B">
+                        <input type="text" id="clone-destaque-hex" class="color-hex" value="" placeholder="não mexe" maxlength="7">
+                        <button type="button" class="fs-grad-btn" id="clone-destaque-grad" title="Degradê: abre a segunda cor (ponta final do Gradient Ramp)"><span class="fs-grad-mais">+</span></button>
+                        <input type="color" id="clone-destaque-fim-visual" class="color-swatch clone-grad-fim" value="#FFFFFF" style="display:none;">
+                        <input type="text" id="clone-destaque-fim-hex" class="color-hex clone-grad-fim" value="" placeholder="não mexe" maxlength="7" style="display:none;">
+                    </div>
+                </div>
+                <div class="guia-linha">
+                    <span class="guia-rot">Secundário</span>
+                    <div class="color-group" id="clone-apoio-grupo">
+                        <input type="color" id="clone-apoio-visual" class="color-swatch" value="#FFFFFF">
+                        <input type="text" id="clone-apoio-hex" class="color-hex" value="" placeholder="não mexe" maxlength="7">
+                        <button type="button" class="fs-grad-btn" id="clone-apoio-grad" title="Degradê: abre a segunda cor (ponta final do Gradient Ramp)"><span class="fs-grad-mais">+</span></button>
+                        <input type="color" id="clone-apoio-fim-visual" class="color-swatch clone-grad-fim" value="#FFFFFF" style="display:none;">
+                        <input type="text" id="clone-apoio-fim-hex" class="color-hex clone-grad-fim" value="" placeholder="não mexe" maxlength="7" style="display:none;">
+                    </div>
+                </div>
+                <!-- ALCANCE (06/09/2026, noite): selecionadas (padrão) ou a timeline toda -->
+                <div class="guia-linha">
+                    <span class="guia-rot">Onde</span>
+                    <span class="fs-cores-escopo">
+                        <button type="button" class="caps-pill on" data-cores-escopo="selecionadas" title="Só as legendas selecionadas na timeline">Selecionadas</button>
+                        <button type="button" class="caps-pill" data-cores-escopo="todas" title="Todas as legendas (blocos do Caption IA) da timeline">Timeline toda</button>
+                    </span>
+                </div>
+                <button id="btn-clone-cores" class="fs-acao caps-acao" style="width:100%;margin-top:8px;">Aplicar as cores nos selecionados</button>
+            </div>
+                    </div>
+
+            <!-- FS ESTILO (nome escolhido pelo Victor, 12/08/2026): guarda o
+                 estilo pronto com um nome e reusa em qualquer projeto, sem ter
+                 que configurar a primeira legenda de novo a cada vídeo. -->
+            <div class="clone-sec" data-clone-sec="biblioteca">
+            <div class="fs-bloco" style="--fs-cor:var(--brand-warn);">
+                <div class="fs-bloco-titulo">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                    </svg>
+                    FS Estilo
+                    <span class="fs-bloco-sub">seus estilos salvos</span>
+                </div>
+                <!-- O botão "Salvar" guarda o que está na MEMÓRIA, e a memória
+                     se enche na outra sub-aba (Copiar e colar). Sem isso dito
+                     na cara, ele fica cinza e o aluno não sabe por quê —
+                     aconteceu com o Victor em 13/08/2026. -->
+                <div id="style-lib-precisa" class="transcribe-hint" style="display:none;margin-bottom:8px;padding:7px 9px;border-radius:6px;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.35);">
+                    Pra salvar, primeiro <b>copie o estilo de uma legenda</b>: vá em
+                    <b>Copiar e colar</b>, selecione a legenda modelo na timeline e clique
+                    em <b>Copiar estilo</b>. Aí volte aqui e dê um nome.
+                </div>
+                <div class="fs-acao-linha" style="margin-top:0;">
+                    <input type="text" id="style-lib-nome" placeholder="Nome do estilo (ex.: 2 linhas gradiente)" style="flex:1 1 auto;min-width:0;" maxlength="40">
+                    <button id="btn-style-lib-save" class="btn-secondary" style="flex:0 0 auto;" disabled title="Guarda o estilo que está na memória com esse nome">Salvar</button>
+                </div>
+                <div id="style-lib-list" class="fs-lista" title="Clique num estilo salvo pra carregá-lo e depois use “Aplicar”. O ✕ apaga."></div>
+            </div>
+                <button id="btn-style-lib-aplicar" class="fs-acao" disabled>Aplicar na legenda selecionada</button>
+                <span class="transcribe-hint" style="display:block;margin-top:6px;">O estilo salvo vai inteiro: cor, fonte, tamanho e posição — sem precisar ligar nada.</span>
+            </div>
+</div>
+
+</div>
+
+                        <!-- AUTO-APLICAR — painel de aba. Saiu do rodapé (que já tinha 7
+                 botões) pra caber inteiro na tela, com a prévia do plano
+                 respirando em vez de espremida num modal. -->
+            <div id="autodist-panel" style="display:none;flex-direction:column;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding:10px;">
+                <div class="fs-col">
+                <span class="transcribe-hint" id="autodist-caps" style="display:block;margin-bottom:8px;"></span>
+
+                <label style="display:block;font-size:10px;opacity:.6;margin-bottom:3px;">De onde escolher os templates</label>
+                <select id="autodist-pool" style="width:100%;font-size:11px;padding:4px;">
+                    <option value="auto">Automático (o plugin escolhe)</option>
+                    <option value="fav">Meus favoritos</option>
+                    <!-- ESCOLHIDOS (06/09/2026, Victor: "se a pessoa pudesse escolher os templates que o
+                         AutoEdit vai usar... ou um botão no template pra jogar no AutoEdit"): o botão AE
+                         do card da galeria monta esta lista, NA ORDEM em que ele marca. -->
+                    <option value="escolhidos">Escolhidos (botão AE no card)</option>
+                </select>
+
+                <label style="display:block;font-size:10px;opacity:.6;margin:7px 0 3px;">Em qual trilha inserir</label>
+                <select id="autodist-track" style="width:100%;font-size:11px;padding:4px;">
+                    <option value="-1">Automático (acima do clipe)</option>
+                    <option value="0">V1</option>
+                    <option value="1">V2</option>
+                    <option value="2">V3</option>
+                    <option value="3">V4</option>
+                    <option value="4">V5</option>
+                    <option value="5">V6</option>
+                    <option value="6">V7</option>
+                    <option value="7">V8</option>
+                </select>
+
+                <label style="display:block;font-size:10px;opacity:.6;margin:7px 0 3px;">Onde aplicar</label>
+                <select id="autodist-scope" style="width:100%;font-size:11px;padding:4px;">
+                    <option value="all">Timeline inteira</option>
+                    <option value="inout">Só no trecho In/Out</option>
+                </select>
+
+                <label style="display:block;font-size:10px;opacity:.6;margin:7px 0 3px;">Palavras por legenda</label>
+                <select id="autodist-words-per" style="width:100%;font-size:11px;padding:4px;">
+                    <option value="0">Automático (o plugin decide por tempo)</option>
+                    <option value="1">1 palavra</option>
+                    <option value="2">2 palavras</option>
+                    <option value="3">3 palavras</option>
+                    <option value="4">4 palavras</option>
+                    <option value="5">5 palavras</option>
+                </select>
+
+                <button id="btn-autodist-preview" class="btn-secondary" style="width:100%;margin-top:8px;font-size:11px;padding:7px 4px;">👁 Gerar prévia do plano</button>
+                <!-- QUEBRA MANUAL (03/09/2026, pedido de aluno): a prévia é editável.
+                     Uma linha (Victor: "explicação rápida"). -->
+                <span class="transcribe-hint" style="display:block;margin:6px 0 0;">Clique no texto de um bloco pra ajustar; Enter quebra o bloco em dois no cursor, e cada um ganha o modelo ideal. Gerar a prévia de novo desfaz as edições.</span>
+
+                <div id="autodist-list" class="captions-list" style="flex:1 1 auto;min-height:180px;margin-top:8px;overflow-y:auto;"></div>
+                <div id="autodist-status" class="transcribe-status" style="font-size:10px;"></div>
+
+                <div style="display:flex;gap:6px;margin-top:8px;">
+                    <button id="btn-autodist-shuffle" class="btn-secondary" style="flex:1;font-size:11px;padding:7px 4px;">🔀 Alternar</button>
+                    <button id="btn-autodist-apply" class="btn-primary" style="flex:1;font-size:11px;padding:7px 4px;">✓ Aplicar tudo</button>
+                    <button id="btn-autodist-stop" class="btn-secondary" style="display:none;flex:1;font-size:11px;padding:7px 4px;">⏹ Parar</button>
+                </div>
+                <span class="transcribe-hint" style="display:block;margin-top:6px;">Marque In/Out na timeline pra gerar só num trecho.</span>
+                <span id="btn-autodist-cancel" style="display:none;"></span>
+                <span id="autodist-count" style="display:none;"></span>
+            </div>
+
+</div>
+
+                        <!-- CORTES (AutoCut) — painel de aba. Saiu do modal pra ficar em
+                 tela cheia como as outras ferramentas. Os controles vivem numa
+                 coluna estreita de propósito: em painel largo, campo esticado
+                 de ponta a ponta fica ruim de ler e de mirar. -->
+            <!-- AUTOEDIT — painel do maestro. As linhas das etapas são montadas
+                 pelo js/autoedit.js (fonte única da lista); aqui só a moldura. -->
+            <div id="autoedit-panel" style="display:none;flex-direction:column;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding:10px;">
+                <!-- A CARA DO AUTOEDIT (06/09/2026, Victor com as telas da oferta: "está muito
+                     paia... a interface precisa ser bonita e parecer cara"). Mesma gramática da
+                     página: cabeçalho curto, UM card de etapas numeradas com interruptor, um
+                     card de ajustes com controles segmentados, e um rodapé com a contagem de
+                     etapas ligadas e o botão. Os ids e os data-zoom-pick são os mesmos de
+                     antes: a fiação (dinamica.js pinta as pastilhas; autoedit.js roda) não mudou. -->
+                <div class="ae-cabeca">
+                    <div class="ae-titulo">AutoEdit</div>
+                    <div class="ae-sub">Ligue as etapas que quiser. O AutoEdit dispara na ordem e entrega o vídeo pronto.</div>
+                </div>
+                <div class="fs-bloco ae-card" style="--fs-cor:var(--brand-warn);margin-top:0;">
+                    <div class="fs-bloco-titulo">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>
+                        </svg>
+                        Etapas
+                        <span class="fs-bloco-sub">na ordem em que rodam</span>
+                    </div>
+                    <div id="autoedit-etapas"></div>
+                </div>
+                <!-- AJUSTES: as três escolhas que só valem pro AutoEdit. Cada linha escreve
+                     num <select> que já existe em outra aba (fonte da verdade, persistido):
+                     #zoom-pos (Dinâmica, 30/08), #transcribe-lang (Legendas, 30/08) e
+                     #autodist-pool (Auto, 06/09). As pastilhas continuam .caps-pill porque é
+                     essa a classe que a fiação repinta; o container .ae-seg é quem dá o visual. -->
+                <div class="fs-bloco ae-card" style="--fs-cor:var(--brand-warn);">
+                    <div class="fs-bloco-titulo">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>
+                        </svg>
+                        Ajustes
+                        <span class="fs-bloco-sub">valem só pro AutoEdit</span>
+                    </div>
+                    <div class="ae-ajuste">
+                        <span class="ae-ajuste-nome">Legenda no zoom</span>
+                        <span class="ae-seg">
+                            <button type="button" class="caps-pill" data-zoom-pick="zoom-pos" data-val="acima" title="A camada de zoom fica acima das legendas: o quadro inteiro pulsa, legenda junto">Vai junto</button>
+                            <button type="button" class="caps-pill" data-zoom-pick="zoom-pos" data-val="abaixo" title="A camada de zoom fica abaixo das legendas: só o vídeo pulsa, a legenda fica parada">Fica parada</button>
+                        </span>
+                    </div>
+                    <div class="ae-ajuste">
+                        <span class="ae-ajuste-nome">Idioma da fala</span>
+                        <span class="ae-seg">
+                            <button type="button" class="caps-pill" data-zoom-pick="transcribe-lang" data-val="" title="O Whisper detecta o idioma sozinho. Com música ou clipes em outra língua na timeline, pode errar">Auto</button>
+                            <button type="button" class="caps-pill" data-zoom-pick="transcribe-lang" data-val="pt" title="Força a transcrição em português, mesmo com música ou outros vídeos na timeline">Português</button>
+                            <button type="button" class="caps-pill" data-zoom-pick="transcribe-lang" data-val="en" title="Força a transcrição em inglês">English</button>
+                        </span>
+                    </div>
+                    <div class="ae-ajuste">
+                        <span class="ae-ajuste-nome">Modelos</span>
+                        <span class="ae-seg">
+                            <button type="button" class="caps-pill" data-zoom-pick="autodist-pool" data-val="auto" title="O plugin escolhe entre todos os modelos, como sempre">Aleatório</button>
+                            <button type="button" class="caps-pill" data-zoom-pick="autodist-pool" data-val="fav" title="Só os modelos com estrela na galeria">Favoritos</button>
+                            <button type="button" class="caps-pill" data-zoom-pick="autodist-pool" data-val="escolhidos" id="ae-pill-escolhidos" title="Só os modelos que você marcou com o botão AE no card da galeria, na ordem em que marcou">Escolhidos</button>
+                        </span>
+                    </div>
+                    <span class="ae-ajuste-dica" id="autoedit-modelos-hint"></span>
+                    <!-- discreto e só quando há escolhidos (autodistribute.js pinta): zera a lista do AE -->
+                    <button type="button" class="ae-link" id="autoedit-escolhidos-zerar" style="display:none;" title="Desmarca todos os modelos escolhidos pro AutoEdit (o AE dos cards)">✕ zerar escolhidos</button>
+                </div>
+                <!-- RODAPÉ: contagem viva das etapas ligadas (autoedit.js) e o botão, como na
+                     página da oferta. O Parar só aparece durante a corrida. -->
+                <div class="ae-rodape">
+                    <span class="ae-contagem"><span class="ae-ponto"></span><span id="autoedit-contagem">etapas ligadas</span></span>
+                    <span class="ae-rodape-botoes">
+                        <button id="btn-autoedit-parar" type="button" class="btn-secondary ae-parar" style="display:none;">⏹ Parar</button>
+                        <button id="btn-autoedit-rodar" type="button" class="fs-acao caps-acao ae-rodar">▶ Rodar AutoEdit</button>
+                    </span>
+                </div>
+                <!-- RELATÓRIO CURTO (06/09/2026, Victor: "precisamos tirar esse relatório
+                     muito grande quando termina"). O status vira uma linha; o texto inteiro
+                     de cada etapa fica em "ver detalhes", fechado. -->
+                <div id="autoedit-status" class="transcribe-status ae-status"></div>
+                <button type="button" id="autoedit-detalhes-btn" class="ae-detalhes-btn" style="display:none;">ver detalhes</button>
+                <div id="autoedit-detalhes" class="ae-detalhes" style="display:none;"></div>
+                <!-- RAIO-X (13/08/2026) e RELATÓRIO DA DISTRIBUIÇÃO (15/08/2026): instrumentos de
+                     calibragem do Victor, não função de aluno — fs-dev-only (Alt+Shift+D liga).
+                     O raio-X só LÊ a timeline e grava o .txt na Área de Trabalho; o relatório
+                     mede o vão entre zoom, transição e SFX. Tirar a classe solta pro aluno. -->
+                <button type="button" id="btn-autoedit-raiox" class="btn-secondary fs-dev-only" style="width:100%;margin-top:10px;">🔬 Conferir o que ficou na timeline</button>
+                <button type="button" id="btn-autoedit-relatorio" class="btn-secondary fs-dev-only" style="width:100%;margin-top:6px;">📋 Relatório da distribuição</button>
+                <div id="autoedit-raiox" class="transcribe-hint" style="display:none;margin-top:8px;"></div>
+            </div>
+
+            <!-- ABA AUTOCUT — arranjo do Victor, 2ª rodada (12/08/2026).
+                 A regra que manda em tudo aqui: ANALISAR E CORTAR TÊM QUE
+                 APARECER NO INSTANTE EM QUE A ABA ABRE. "Para o usuário não
+                 precisar arrastar para baixo pra analisar e cortar."
+
+                 O desenho, no painel largo:
+                     ┌──────────────────┬──────────────────┐
+                     │ Onde cortar      │ Precisão do corte│  mesma altura
+                     ├──────────────────┼──────────────────┤
+                     │ [Analisar]       │                  │
+                     │ [Cortar]         │  Prévia dos      │
+                     ├──────────────────┤  cortes          │
+                     │ Histórico        │                  │
+                     └──────────────────┴──────────────────┘
+                 Os dois cards de ajuste dividem a primeira linha na MESMA
+                 altura; os botões entram logo abaixo do "Onde cortar", ainda
+                 acima da dobra; o histórico fica embaixo deles (a alternativa
+                 que o próprio Victor deu); e a coluna da direita é o VÃO em
+                 que a prévia nasce depois do Analisar.
+
+                 Abaixo de 720px tudo empilha na ordem do HTML — que é a ordem
+                 de uso: onde → precisão → botões → prévia → histórico. -->
+            <div id="autocut-panel" style="display:none;flex-direction:column;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding:10px;">
+                <div class="fs-col">
+
+            <span class="transcribe-hint" id="autocut-intro" style="display:block;">Detecta os respiros pelo áudio e corta juntando os clipes.</span>
+
+            <!-- 1) ONDE CORTAR + a rede de segurança -->
+            <div class="fs-bloco" id="autocut-bloco-onde" style="--fs-cor:var(--brand-warn);">
+                <div class="fs-bloco-titulo">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="7" width="20" height="10" rx="2"/><path d="M8 7v10M16 7v10"/></svg>
+                    Onde cortar
+                </div>
+                <!-- Os dois seletores dividem UMA linha: cada um é uma escolha
+                     pequena, e ocupavam a largura inteira do painel um embaixo
+                     do outro. Abaixo de ~420px eles voltam a empilhar sozinhos
+                     (flex-wrap), sem precisar de media query. -->
+                <div class="ac-linha-campos">
+                    <div class="form-field">
+                        <label>Trecho da timeline</label>
+                        <select id="autocut-scope">
+                            <option value="seq">Sequência inteira</option>
+                            <option value="clip">Clipe selecionado</option>
+                            <option value="inout">Trecho marcado (In → Out)</option>
+                        </select>
+                    </div>
+                    <div class="form-field">
+                        <label>Trilha de áudio</label>
+                        <select id="autocut-track">
+                            <option value="-1">Todas (mix completo)</option>
+                            <option value="0">A1</option>
+                            <option value="1">A2</option>
+                            <option value="2">A3</option>
+                            <option value="3">A4</option>
+                            <option value="4">A5</option>
+                            <option value="5">A6</option>
+                            <option value="6">A7</option>
+                            <option value="7">A8</option>
+                        </select>
+                    </div>
+                </div>
+                <!-- As duas dicas de MÚSICA moram aqui, na escolha que elas
+                     explicam. A do cadeado ficava solta acima dos botões,
+                     longe do controle a que se refere. -->
+                <span class="transcribe-hint">Com música de fundo, escolha só a trilha da voz.</span>
+                <span class="transcribe-hint">Trave (cadeado) a trilha de música que não deve ser cortada.</span>
+                <!-- 3) AÇÕES — bloco próprio, sem moldura de propósito: são A ação
+                     da aba, não mais uma seção de ajuste. Empilhados (1ª rodada).
+
+                     O "Permitir desfazer" DESCEU pra cá (3ª rodada, 12/08/2026):
+                     ele estava dentro do card "Onde cortar" e empurrava Analisar e
+                     Cortar uns 90px pra baixo — no painel do Victor o "Cortar
+                     silêncios" encostava na borda de baixo, que é exatamente o que
+                     este arranjo existe pra evitar.
+
+                     E ele NÃO foi pra dentro do card "Onde cortar" junto com os
+                     botões porque os botões agem sobre os DOIS cards (trecho +
+                     precisão): morar dentro de um deles sugeriria que só valem
+                     pra aquele. A rede de segurança, sim, é modificador da AÇÃO —
+                     "cortar com rede" — e é aqui que ela pertence. -->
+                <div id="autocut-acoes">
+                    <!-- ac-analisar: o cinza do btn-secundário fazia o botão
+                         parecer DESLIGADO (Victor, 12/08). Contorno e texto no
+                         âmbar da casa — aceso, da mesma família do "Cortar",
+                         sem competir com ele: o preenchido é o que MEXE na
+                         timeline, este só lê o áudio. -->
+                    <button id="btn-autocut-analyze" class="btn-secondary ac-analisar"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Analisar</button>
+                    <button id="btn-autocut-apply" class="fs-acao" disabled><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:6px;"><path d="M4 9v6M8 6v12M16 6v12M20 9v6"/><path d="M12 3v18" stroke-dasharray="3 3"/></svg>Cortar silêncios</button>
+                    <!-- Parar (11/08/2026): só aparece com trabalho rodando.
+                         Análise: aborta limpo (timeline intocada). Corte: é
+                         tudo-ou-nada no ExtendScript — termina e DESFAZ pela
+                         cópia de segurança; nunca fica pela metade. -->
+                    <button type="button" id="btn-autocut-stop" class="btn-secondary" style="display:none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1.5px;margin-right:5px;"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>Parar</button>
+                    <label class="switch-row" for="autocut-backup">
+                        <span class="switch-label">Permitir desfazer (cópia de segurança)</span>
+                        <input type="checkbox" id="autocut-backup" class="switch-input" checked>
+                        <span class="switch-slider"></span>
+                    </label>
+                    <!-- Esta linha explica o interruptor logo acima e estava CINZA,
+                         colada na borda do card (Victor, 12/08): virou texto claro
+                         e ganhou respiro. As outras dicas seguem cinza de
+                         propósito — se tudo é destaque, nada é. -->
+                    <span class="transcribe-hint ac-dica-forte">Guarda a sequência antes do corte e libera o histórico.</span>
+                    <div id="autocut-status" class="transcribe-status"></div>
+                </div>
+            </div>
+
+            <!-- 2) PRECISÃO — sobe pra PRIMEIRA LINHA, ao lado do "Onde
+                 cortar" (era o lugar do histórico). Os dois cards de ajuste
+                 ficam à mesma altura e a aba abre com tudo à vista. -->
+            <div class="fs-bloco" id="autocut-bloco-precisao" style="--fs-cor:var(--brand-warn);">
+                <div class="fs-bloco-titulo">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3"/>
+                        <path d="M1 14h6M9 8h6M17 16h6"/></svg>
+                    Precisão do corte
+                </div>
+                <div class="form-field">
+                    <label>Sensibilidade: <span id="autocut-sens-label">4. equilibrado</span></label>
+                    <input type="range" id="autocut-sens" min="1" max="10" step="1" value="4" style="width:100%;">
+                    <span class="transcribe-hint">Cortou demais? Baixe. Sobrou pausa? Suba.</span>
+                </div>
+                <!-- PAUSA MÍNIMA em FRAMES (12/08/2026, pedido do Victor:
+                     "tem respiros de nove frames e ele não corta").
+                     Era parte da sensibilidade e saiu de lá porque um slider
+                     só movia DOIS eixos independentes:
+                       · o LIMIAR em dB decide o que é silêncio — é ele que
+                         arrisca comer voz (medido na VSL real: 6,3s de fala
+                         dentro dos cortes na sens 6, 13,0s na sens 10);
+                       · a PAUSA MÍNIMA decide só o tamanho do que pode ser
+                         cortado — e não custa NADA em voz (na sens 6, baixar
+                         de 0,50s pra 0,30s rendeu +99 cortes e +31s removidos
+                         com a fala comida parada em 6,3s).
+                     Juntos, cortar respiro curto obrigava a ficar agressivo no
+                     limiar — exatamente o que ninguém quer. -->
+                <div class="form-field">
+                    <label>Pausa mínima</label>
+                    <div class="caps-linha" style="margin-bottom:0;">
+                        <div class="caps-num" title="A menor pausa que pode virar corte">
+                            <button type="button" id="autocut-pausa-menos" class="caps-step" title="Um frame a menos">−</button>
+                            <input type="number" id="autocut-pausa" min="2" max="120" step="1" value="21" style="width:44px;">
+                            <button type="button" id="autocut-pausa-mais" class="caps-step" title="Um frame a mais">+</button>
+                            <span id="autocut-pausa-eq">frames</span>
+                        </div>
+                    </div>
+                    <span class="transcribe-hint" id="autocut-pausa-dica">Acompanha a sensibilidade até você mexer aqui.</span>
+                </div>
+                <div class="form-field">
+                    <label>Margens de segurança (ms)</label>
+                    <!-- Pastilhas − / + no lugar dos campos gigantes (pedido do
+                         Victor, 11/08/2026) — mesma família do "palavras" do
+                         Transcrever. Clicar no número e digitar continua valendo. -->
+                    <div class="caps-linha" style="margin-bottom:0;">
+                        <div class="caps-num" title="Silêncio que sobra DEPOIS da fala terminar">
+                            <button type="button" id="autocut-mg-after-menos" class="caps-step" title="Diminuir 10 ms">−</button>
+                            <input type="number" id="autocut-margin-after" min="0" max="1000" step="10" value="200" style="width:44px;">
+                            <button type="button" id="autocut-mg-after-mais" class="caps-step" title="Aumentar 10 ms">+</button>
+                            <span>depois da fala</span>
+                        </div>
+                        <div class="caps-num" title="Silêncio que volta ANTES da próxima fala">
+                            <button type="button" id="autocut-mg-before-menos" class="caps-step" title="Diminuir 10 ms">−</button>
+                            <input type="number" id="autocut-margin-before" min="0" max="1000" step="10" value="200" style="width:44px;">
+                            <button type="button" id="autocut-mg-before-mais" class="caps-step" title="Aumentar 10 ms">+</button>
+                            <span>antes da fala</span>
+                        </div>
+                    </div>
+                    <span class="transcribe-hint">Aumente se as palavras estiverem sendo cortadas.</span>
+                </div>
+                <!-- ECO DA PRECISAO (12/08/2026, pedido do Victor): "quando
+                     mexemos na precisao do corte, os cortes atualizados
+                     aparecem no lado esquerdo e deviam aparecer aqui".
+                     Faz sentido: e o resultado DESTES controles. O status da
+                     esquerda continua com o que e operacao (exportando,
+                     cortando, erro, diagnostico salvo). -->
+                <div id="autocut-precisao-eco" class="transcribe-status"></div>
+            </div>
+
+
+            <!-- 4) PRÉVIA — nasce escondida e ocupa o VÃO da direita quando o
+                 Analisar termina. É a alternância que o Victor testou e
+                 aprovou: a aba abre enxuta e a prévia entra ao lado. -->
+            <div class="fs-bloco" id="autocut-bloco-resultado" style="--fs-cor:var(--brand-warn);display:none;">
+                <div class="fs-bloco-titulo">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    Prévia dos cortes
+                    <span class="fs-bloco-sub">atualiza ao mexer na sensibilidade</span>
+                </div>
+                <!-- Os dois cartões (resumo verde e sugestão) ficam LADO A LADO
+                     aqui dentro, e a lista vem embaixo na largura toda — o
+                     desenho do Victor de 12/08. Antes eles empilhavam e a
+                     lista ficava espremida numa coluna só, com metade da tela
+                     vazia à esquerda. O container é ESTÁTICO de propósito: o
+                     resumo nasce no renderCuts e a sugestão no
+                     mostrarSugestao, em momentos diferentes, e sem uma casa
+                     fixa a ordem entre eles dependia de quem chegasse antes. -->
+                <div id="autocut-cartoes"></div>
+                <span class="transcribe-hint" id="autocut-summary" style="display:block;"></span>
+                <div id="autocut-list" class="captions-list"></div>
+            </div>
+
+            <!-- 5) RETAKE — frases repetidas (12/08/2026, "a função que faltou").
+                 O detector (js/repeticoes.js) foi calibrado em TRÊS relatórios
+                 reais antes desta tesoura existir — o método da casa. As regras
+                 que o Victor confirmou: repetição PERTO (janela de 30s) é erro
+                 e pode cortar; a mesma frase LONGE é copy/roteiro e só é
+                 LISTADA, nunca cortada. O melhor take: o completo vence o
+                 cortado, o último vence por padrão, e no empate de texto quem
+                 decide é o áudio (sinal/ruído). Liga/desliga persistente,
+                 desligado de fábrica: tesoura nova não estreia ligada. -->
+            <div class="fs-bloco" id="autocut-retake" style="--fs-cor:var(--brand-warn);">
+                <div class="fs-bloco-titulo">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+                        <path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                    Retake
+                    <span class="fs-bloco-sub">o cliente errou e regravou? mantém o melhor take</span>
+                </div>
+                <label class="switch-row" for="retake-on">
+                    <span class="switch-label">Ativar o Retake</span>
+                    <input type="checkbox" id="retake-on" class="switch-input">
+                    <span class="switch-slider"></span>
+                </label>
+                <div id="retake-corpo" style="display:none;">
+                    <!-- Uma linha (13/08/2026, Victor: "muita descrição, tem que
+                         ser explicação rápida"). O fluxo detalhado saiu daqui:
+                         quem precisa dele lê no aviso do próprio botão quando
+                         alguma coisa impede o corte. -->
+                    <span class="transcribe-hint" style="display:block;margin-top:4px;">
+                        Acha a mesma frase gravada 2 ou mais vezes num intervalo de 1 minuto e corta as sobras.
+                        Transcreva antes.
+                    </span>
+                    <!-- "Subir os errados em vez de cortar" (03/09) SAIU do painel em 06/09/2026,
+                         no fechamento da 2.2, a pedido do Victor. O host (fsRetakeSubir) fica sem
+                         chamador; o Retake sempre corta. -->
+                    <div class="ac-botoes">
+                        <button type="button" id="btn-retake-buscar" class="btn-secondary ac-analisar"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>Procurar</button>
+                        <button type="button" id="btn-retake-cortar" class="fs-acao" disabled><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:6px;"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.12 15.88M14.47 14.48L20 20M8.12 8.12L12 12"/></svg>Cortar repetições</button>
+                    </div>
+                    <div id="retake-status" class="transcribe-status"></div>
+                    <div id="retake-lista"></div>
+                </div>
+            </div>
+
+            <!-- 6) HISTÓRICO — embaixo dos botões, na coluna da esquerda (a
+                 alternativa que o Victor deu: "podemos colocar o histórico do
+                 AutoCut embaixo de onde cortar"). Desfazer/refazer por etapa,
+                 porque o Ctrl+Z do Premiere não serve: a API não deixa plugin
+                 agrupar as milhares de operações. -->
+            <div class="fs-bloco" id="autocut-hist" style="--fs-cor:var(--brand-warn);display:none;">
+                <div class="fs-bloco-titulo">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>
+                    Histórico do AutoCut
+                    <span class="fs-bloco-sub" id="autocut-hist-label"></span>
+                </div>
+                <!-- 2×2: o painel estreito tem 300px no máximo e cada botão
+                     carrega padding próprio — quatro lado a lado estouram e o
+                     último some. -->
+                <!-- Os quatro se espalham na largura do card (Victor, 12/08:
+                     "vamos distribuir melhor os botões"). O auto-fit passa de
+                     2x2 pra 1x4 sozinho quando o card atravessa a tela, e volta
+                     a 2x2 no painel estreito — sem media query. -->
+                <div class="ac-hist-botoes">
+                    <button id="btn-hist-back" class="btn-secondary" style="flex:none;font-size:11px;padding:8px 4px;white-space:nowrap;" title="Desfaz o último corte">◀ Desfazer</button>
+                    <button id="btn-hist-fwd" class="btn-secondary" style="flex:none;font-size:11px;padding:8px 4px;white-space:nowrap;" title="Refaz o próximo corte">Refazer ▶</button>
+                    <button id="btn-hist-none" class="btn-secondary" style="flex:none;font-size:11px;padding:8px 4px;white-space:nowrap;" title="Volta ao vídeo original, sem nenhum corte">⏮ Original</button>
+                    <button id="btn-hist-all" class="btn-secondary" style="flex:none;font-size:11px;padding:8px 4px;white-space:nowrap;" title="Volta pro vídeo com todos os cortes">⏭ Todos</button>
+                </div>
+                <span class="transcribe-hint" style="display:block;margin-top:6px;">Use estes botões em vez do Ctrl+Z.</span>
+                <span class="transcribe-hint" id="autocut-hist-warn" style="display:none;color:#fbbf24;">Com muitos cortes cada etapa demora. Use ⏮ pra voltar tudo.</span>
+            </div>
+                </div>
+
+            <!-- FERRAMENTAS DE SUPORTE (fs-dev-only): rodapé próprio, fora dos
+                 cards (13/08/2026). Elas moravam dentro do "Onde cortar" e o
+                 inflavam — e o stretch da grade virava VÃO no card da Precisão
+                 (print do Victor). Aluno não vê; dev acha tudo num lugar só. -->
+            <!-- 25/08/2026: a div nua deixava os links sem fundo e o compositor
+                 do CEP pintava fantasmas deles por cima do cartao verde da previa
+                 (print do Victor). Fundo OPACO + position:relative criam camada
+                 propria de pintura; o rotulo diz o que e aquilo. -->
+            <div id="autocut-dev-tools" class="fs-dev-only" style="position:relative;z-index:1;background:var(--bg-primary,#111);border-top:1px solid rgba(255,255,255,0.08);margin-top:14px;padding:8px 10px 10px;border-radius:6px;">
+                <span style="display:block;font-size:9px;letter-spacing:1px;opacity:.4;margin-bottom:2px;">FERRAMENTAS DE CALIBRAGEM (DEV)</span>
+            </div>
+            </div>
+            <!-- SFX AUTO — painel de aba. Saiu do rodapé junto com os outros:
+                 é ferramenta que age na timeline, não parte do fluxo do texto. -->
+            <div id="autosfx-panel" style="display:none;flex-direction:column;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding:10px;">
+                <div class="fs-col">
+
+            <span class="transcribe-hint" id="autosfx-caps" style="display:block;margin-bottom:10px;">Carregando...</span>
+
+            <div class="fs-bloco" id="autosfx-bloco-sons" style="--fs-cor:var(--brand-warn);">
+                <div class="fs-bloco-titulo">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 18V5l10-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/>
+                    </svg>
+                    Sons
+                    <span class="fs-bloco-sub">até 24, alternando</span>
+                </div>
+                <div class="form-field">
+                    <select id="autosfx-internal" style="width:100%;"><option value="">Adicionar som da pasta ao mix</option></select>
+                </div>
+                <div class="form-field">
+                    <button id="autosfx-pick" class="btn-secondary" style="width:100%;">+ Adicionar arquivos do PC</button>
+                    <span class="transcribe-hint" id="autosfx-chosen">Nenhum SFX no mix.</span>
+                </div>
+                <div id="autosfx-mix-list"></div>
+            </div>
+
+            <div class="fs-bloco" id="autosfx-bloco-disparo" style="--fs-cor:var(--brand-warn);">
+                <div class="fs-bloco-titulo">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 12h3l3-7 4 14 3-7h5"/>
+                    </svg>
+                    Disparo
+                    <span class="fs-bloco-sub">onde e quando</span>
+                </div>
+                <div class="form-field" id="autosfx-scope-field">
+                    <label>Aplicar em</label>
+                    <select id="autosfx-scope" style="width:100%;">
+                        <option value="all">Todas as legendas da timeline</option>
+                        <option value="selected">Legendas selecionadas</option>
+                    </select>
+                </div>
+                <div class="form-field">
+                    <label>Disparar</label>
+                    <!-- Só os disparos que LEEM A TIMELINE. Os três por transcrição
+                         (palavra/unidade/legenda) eram estimativa de tempo — menos
+                         precisos e redundantes — e saíram a pedido do Victor
+                         (09/08/2026): "somente as mais precisas". -->
+                    <select id="autosfx-granularity" style="width:100%;">
+                        <option value="linha">1 som por linha, no tempo que o modelo anima</option>
+                        <option value="sync">1 som por palavra do bloco</option>
+                        <option value="capsync">1 som por bloco de legenda</option>
+                    </select>
+                    <span class="transcribe-hint" id="autosfx-gran-hint">Lê os blocos que estão na timeline e conta as palavras de cada um. Bloco com 3 palavras recebe 3 sons.</span>
+                </div>
+                <!-- O PASSO ENTRE PALAVRAS (06/09/2026, Victor: "três efeitos sonoros
+                     quase na sequência um do outro, uns três quadros"). Só no modo por
+                     palavra; o valor fica guardado. -->
+                <div class="form-field" id="autosfx-passo-field">
+                    <label>Passo entre palavras</label>
+                    <input type="number" id="autosfx-passo" min="1" max="30" step="1" value="3" style="width:100%;">
+                    <span class="transcribe-hint">Quadros entre um som e o outro dentro do bloco. As palavras entram quase juntas: uns 3 quadros.</span>
+                </div>
+                <!-- A TRILHA VIVIA SOLTA embaixo do painel (13/08/2026, Victor:
+                     "tenho um botão que ficou solitário"). O card já se chama
+                     "onde e quando" — a trilha É o onde, então ela mora aqui. -->
+                <div class="form-field">
+                    <label>Trilha do SFX</label>
+                    <select id="autosfx-track" style="width:100%;">
+                        <option value="-1">Trilha dedicada "FS SFX"</option>
+                        <option value="0">A1</option>
+                        <option value="1">A2</option>
+                        <option value="2">A3</option>
+                        <option value="3">A4</option>
+                        <option value="4">A5</option>
+                        <option value="5">A6</option>
+                        <option value="6">A7</option>
+                        <option value="7">A8</option>
+                    </select>
+                    <span class="transcribe-hint">Limpar SFX só remove da trilha dedicada.</span>
+                </div>
+                <div id="autosfx-summary" style="display:none;margin-top:8px;padding:8px 9px;border-radius:6px;font-size:11px;line-height:1.55;background:rgba(34,197,94,0.10);border:1px solid rgba(34,197,94,0.35);"></div>
+            </div>
+
+            <div id="autosfx-status" class="transcribe-status"></div>
+            <!-- Três ações do MESMO tamanho, só o Gerar em laranja: o Gerar
+                 gigante ao lado do Limpar miúdo destoava (Victor, 09/08). -->
+            <div id="autosfx-acoes" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+                <button id="autosfx-preview" class="btn-secondary" style="margin:0;">🔍 Preview</button>
+                <button id="autosfx-clear" class="btn-secondary" style="margin:0;">Limpar SFX</button>
+                <button id="autosfx-gen" class="fs-acao" style="margin:0;--fs-cor:var(--brand-warn);">Gerar SFX</button>
+            </div>
+        </div>
+
+                    <span id="btn-autosfx-cancel" style="display:none;"></span>
+</div>
+        </aside>
+
+        <!-- DIVISOR REDIMENSIONÁVEL -->
+        <div class="resizer" id="sidebar-resizer"></div>
+
+        <!-- CONTEÚDO: grid de previews -->
+        <section class="app-content">
+            <div id="dynamic-categories-container" class="preset-grid">
+                <!-- Preenchido pelo main.js renderPreviewGrid() -->
+                <p class="grid-loading">Carregando templates...</p>
+            </div>
+
+            <!-- Status / Progresso -->
+            <div class="status-bar">
+                <div class="status-msg" id="statusMessage"></div>
+
+                <!-- Mix Bar: seleção de múltiplos templates para o Automático -->
+                <div id="mix-bar" class="mix-bar">
+                    <div class="mix-bar-header">
+                        <span class="mix-bar-label">Mix</span>
+                        <div class="mix-bar-actions">
+                            <button class="btn-mix-clear" id="btn-mix-clear" title="Limpar seleção">✕ Limpar</button>
+                            <button class="btn-mix-run"   id="btn-mix-run"  title="Gerar legenda alternando templates">▶ Gerar</button>
+                        </div>
+                    </div>
+                    <div class="mix-slots" id="mix-slots"></div>
+                </div>
+
+                <!-- Rodapé do SFX: aparece ao clicar num som da grade.
+                     Onda grande, reverso e volume ficam AQUI, num lugar só, em
+                     vez de repetidos em cada card (a grade viraria um painel de
+                     controle). Volume e Reverso são preferências globais: o
+                     "Aplicar" do card também obedece. -->
+                <div id="sfx-bar" class="sfx-bar">
+                    <div class="sfx-bar-linha">
+                        <button id="sfx-bar-play" class="sfx-bar-play" title="Ouvir / parar">&#9654;</button>
+                        <span class="sfx-bar-nome" id="sfx-bar-nome"></span>
+                        <span class="sfx-bar-dur" id="sfx-bar-dur">0:00</span>
+                        <button id="sfx-bar-fechar" class="sfx-bar-fechar" title="Fechar">✕</button>
+                    </div>
+                    <div class="sfx-bar-onda" id="sfx-bar-onda" title="Clique para ouvir">
+                        <div class="sfx-bar-progresso" id="sfx-bar-progresso"></div>
+                        <canvas id="sfx-bar-canvas"></canvas>
+                    </div>
+                    <div class="sfx-bar-linha">
+                        <button id="sfx-bar-reverso" class="caps-pill sfx-bar-rev"
+                                title="Aplica o som de trás pra frente (gera um arquivo invertido)">⟲ Reverso</button>
+                        <!-- Sem rótulo "Volume": o "dB" ao lado do número já diz o
+                             que é, e a palavra custava 52px que faziam o Aplicar
+                             quebrar sozinho no painel de 320px. -->
+                        <span class="sfx-bar-vol" title="Volume do clipe ao inserir, em dB">
+                            <button class="caps-step" id="sfx-bar-db-menos" title="Abaixar 1 dB">−</button>
+                            <input id="sfx-bar-db" class="sfx-bar-db" type="text" value="0"
+                                   title="Volume do clipe ao inserir, em dB (continua editável no Premiere)">
+                            <span class="sfx-bar-db-un">dB</span>
+                            <button class="caps-step" id="sfx-bar-db-mais" title="Aumentar 1 dB">+</button>
+                        </span>
+                        <button id="sfx-bar-aplicar" class="sfx-bar-aplicar"
+                                title="Inserir na agulha com estas opções">Aplicar</button>
+                    </div>
+                </div>
+
+                <div id="batch-progress-container" class="batch-progress-container hidden">
+                    <div class="batch-progress-info">
+                        <span id="batch-progress-text">Processando legendas...</span>
+                        <span id="batch-progress-percent">0%</span>
+                        <button id="btn-mix-stop" class="btn-mix-stop" style="display:none;" title="Parar geração">■ Parar</button>
+                    </div>
+                    <div class="batch-progress-bar-bg">
+                        <div id="batch-progress-bar-fill" class="batch-progress-bar-fill"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- FOOTER: modos + SRT -->
+    <footer class="app-footer">
+        <div class="mode-selector">
+            <button id="btn-mode-highlight" class="mode-btn active"
+                    title="Aplica apenas no trecho selecionado">Custom</button>
+            <button id="btn-mode-individual" class="mode-btn"
+                    title="Insere modelo avulso na posição da agulha">Manual</button>
+            <button id="btn-mode-full" class="mode-btn"
+                    title="Gera toda a legenda com um clique">Automático</button>
+        </div>
+
+        <div class="track-selector" title="Track de destino">
+            <span class="track-selector-label">Track</span>
+            <select id="trackSelect" class="track-select">
+                <option value="-1">Auto</option>
+                <option value="0">V1</option>
+                <option value="1">V2</option>
+                <option value="2">V3</option>
+                <option value="3">V4</option>
+                <option value="4">V5</option>
+                <option value="5">V6</option>
+                <option value="6">V7</option>
+                <option value="7">V8</option>
+            </select>
+        </div>
+
+        <div class="footer-srt">
+            <!-- Ponta na agulha, promovido pro RODAPÉ (pedido do Victor,
+                 11/08/2026, depois de aprovar a função): o aluno está com o
+                 olho na timeline — não faz sentido abrir o editor de
+                 Legendas só pra isso. Só aparece com clipe de vídeo
+                 selecionado: a sonda fsSelecaoVideoConta (captions.js,
+                 ~1,2s) liga e desliga. Bloco estático não estica no arraste
+                 (limite de mídia do MOGRT) — este botão leva a ponta até a
+                 agulha pela API, com verificação. -->
+            <button id="btn-captions-agulha" class="btn-srt-import" style="display:none;" title="Leva a ponta FINAL da(s) legenda(s) selecionada(s) até a agulha — estica ou encurta. Feito pro bloco estático que trava no arraste.">
+                <span class="btn-srt-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h13"/><polyline points="12 7 17 12 12 17"/><path d="M21 5v14"/></svg></span> <span class="btn-srt-label">Até a agulha</span>
+            </button>
+            <button id="btn-transcribe" class="btn-srt-import" title="Transcrever áudio e gerar legendas">
+                <span class="btn-srt-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10v4M6 6v12M10 3v18M14 8v8M18 5v14M22 10v4"/></svg></span> <span class="btn-srt-label">Transcrever</span>
+            </button>
+            <button id="btn-import-srt" class="btn-srt-import" title="Importar arquivo SRT">
+                <span class="btn-srt-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><path d="M12 3v12"/></svg></span> <span class="btn-srt-label">Importar SRT</span>
+            </button>
+            <!-- LEGENDAS DA TIMELINE NO RODAPÉ (05/09/2026): o "Custom sem SRT" de 21/08
+                 vivia só no modal "Faltam as legendas"; agora é um botão fixo, do lado
+                 do Importar SRT. Lê a trilha CC do Premiere no lugar de um arquivo. -->
+            <button id="btn-timeline-captions" class="btn-srt-import" title="Usar as legendas nativas da timeline (trilha CC) no lugar de um arquivo SRT. O Custom, o Auto e o editor passam a usar elas.">
+                <span class="btn-srt-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M10 9.5a2 2 0 1 0 0 5"/><path d="M17 9.5a2 2 0 1 0 0 5"/></svg></span> <span class="btn-srt-label">Da timeline</span>
+            </button>
+            <button id="btn-clear-captions" class="btn-srt-clear" title="Limpar legendas/SRT carregado">✕</button>
+            <button id="btn-captions" class="btn-srt-import" title="Ver e editar as legendas (timecode + texto)">
+                <span class="btn-srt-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 15h5M14 15h4M6 11h3M12 11h6"/></svg></span> <span class="btn-srt-label">Legendas</span>
+            </button>
+            <!-- Botão "Salvar modelo" oculto a pedido (funcionalidade auxiliar, não essencial).
+                 Para reexibir, basta remover o style="display:none;" abaixo. -->
+            <button id="btn-save-model" class="btn-save-model" title="Salvar composição como modelo" style="display:none;">
+                💾
+            </button>
+        </div>
+    </footer>
+</div>
+
+<!-- ========================================================================
+     MODAL: Transcrição (Whisper / Groq)
+======================================================================== -->
+<div id="transcribe-modal" class="modal" style="display:none;">
+    <div class="modal-backdrop" id="transcribe-modal-backdrop"></div>
+    <div class="modal-box modal-box--transcribe">
+        <div class="modal-header">
+            <h3><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10v4M6 6v12M10 3v18M14 8v8M18 5v14M22 10v4"/></svg> Transcrição</h3>
+            <button class="modal-close" id="btn-transcribe-close">✕</button>
+        </div>
+        <div class="modal-body">
+            <!-- DE ONDE VEM A TRANSCRIÇÃO (15/08/2026, Victor: "é possível usar
+                 outra chave API de outra plataforma? [...] vamos manter essa,
+                 essa é a melhor que tem. Mas teve usuários que podem utilizar
+                 outra, seria massa ter essa opção").
+
+                 O Groq segue sendo o padrão, e quem já tem a chave gsk_ salva
+                 não precisa escolher nada: o serviço é deduzido do PREFIXO da
+                 chave. A escolha explícita existe pra quem usa outro.
+
+                 Só entram serviços compatíveis com a API da OpenAI, que é o
+                 formato que o plugin já fala. Deepgram e AssemblyAI têm outro
+                 desenho de resposta e ficaram de fora de propósito — ver a
+                 nota no js/transcription.js. -->
+            <div class="form-field">
+                <label>De onde vem a transcrição</label>
+                <span class="guia-pills" id="transcribe-servicos">
+                    <button type="button" class="caps-pill" data-servico="groq" title="O padrão. Gratuito e o mais rápido">Groq</button>
+                    <button type="button" class="caps-pill" data-servico="openai" title="Pago. Usa o whisper-1">OpenAI</button>
+                    <button type="button" class="caps-pill" data-servico="custom" title="Qualquer serviço compatível com a API da OpenAI">Personalizado</button>
+                </span>
+            </div>
+
+            <div class="form-field" id="transcribe-custom" style="display:none;">
+                <label for="transcribe-host">Endereço e modelo</label>
+                <input type="text" id="transcribe-host" placeholder="api.exemplo.com" autocomplete="off" spellcheck="false">
+                <input type="text" id="transcribe-caminho" placeholder="/v1/audio/transcriptions" autocomplete="off" spellcheck="false" style="margin-top:6px;">
+                <input type="text" id="transcribe-modelo" placeholder="whisper-1" autocomplete="off" spellcheck="false" style="margin-top:6px;">
+                <span class="transcribe-hint">O serviço precisa aceitar <b>response_format=verbose_json</b> com tempo por palavra. Sem isso o plugin não consegue dividir a legenda nem realinhar depois do corte.</span>
+            </div>
+
+            <div class="form-field">
+                <label for="openai-key-input" id="openai-key-label">Chave da API Groq (grátis)</label>
+                <!-- COLAR SEM TECLADO (30/08/2026, relato de alunos): o CEP
+                     às vezes perde a captura do teclado dentro do Premiere e
+                     o Cmd+V/Ctrl+V morre até reiniciar. O botão lê a área de
+                     transferência pelo Node (pbpaste no Mac, Get-Clipboard no
+                     Windows) e não depende de teclado nenhum. -->
+                <div style="display:flex;gap:6px;align-items:center;">
+                    <input type="password" id="openai-key-input" placeholder="gsk_..." autocomplete="off" spellcheck="false" style="flex:1;min-width:0;">
+                    <button type="button" id="btn-key-colar" class="btn-secondary" style="flex:0 0 auto;" title="Cola a chave copiada, mesmo quando o Cmd+V/Ctrl+V não funciona dentro do Premiere">Colar</button>
+                </div>
+                <span class="transcribe-hint" id="openai-key-hint">Gratuita. Crie em console.groq.com/keys, e fica guardada só no seu computador.</span>
+            </div>
+
+            <!-- Idioma do áudio -->
+            <div class="form-field">
+                <label for="transcribe-lang">Idioma do áudio</label>
+                <select id="transcribe-lang" style="width:100%;">
+                    <option value="">Automático (detecta)</option>
+                    <option value="pt">Português</option>
+                    <option value="en">English</option>
+                    <option value="es">Español</option>
+                    <option value="fr">Français</option>
+                    <option value="it">Italiano</option>
+                    <option value="de">Deutsch</option>
+                </select>
+                <span class="transcribe-hint">Se a transcrição sair no idioma errado, escolha aqui o idioma falado no áudio.</span>
+            </div>
+
+            <!-- FAIXA DE ÁUDIO: não existe API pra exportar uma trilha isolada,
+                 então o plugin emudece as outras, exporta e devolve tudo como
+                 estava. Serve pra quem tem música ou trilha de apoio junto. -->
+            <div class="form-field">
+                <label for="transcribe-track">Faixa de áudio</label>
+                <div style="display:flex;gap:6px;">
+                    <select id="transcribe-track" style="flex:1;min-width:0;">
+                        <option value="-1">Todas (mix completo)</option>
+                    </select>
+                    <button type="button" id="btn-transcribe-tracks" class="btn-secondary" style="flex:0 0 auto;padding:6px 10px;" title="Reler as trilhas da sequência">↻</button>
+                </div>
+                <span class="transcribe-hint">Com música de fundo, escolha só a trilha da voz.</span>
+            </div>
+
+            <!-- Segmentação da legenda -->
+            <div class="form-field">
+                <label>Como dividir a legenda</label>
+
+                <!-- Mesmo trio do editor de Legendas (pedido do Victor, 10/08):
+                     as setinhas nativas do input number são miúdas demais. O
+                     campo VISÍVEL é o `transcribe-num`; os dois campos de
+                     verdade viram depósito escondido, um por unidade — assim o
+                     getSegOpts e o editor de Legendas continuam lendo o que
+                     sempre leram, sem uma linha de mudança. -->
+                <div class="caps-linha" style="margin-top:6px;">
+                    <div class="caps-num" title="Tamanho da legenda. Com «2 linhas» ligado, vale POR LINHA.">
+                        <button type="button" id="tr-wp-menos" class="caps-step" title="Diminuir">−</button>
+                        <input type="number" id="transcribe-num" min="1" max="20" step="1" value="2">
+                        <button type="button" id="tr-wp-mais" class="caps-step" title="Aumentar">+</button>
+                        <div class="caps-caixa caps-unidade" id="tr-unidade" title="Dividir contando palavras ou contando caracteres">
+                            <button type="button" data-unidade="palavras" class="caps-pill on" title="A legenda fecha a cada N palavras de conteúdo">palavras</button>
+                            <button type="button" data-unidade="chars" class="caps-pill" title="A legenda fecha ao chegar em N caracteres — a palavra nunca é partida">caracteres</button>
+                        </div>
+                    </div>
+                    <button type="button" id="transcribe-prep-btn" class="caps-pill on" title="Ligado: o Mega Brain divide sozinho, pelo sentido e pelo ritmo da fala — o número fica de fora. Desligado: cada legenda tem o número escolhido; conectivo curtinho (é, e, de...) pega carona e não conta.">Mega Brain</button>
+                </div>
+                <span class="transcribe-hint" id="tr-dica-unidade">Mega Brain aceso: ele divide sozinho e o número fica de fora. Apagado: vale o número escolhido — conectivo curtinho (é, e, de...) pega carona e não conta. A palavra nunca é cortada no meio.</span>
+
+                <!-- Depósito: um campo por unidade. Não aparecem. -->
+                <select id="transcribe-modo" style="display:none;">
+                    <option value="palavras">Por palavras</option>
+                    <option value="chars">Por caracteres</option>
+                </select>
+                <input type="number" id="transcribe-words-per" value="2" style="display:none;">
+                <input type="number" id="transcribe-max-chars" value="15" style="display:none;">
+                <input type="checkbox" id="transcribe-prep-mode" style="display:none">
+            </div>
+
+            <div id="transcribe-status" class="transcribe-status"></div>
+
+            <div class="modal-actions" style="flex-wrap:wrap;gap:8px;">
+                <button id="btn-transcribe-cancel" class="btn-secondary">Fechar</button>
+                <button id="btn-transcribe-file" class="btn-secondary">Selecionar arquivo</button>
+                <button id="btn-transcribe-timeline" class="btn-primary">Transcrever da timeline</button>
+            </div>
+            <span class="transcribe-hint" style="display:block;margin-top:8px;opacity:0.7;">"Da timeline" exporta o áudio da sequência ativa automaticamente. "Selecionar arquivo" usa um áudio do seu PC.</span>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================================================
+     MODAL: Legendas (editor de captions)
+======================================================================== -->
+<div id="captions-modal" class="modal" style="display:none;">
+    <div class="modal-backdrop" id="captions-modal-backdrop"></div>
+    <div class="modal-box modal-box--captions">
+        <div class="modal-header">
+            <h3><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 15h5M14 15h4M6 11h3M12 11h6"/></svg> Legendas <span id="captions-count" class="captions-count"></span></h3>
+            <button class="modal-close" id="btn-captions-close">✕</button>
+        </div>
+        <div class="modal-body">
+            <!-- Duas famílias com rótulo, em vez de pilha de botão solto
+                 (feedback do Victor 09/08: "muito botão, bagunçado").
+                 DIVISÃO = como o texto vira blocos; TEXTO = a cara do texto.
+                 O estado mora na COR (pastilha acesa = ligada); o detalhe de
+                 cada opção vive no title. -->
+            <div class="caps-grupo">
+                <span class="caps-rotulo">Divisão</span>
+                <div class="caps-linha">
+                    <!-- Stepper − / + no lugar das setinhas nativas: as setas do
+                         <input number> são miúdas demais pra clicar (feedback do
+                         Victor, 09/08). Com transcrição carregada, o − / + já
+                         re-divide sozinho — resposta na hora, sem segundo clique. -->
+                    <div class="caps-num" title="Tamanho da legenda. Com «2 linhas» ligado, vale POR LINHA.">
+                        <button type="button" id="caps-wp-menos" class="caps-step" title="Diminuir">−</button>
+                        <input type="number" id="captions-words-per" min="1" max="20" step="1" value="2">
+                        <button type="button" id="caps-wp-mais" class="caps-step" title="Aumentar">+</button>
+                        <!-- A unidade é um seletor de 2 estados, na forma do Aa/aa/AA:
+                             o número vale por PALAVRAS ou por CARACTERES. Cada
+                             unidade guarda o próprio valor — trocar de unidade não
+                             deixa "3" virar 3 caracteres. O motor de divisão por
+                             caractere já existia na transcrição; aqui é reuso. -->
+                        <div class="caps-caixa caps-unidade" id="caps-unidade" title="Dividir contando palavras ou contando caracteres">
+                            <button type="button" data-unidade="palavras" class="caps-pill on" title="A legenda fecha a cada N palavras de conteúdo">palavras</button>
+                            <button type="button" data-unidade="chars" class="caps-pill" title="A legenda fecha ao chegar em N caracteres — a palavra nunca é partida">caracteres</button>
+                        </div>
+                    </div>
+                    <button type="button" id="captions-prep-btn" class="caps-pill on" title="Ligado: o Mega Brain divide sozinho, pelo sentido e pelo ritmo da fala — o número fica de fora. Desligado: cada legenda tem o número escolhido; conectivo curtinho (é, e, de...) pega carona e não conta.">Mega Brain</button>
+                    <input type="checkbox" id="captions-prep-mode" style="display:none">
+                    <button type="button" id="btn-two-lines" class="caps-pill" title="Cada legenda em DUAS linhas: o total dobra (o número de palavras vale por linha) e a quebra cai perto do meio. Re-divide na hora se a transcrição estiver carregada.">☰ 2 linhas</button>
+                    <!-- O "↻ Re-dividir" morava aqui e foi REMOVIDO (09/08/2026,
+                         Victor). Depois que toda opção de divisão passou a
+                         re-dividir ao vivo, ele não fazia mais nada: com a
+                         transcrição carregada era repetir o que já tinha
+                         acontecido, e sem ela só imprimia um erro. Ocupava
+                         espaço numa linha que já era apertada. -->
+                </div>
+            </div>
+            <div class="caps-grupo">
+                <span class="caps-rotulo">Texto</span>
+                <div class="caps-linha">
+                    <div class="caps-caixa" id="caps-caixa" title="Caixa do texto ao aplicar">
+                        <button type="button" data-caixa="normal" class="caps-pill on" title="Maiúscula só no começo das frases (depois de . ! ? …); siglas ficam">Aa</button>
+                        <button type="button" id="btn-clean-lower" data-caixa="lower" class="caps-pill" title="tudo minúsculo ao aplicar (todos os modos)">aa</button>
+                        <button type="button" id="btn-clean-upper" data-caixa="upper" class="caps-pill" title="TUDO MAIÚSCULO ao aplicar (todos os modos)">AA</button>
+                    </div>
+                    <button type="button" id="btn-clean-punct" class="caps-pill" title="Remove vírgulas e pontos ao aplicar (todos os modos)">✂ Sem pontuação</button>
+                    <button type="button" id="btn-caps-fonte" class="caps-pill" title="Fonte dos blocos de legenda inseridos por este painel. Sem escolha, vale a do Estilo (se ligada); sem nada, a do modelo.">Fonte: Padrão</button>
+                </div>
+            </div>
+            <span class="transcribe-hint" style="display:block;margin:6px 0 4px;">Aceso = ligado. Clique no texto pra corrigir; ✕ apaga. Enter divide o bloco em 2; Shift+Enter quebra a linha dentro dele.</span>
+            <div id="captions-list" class="captions-list"></div>
+            <div id="captions-empty" class="captions-empty" style="display:none;">Nenhuma legenda carregada. Transcreva ou importe um SRT primeiro.</div>
+            <div class="form-field" style="margin-top:10px;">
+                <label>Trilha das legendas</label>
+                <select id="captions-track" style="width:100%;">
+                    <option value="-1">Nova trilha (topo)</option>
+                    <option value="0">V1</option>
+                    <option value="1">V2</option>
+                    <option value="2">V3</option>
+                    <option value="3">V4</option>
+                    <option value="4">V5</option>
+                    <option value="5">V6</option>
+                    <option value="6">V7</option>
+                    <option value="7">V8</option>
+                </select>
+            </div>
+            <div id="captions-insert-status" class="transcribe-status"></div>
+            <!-- Rodapé em grade 2×2: mesma largura, mesma altura, tudo
+                 ALINHADO (feedback do Victor 09/08 — larguras soltas ficavam
+                 tortas). Em cima as auxiliares; embaixo as DUAS inserções em
+                 laranja — as duas fazem a mesma coisa, só muda o alcance, então
+                 a cor é a mesma (pedido dele). "Fechar" continua no ✕. -->
+            <div class="caps-acoes">
+                <button id="btn-captions-revert" class="btn-secondary caps-mini" title="Desfaz as edições da sessão e volta à transcrição original">↺ Reverter</button>
+                <button id="btn-captions-export-srt" class="btn-secondary caps-mini" title="Salva as legendas atuais num arquivo .srt">⬇ SRT</button>
+                <!-- SUBTITULOS NATIVOS (26/08/2026, pedido do Victor com os
+                     prints do painel Texto do Premiere): cria a trilha de
+                     legenda NATIVA (C1: Subtitle) com estes blocos. A partir
+                     dela o aluno tem o controle todo do Premiere: contorno,
+                     sombra, fundo, fonte, tudo no painel de Propriedades. -->
+                <button id="btn-captions-subtitulos" class="btn-secondary caps-mini" title="Cria uma trilha de legenda nativa do Premiere (a mesma do painel Texto) com estes blocos. De lá você controla contorno, sombra e fundo no próprio Premiere.">CC Subtítulos</button>
+                <!-- CC NO IN/OUT (05/09/2026, Victor: "deixar o usuário importar só onde
+                     ele quiser"): mesmo gesto do Inserir no In/Out, só os blocos do trecho. -->
+                <button id="btn-captions-subtitulos-io" class="btn-secondary caps-mini" title="Cria a trilha de legenda nativa só com os blocos dentro do In (I) e Out (O) marcados na timeline; bloco que cruza a borda é aparado no trecho.">CC no In/Out</button>
+                <!-- QUINTO BOTÃO (14/08/2026, Victor: "a pessoa inseriu as
+                     legendas estáticas e agora quer desfazer; o problema é onde
+                     colocar, temos quatro empilhados perfeito").
+                     A resposta foi agrupar por FUNÇÃO em vez de espremer mais
+                     um numa grade 2×2: em cima as três auxiliares, embaixo as
+                     duas inserções laranja. Nasce escondido e só aparece quando
+                     há inserção registrada pra desfazer. -->
+                <button id="btn-captions-tirar" class="btn-secondary caps-mini" style="display:none;">↩ Tirar da timeline</button>
+                <button id="btn-captions-insert-io" class="fs-acao caps-acao" title="Insere os gráficos só no trecho marcado com In (I) e Out (O)">⬇ No In/Out</button>
+                <button id="btn-captions-insert" class="fs-acao caps-acao" title="Cria um bloco de gráfico por legenda na timeline (pra usar no Custom)">⬇ Inserir na timeline</button>
+                <button id="btn-captions-stop" class="btn-secondary" style="display:none;">⏹ Parar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: Fonte da legenda estática — UM seletor só (pedido do Victor,
+     09/08/2026): o aluno escolhe a fonte AQUI, sem precisar saber que o modal
+     Estilo existe. Vem DEPOIS do captions-modal no DOM de propósito: mesmo
+     z-index, quem vem depois fica por cima. -->
+<div id="caps-font-modal" class="modal" style="display:none;">
+    <div class="modal-backdrop" id="caps-font-backdrop"></div>
+    <div class="modal-box" style="max-width:400px;">
+        <div class="modal-header">
+            <h3>Fonte da legenda</h3>
+            <button class="modal-close" id="btn-caps-font-close">✕</button>
+        </div>
+        <div class="modal-body">
+            <span class="transcribe-hint" style="display:block;margin-bottom:8px;">Vale pros blocos inseridos por este painel. Limpar volta pro padrão.</span>
+            <div class="font-search-wrap">
+                <input type="text" id="caps-font-search" class="font-search-input" placeholder="Buscar fonte...">
+                <div class="font-list-container" id="caps-font-list"></div>
+            </div>
+            <div class="font-selected">
+                <span class="font-selected-name" id="caps-font-selected">Padrão</span>
+                <button class="font-clear-btn" id="btn-caps-font-clear" title="Volta pro padrão">✕</button>
+            </div>
+            <div class="modal-actions" style="margin-top:10px;">
+                <button id="btn-caps-font-save" class="fs-acao caps-acao">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================================================
+     MODAL: Preferências (SFX, opções AE)
+======================================================================== -->
+<div id="settings-modal" class="modal" style="display:none;">
+    <div class="modal-backdrop"></div>
+    <div class="modal-box modal-box--small">
+        <div class="modal-header">
+            <h3>Preferências</h3>
+            <button class="modal-close" id="btn-settings-close">✕</button>
+        </div>
+        <div class="modal-body">
+            <label class="switch-row" for="audioSfxCb">
+                <span class="switch-label">Som ao aplicar</span>
+                <input type="checkbox" id="audioSfxCb" class="switch-input" checked>
+                <span class="switch-slider"></span>
+            </label>
+
+            <div id="row-extract-elements" class="switch-row-wrapper">
+                <label class="switch-row" for="extractTemplateCb">
+                    <span class="switch-label">Trazer extras do template</span>
+                    <input type="checkbox" id="extractTemplateCb" class="switch-input" checked>
+                    <span class="switch-slider"></span>
+                </label>
+            </div>
+
+            <div id="row-preserve-fonts" class="switch-row-wrapper">
+                <label class="switch-row" for="preserveFontsCb">
+                    <span class="switch-label">Preservar fontes do projeto</span>
+                    <input type="checkbox" id="preserveFontsCb" class="switch-input">
+                    <span class="switch-slider"></span>
+                </label>
+            </div>
+
+            <div id="row-keep-captions" class="switch-row-wrapper">
+                <label class="switch-row" for="keepCaptionsCb">
+                    <span class="switch-label">Manter captions/graphics originais</span>
+                    <input type="checkbox" id="keepCaptionsCb" class="switch-input" checked>
+                    <span class="switch-slider"></span>
+                </label>
+            </div>
+
+            <div class="switch-row-wrapper">
+                <div class="switch-row" style="cursor:default;">
+                    <span class="switch-label">Resolução da sequência</span>
+                    <select id="resSelect" class="track-select" style="margin-left:auto;max-width:150px;">
+                        <option value="auto">Auto (detecta)</option>
+                        <option value="fhd">Full HD (100%)</option>
+                        <option value="4k">4K (200%)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Versão — o cabeçalho mostra em miúdo; aqui fica legível, que é
+                 onde a pessoa procura quando quer saber se está atualizada. -->
+            <div id="settings-version" style="margin-top:14px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.10);font-size:11px;opacity:.65;text-align:center;user-select:text;">
+                Caption IA <span id="settings-version-num">—</span>
+            </div>
+
+            <!-- Spans vazios que o main.js tenta esconder no Premiere -->
+            <span id="divider-extract-elements" style="display:none"></span>
+            <span id="divider-preserve-fonts"   style="display:none"></span>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================================================
+     MODAL: Estilo (cores e fontes)
+======================================================================== -->
+<div id="font-config-modal" class="modal" style="display:none;">
+    <div class="modal-backdrop" id="font-modal-backdrop"></div>
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3>Estilo</h3>
+            <button class="modal-close" id="btn-font-modal-close">✕</button>
+        </div>
+
+        <!-- IDENTIDADE VISUAL DO CLIENTE — guarda fonte, cores e corpo com um
+             nome. Editor com cliente fixo alterna num clique em vez de
+             reconfigurar tudo toda vez. -->
+        <div class="form-field" style="margin-bottom:10px;">
+            <label>Identidade visual do cliente</label>
+            <div style="display:flex;gap:6px;">
+                <select id="cliente-select" style="flex:1;min-width:0;"></select>
+                <button id="btn-cliente-save" class="btn-secondary" style="flex:0 0 auto;padding:6px 10px;" title="Salvar o estilo atual com o nome de um cliente">💾</button>
+                <button id="btn-cliente-del" class="btn-secondary" style="flex:0 0 auto;padding:6px 10px;" title="Apagar o cliente escolhido">✕</button>
+            </div>
+            <!-- EXPORTAR / IMPORTAR (06/09/2026, Victor: "se a pessoa atualizar, ela vai perder
+                 toda a identidade visual do cliente"). O cofre já espelha tudo em
+                 Documentos/editBest/_config (compatibilidade) (28/08); isto é a garantia a mais: um arquivo
+                 por cliente (ou todos num só) em Documentos/editBest/Estilos exportados (compatibilidade),
+                 que viaja pra outro computador e volta pelo Importar. -->
+            <div style="display:flex;gap:6px;margin-top:6px;">
+                <button type="button" id="btn-cliente-exportar" class="btn-secondary" style="flex:1;padding:5px 8px;font-size:10.5px;" title="Grava o estilo do cliente escolhido num arquivo em Documentos/editBest/Estilos exportados (compatibilidade)">⬆ Exportar este</button>
+                <button type="button" id="btn-cliente-exportar-todos" class="btn-secondary" style="flex:1;padding:5px 8px;font-size:10.5px;" title="Grava todos os clientes num arquivo só, na mesma pasta">⬆ Exportar todos</button>
+                <button type="button" id="btn-cliente-importar" class="btn-secondary" style="flex:1;padding:5px 8px;font-size:10.5px;" title="Traz clientes de um arquivo exportado, deste ou de outro computador">⬇ Importar</button>
+            </div>
+            <span class="transcribe-hint">Salve o estilo com o nome do cliente e volte nele num clique.</span>
+            <div id="cliente-status" style="font-size:10px;margin-top:4px;line-height:1.4;"></div>
+        </div>
+
+        <label class="switch-row switch-row--top" for="fonts-enabled-checkbox">
+            <span class="switch-label">Aplicar estilo personalizado</span>
+            <input type="checkbox" id="fonts-enabled-checkbox" class="switch-input">
+            <span class="switch-slider"></span>
+        </label>
+
+        <div id="font-modal-content" class="font-modal-content disabled">
+
+            <!-- CORES: as duas legendas juntas numa barra só. Antes cada cor
+                 ficava dentro da sua seção de fonte, espalhada, e o degradê
+                 numa terceira linha. Junto fica claro o que é cor e o que é
+                 fonte, e sobra largura pro tamanho em pt. -->
+            <div class="fs-bloco" style="--fs-cor:var(--brand-warn);margin:0 0 14px;">
+                <div class="fs-bloco-titulo">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="14" r="2.5"/><circle cx="8.5" cy="7.5" r="2.5"/><circle cx="6.5" cy="12.5" r="2.5"/>
+                        <path d="M12 2a10 10 0 1 0 0 20 2 2 0 0 0 1.6-3.2 2 2 0 0 1 1.6-3.2H18a4 4 0 0 0 4-4 10 10 0 0 0-10-9.6z"/>
+                    </svg>
+                    Cores
+                    <span class="fs-bloco-sub">principal e secundária</span>
+                </div>
+
+                <div class="fs-cor-titulo"><span>PRINCIPAL</span></div>
+                <div class="fs-cor-linha">
+                    <div class="color-group" id="styles-section-color-highlight">
+                        <input type="color" id="highlight-color-visual" class="color-swatch" value="#FFFFFF">
+                        <input type="text"  id="highlight-color-picker" class="color-hex"    value="#FFFFFF" maxlength="7">
+                    </div>
+                    <label class="fs-grad-btn" for="gradient-enabled-checkbox" title="Ligar degradê e escolher a cor final">
+                        <input type="checkbox" id="gradient-enabled-checkbox">
+                        <span class="fs-grad-mais">+</span>
+                    </label>
+                    <!-- cor final do degradê: na MESMA linha, que é o que faz caber.
+                         Ela só existe aqui porque o rótulo saiu da linha e virou
+                         cabeçalho: era ele que comia a largura. -->
+                    <span class="fs-grad-linha" id="gradient-row">
+                        <span class="fs-grad-seta">→</span>
+                        <input type="color" id="gradient-end-visual" class="color-swatch" value="#FFFFFF">
+                        <input type="text" id="gradient-end-picker" class="color-hex" value="#FFFFFF" maxlength="7">
+                    </span>
+                </div>
+
+                <div class="fs-cor-titulo"><span>SECUNDÁRIO</span></div>
+                <div class="fs-cor-linha">
+                    <div class="color-group" id="styles-section-color-support">
+                        <input type="color" id="support-color-visual" class="color-swatch" value="#FFFFFF">
+                        <input type="text"  id="support-color-picker" class="color-hex"    value="#FFFFFF" maxlength="7">
+                    </div>
+                    <label class="fs-grad-btn" for="gradient-support-checkbox" title="Ligar degradê e escolher a cor final">
+                        <input type="checkbox" id="gradient-support-checkbox">
+                        <span class="fs-grad-mais">+</span>
+                    </label>
+                    <span class="fs-grad-linha" id="gradient-support-row">
+                        <span class="fs-grad-seta">→</span>
+                        <input type="color" id="gradient-support-end-visual" class="color-swatch" value="#FFFFFF">
+                        <input type="text" id="gradient-support-end-picker" class="color-hex" value="#FFFFFF" maxlength="7">
+                    </span>
+                </div>
+                <span class="transcribe-hint" id="gradient-hint" style="display:none;">O degradê vale só nos modelos que têm.</span>
+            </div>
+
+            <!-- PRINCIPAL -->
+            <div class="font-section">
+                <div class="font-section-head">
+                    <span class="font-badge font-badge--highlight">PRINCIPAL</span>
+                    <div class="font-size-group">
+                        <input type="number" id="highlight-size-input" class="font-size-input" placeholder="—" min="1" max="300" step="1">
+                        <span class="font-size-label">pt</span>
+                    </div>
+                </div>
+                <div class="font-search-wrap">
+                    <input type="text" id="font-search-highlight" class="font-search-input" placeholder="Buscar fonte...">
+                    <div class="font-list-container" id="font-list-highlight"></div>
+                </div>
+                <div class="font-selected" id="font-selected-highlight">
+                    <span class="font-selected-name" id="font-selected-highlight-name">Padrão do modelo</span>
+                    <button class="font-clear-btn" id="font-clear-highlight">✕</button>
+                </div>
+            </div>
+
+            <!-- SECUNDÁRIO -->
+            <div class="font-section">
+                <div class="font-section-head">
+                    <span class="font-badge font-badge--support">SECUNDÁRIO</span>
+                    <div class="font-size-group">
+                        <input type="number" id="support-size-input" class="font-size-input" placeholder="—" min="1" max="300" step="1">
+                        <span class="font-size-label">pt</span>
+                    </div>
+                </div>
+                <div class="font-search-wrap">
+                    <input type="text" id="font-search-support" class="font-search-input" placeholder="Buscar fonte...">
+                    <div class="font-list-container" id="font-list-support"></div>
+                </div>
+                <div class="font-selected" id="font-selected-support">
+                    <span class="font-selected-name" id="font-selected-support-name">Padrão do modelo</span>
+                    <button class="font-clear-btn" id="font-clear-support">✕</button>
+                </div>
+                <!-- MODELOS DE 1 LINHA (20/08, pedido do Victor): eles puxavam
+                     sempre a fonte/cor PRINCIPAL; este interruptor manda os de
+                     1 linha usarem a SECUNDÁRIA — desligado, tudo como era. -->
+                <label class="fs-solo-sec" for="solo-usa-secundaria"
+                       style="display:flex;align-items:center;gap:8px;margin-top:10px;cursor:pointer;font-size:11px;opacity:.85;">
+                    <input type="checkbox" id="solo-usa-secundaria" style="accent-color:var(--brand-warn,#E8A33D);">
+                    <span>Modelos de <b>1 linha</b> usam esta fonte e cor</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- SOMBRA E ESPAÇAMENTO: valem pros dois textos, então ficam fora das
+             colunas de destaque/apoio. Definidos aqui, a legenda já nasce assim
+             e não precisa passar pelo Clonar depois.
+             Cada controle tem DOIS estados: "do modelo" (não mexe) e um número.
+             Eles são separados de propósito: quando o "não mexe" era o mínimo do
+             próprio controle, acertar o zero exigia passar raspando por ele. -->
+        <div class="fs-bloco" style="--fs-cor:var(--brand-warn);margin:14px 0 0;">
+            <div class="fs-bloco-titulo">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 7h16M7 12h13M4 17h16"/>
+                </svg>
+                Sombra e espaçamento
+                <span class="fs-bloco-sub">vale pra todas as linhas</span>
+            </div>
+
+            <div class="fs-slider">
+                <label for="shadow-input">
+                    Sombra
+                    <!-- Mesmo trio do Espaçamento (replicado a pedido do Victor,
+                         10/08/2026): arrasta, digita, ou − / + com segurar-corre. -->
+                    <span class="fs-val-grupo">
+                        <span class="fs-track-caixa">
+                            <button type="button" class="caps-step" id="shadow-menos" title="−1 (segure pra correr)">−</button>
+                            <input type="text" id="shadow-num" inputmode="numeric" placeholder="modelo" title="Digite a força da sombra (0 a 100) e aperte Enter">
+                            <button type="button" class="caps-step" id="shadow-mais" title="+1 (segure pra correr)">+</button>
+                        </span>
+                        <button type="button" class="fs-reset" id="shadow-reset" title="Voltar pro que o modelo traz">↺</button>
+                    </span>
+                </label>
+                <input type="range" id="shadow-input" min="0" max="100" step="1" value="50" class="fs-indef">
+            </div>
+
+            <div class="fs-slider">
+                <label for="tracking-input">
+                    Espaçamento
+                    <!-- O trio do padrão das legendas (pedido do Victor, 10/08/2026):
+                         arrasta de 1 em 1, digita o número, ou anda no − / +
+                         (segurar corre sozinho). Vazio = "do modelo". -->
+                    <span class="fs-val-grupo">
+                        <span class="fs-track-caixa">
+                            <button type="button" class="caps-step" id="tracking-menos" title="−1 (segure pra correr)">−</button>
+                            <input type="text" id="tracking-num" inputmode="numeric" placeholder="modelo" title="Digite o valor (−100 a +100) e aperte Enter">
+                            <button type="button" class="caps-step" id="tracking-mais" title="+1 (segure pra correr)">+</button>
+                        </span>
+                        <button type="button" class="fs-reset" id="tracking-reset" title="Voltar pro que o modelo traz">↺</button>
+                    </span>
+                </label>
+                <input type="range" id="tracking-input" min="-100" max="100" step="1" value="0" class="fs-indef">
+            </div>
+            <span class="transcribe-hint">Arraste, digite ou use − / +. O ↺ devolve pro que o modelo já traz.</span>
+        </div>
+
+        <div class="modal-actions">
+            <button id="btn-font-modal-cancel" class="btn-secondary">Cancelar</button>
+            <button id="btn-font-modal-save" class="btn-primary">Salvar</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================================================
+     MODAL: Salvar Modelo (apenas AE)
+======================================================================== -->
+<div id="save-model-modal" class="modal" style="display:none;">
+    <div class="save-model-modal-backdrop modal-backdrop"></div>
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3>💾 Salvar Modelo</h3>
+            <p class="save-model-modal-subtitle" id="save-model-comp-info">Composição ativa: —</p>
+        </div>
+
+        <div class="form-field">
+            <label for="save-model-category">Categoria</label>
+            <input type="text" id="save-model-category" value="Meus Modelos" placeholder="Ex: Meus Modelos">
+        </div>
+
+        <div class="form-field">
+            <label for="save-model-subcategory">Subcategoria</label>
+            <input type="text" id="save-model-subcategory" value="" placeholder="Ex: 2 linhas">
+        </div>
+
+        <div class="form-field">
+            <label for="save-model-name">Nome do Template</label>
+            <input type="text" id="save-model-name" value="" placeholder="Ex: Template 01">
+        </div>
+
+        <label class="switch-row" for="save-model-render">
+            <span class="switch-label">Renderizar Preview (.mp4)</span>
+            <input type="checkbox" id="save-model-render" class="switch-input" checked>
+            <span class="switch-slider"></span>
+        </label>
+
+        <div id="save-model-error" class="save-model-error"></div>
+
+        <div class="modal-actions">
+            <button id="btn-save-model-cancel" class="btn-secondary">Cancelar</button>
+            <button id="btn-save-model-confirm" class="btn-primary">
+                <span id="save-model-confirm-text">Salvar</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Divisor legado -->
+<span id="save-model-divider" style="display:none"></span>
+
+<!-- ========================================================================
+     MODAIS de aviso
+======================================================================== -->
+
+<!-- SRT obrigatório -->
+<div id="premiere-srt-modal" class="modal" style="display:none;">
+    <div class="modal-backdrop"></div>
+    <div class="modal-box modal-box--small">
+        <div class="modal-header">
+            <h3 style="color:#e0e0e0;">Faltam as legendas</h3>
+            <p class="save-model-modal-subtitle">Escolha de onde elas vêm.</p>
+        </div>
+        <!-- 21/08: antes isto era só um aviso "importe um SRT". Agora oferece
+             o caminho que o Victor pediu: se o aluno já legendou no Premiere,
+             o plugin LÊ a trilha de legendas e usa os textos e tempos dela
+             pra aplicar os modelos animados. -->
+        <p class="modal-text">
+            Se você já legendou no Premiere, use as legendas que estão na timeline.
+            Se tiver o arquivo, importe o SRT pelo rodapé da extensão.
+        </p>
+        <div id="srt-modal-status" class="transcribe-status" style="margin:6px 0 0;"></div>
+        <div class="modal-actions">
+            <button id="btn-srt-modal-timeline" class="btn-primary btn-primary--orange">Usar as legendas da timeline</button>
+            <button id="btn-srt-modal-close" class="btn-secondary">Fechar</button>
+            <button id="btn-srt-modal-tutorial" class="btn-secondary" style="display:none;">Ver Tutorial</button>
+        </div>
+    </div>
+</div>
+
+<!-- Timeline protegida -->
+<div id="timeline-error-modal" class="modal" style="display:none;">
+    <div class="modal-backdrop"></div>
+    <div class="modal-box modal-box--small">
+        <div class="modal-header">
+            <h3 style="color:#ef4444;">❌ Proteção da Timeline</h3>
+            <p class="save-model-modal-subtitle">Injeção bloqueada por falta de espaço.</p>
+        </div>
+        <p class="modal-text">
+            Não há espaço livre nas trilhas de vídeo para os novos modelos.<br><br>
+            <b>Solução:</b> Crie uma <b>Trilha de Vídeo vazia</b> no topo da timeline e tente novamente.
+        </p>
+        <div class="modal-actions">
+            <button id="btn-timeline-modal-close" class="btn-primary btn-primary--red">Entendi</button>
+        </div>
+    </div>
+</div>
+
+<!-- SRT importado com sucesso -->
+<div id="srt-success-modal" class="modal" style="display:none;">
+    <div class="modal-backdrop"></div>
+    <div class="modal-box modal-box--small">
+        <div class="modal-header">
+            <h3 style="color:#22c55e;">✅ SRT Importado!</h3>
+            <p class="save-model-modal-subtitle">Tudo pronto para legendar.</p>
+        </div>
+        <div class="modal-actions">
+            <button id="btn-srt-success-close" class="btn-primary btn-primary--green">Entendi</button>
+        </div>
+    </div>
+</div>
+
+<!-- Tirar o SRT: confirmação (29/08/2026). O Victor pediu porque aluno
+     clicava no X do rodapé sem querer e perdia a transcrição carregada,
+     que só volta com outra rodada de transcrição ou reimportando o SRT.
+     O modal só aparece quando HÁ legenda carregada: com o painel vazio
+     o X segue direto, não existe o que perder. -->
+<div id="clear-srt-modal" class="modal" style="display:none;">
+    <div class="modal-backdrop"></div>
+    <div class="modal-box modal-box--small">
+        <div class="modal-header">
+            <h3 style="color:#e0e0e0;">Tirar as legendas?</h3>
+            <p class="save-model-modal-subtitle">O X limpa o que está carregado no painel.</p>
+        </div>
+        <p class="modal-text">
+            Isso apaga <b><span id="clear-srt-modal-qtd">as legendas</span></b> do painel
+            (a transcrição ou o SRT importado). Para tê-las de volta é preciso
+            transcrever ou importar o arquivo de novo.
+        </p>
+        <div class="modal-actions">
+            <button id="btn-clear-srt-confirm" class="btn-primary btn-primary--red">Tirar as legendas</button>
+            <button id="btn-clear-srt-cancel" class="btn-secondary">Cancelar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Sem seleção na timeline -->
+<div id="no-selection-modal" class="modal" style="display:none;">
+    <div class="modal-backdrop"></div>
+    <div class="modal-box modal-box--small">
+        <div class="modal-header">
+            <h3 style="color:#e0e0e0;">⚠️ Selecione as legendas</h3>
+            <p class="save-model-modal-subtitle">Nenhuma legenda selecionada.</p>
+        </div>
+        <p class="modal-text">
+            Selecione as legendas que quer modificar na timeline, depois clique no modelo.
+        </p>
+        <div class="modal-actions">
+            <button id="btn-no-selection-close" class="btn-primary btn-primary--orange">Entendi</button>
+        </div>
+    </div>
+</div>
+
+<!-- Texto individual (Modo Manual) -->
+<div id="individual-text-modal" class="modal" style="display:none;">
+    <div class="modal-backdrop"></div>
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3 style="color:var(--brand-accent);">✏️ Criar Legenda Individual</h3>
+            <p class="save-model-modal-subtitle">Digite o texto para este modelo.</p>
+        </div>
+        <div id="individual-modal-body" class="modal-body"></div>
+        <div class="modal-actions">
+            <button id="btn-individual-modal-cancel" class="btn-secondary">Cancelar</button>
+            <button id="btn-individual-modal-confirm" class="btn-primary btn-primary--accent">Criar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Aviso de linhas insuficientes -->
+<div id="line-warning-modal" class="modal" style="display:none;">
+    <div class="modal-backdrop" id="line-warning-backdrop"></div>
+    <div class="modal-box modal-box--small" style="text-align:center;">
+        <div style="font-size:40px;margin-bottom:15px;">⚠️</div>
+        <h2 class="modal-title" id="line-warning-title">Atenção</h2>
+        <p class="modal-text" id="line-warning-message">
+            Você precisa selecionar mais legendas para este modelo.
+        </p>
+        <div class="modal-actions">
+            <button id="btn-line-warning-close" class="btn-primary btn-primary--full">Entendi</button>
+        </div>
+    </div>
+</div>
+
+<!-- Header invisível (mantém o seletor .header do main.js) -->
+<div class="header" style="display:none"></div>
+
+<!-- Container da versão antiga (mantido pelo main.js) -->
+<div class="container" style="display:none"></div>
+
+<!-- ========================================================================
+     SCRIPT inline: Sincroniza campos de cor + mostra/esconde modais rápidos
+======================================================================== -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Versão do plugin — no cabeçalho e nas preferências. Sai do
+    // CURRENT_VERSION do main.js pra não existir número duplicado no projeto.
+    (function () {
+        var v = (typeof CURRENT_VERSION !== 'undefined' && CURRENT_VERSION) ? CURRENT_VERSION : '';
+        if (!v) return;
+        var badge = document.getElementById('brand-version');
+        if (badge) {
+            badge.textContent = 'v' + v;
+            var brand = document.querySelector('.header-brand');
+            if (brand) brand.title = 'Caption IA ' + v;
+        }
+        var pref = document.getElementById('settings-version-num');
+        if (pref) pref.textContent = 'v' + v;
+    })();
+
+    // Sincroniza input HEX com color picker (PRINCIPAL e SECUNDÁRIO)
+    ['highlight', 'support'].forEach(function (prefix) {
+        var hex    = document.getElementById(prefix + '-color-picker');
+        var visual = document.getElementById(prefix + '-color-visual');
+        if (!hex || !visual) return;
+        visual.addEventListener('input', function () {
+            hex.value = visual.value.toUpperCase();
+            hex.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        hex.addEventListener('input', function (ev) {
+            var v = ev.target.value;
+            if (!v.startsWith('#')) v = '#' + v;
+            v = v.substring(0, 7).toUpperCase();
+            ev.target.value = v;
+            if (/^#[0-9A-F]{6}$/i.test(v)) visual.value = v;
+        });
+        hex.addEventListener('blur', function (ev) {
+            if (!/^#[0-9A-F]{6}$/i.test(ev.target.value)) {
+                ev.target.value = visual.value;
+            }
+        });
+    });
+
+    // Botão do menu hambúrguer
+    var btnMenu  = document.getElementById('btn-settings-menu');
+    var settings = document.getElementById('settings-modal');
+    var btnClose = document.getElementById('btn-settings-close');
+    if (btnMenu && settings) {
+        btnMenu.addEventListener('click', function () {
+            settings.style.display = 'flex';
+        });
+    }
+    if (btnClose && settings) {
+        btnClose.addEventListener('click', function () {
+            settings.style.display = 'none';
+        });
+        settings.querySelector('.modal-backdrop').addEventListener('click', function () {
+            settings.style.display = 'none';
+        });
+    }
+
+    // Font modal: o main.js espera btn-font-modal-save; já temos. Mas vamos
+    // também bindar btn-font-modal-cancel para fechar o modal.
+    var fontCancel = document.getElementById('btn-font-modal-cancel');
+    var fontModal  = document.getElementById('font-config-modal');
+    if (fontCancel && fontModal) {
+        fontCancel.addEventListener('click', function () {
+            fontModal.style.display = 'none';
+        });
+    }
+});
+</script>
+</body>
+</html>

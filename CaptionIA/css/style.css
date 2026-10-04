@@ -1,0 +1,4038 @@
+/* ============================================================================
+   Caption IA — Caption IA
+   Painel CEP: dark, compacto, split (sidebar + grid)
+============================================================================ */
+
+:root {
+    --bg-0: #0B1220;           /* fundo mais escuro (body) */
+    --bg-1: #0F1B2D;           /* header, footer, sidebar */
+    --bg-2: #14243A;           /* cards/hover */
+    --bg-3: #1E3350;           /* borda sutil / inputs */
+    --bg-4: #294463;           /* inputs ativos */
+    --border: #263C59;
+    --border-strong: #36577E;
+
+    --text:   #EAF2FF;
+    --text-2: #A9BED8;
+    --text-3: #6F89A8;
+
+    --brand:        #60A5FA;   /* prata VF */
+    --brand-accent: #3B82F6;   /* branco/cinza (Caption IA) */
+    --brand-warn:   #f59e0b;   /* amarelo (highlight/favoritos) */
+    --brand-green:  #22c55e;
+    --brand-red:    #ef4444;
+
+    --success: #4ade80;
+    --danger:  #f87171;
+    --warn:    #fb923c;
+
+    --r-sm: 4px;
+    --r-md: 6px;
+    --r-lg: 8px;
+
+    --shadow-card: 0 2px 8px rgba(0,0,0,0.3);
+    --shadow-modal: 0 10px 40px rgba(0,0,0,0.6);
+}
+
+/* ============================================================================
+   RESPONSIVIDADE — escala baseada na largura do painel (suporte 4K/HiDPI)
+   O painel CEP herda o zoom do sistema — em 4K com 150%+ precisa de ajuste
+============================================================================ */
+@media (min-width: 500px) {
+    html, body { font-size: 13px; }
+}
+@media (min-width: 700px) {
+    html, body { font-size: 14px; }
+    #body-container { grid-template-columns: 240px 4px 1fr; }
+}
+@media (min-width: 900px) {
+    html, body { font-size: 15px; }
+    #body-container { grid-template-columns: 260px 4px 1fr; }
+}
+
+
+/* ------- Reset / base ------- */
+
+* { box-sizing: border-box; }
+
+html, body {
+    margin: 0; padding: 0;
+    height: 100%;
+    background: var(--bg-0);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 12px;
+    overflow: hidden;
+    user-select: none;
+}
+/* O PAINEL NUNCA ROLA COMO PÁGINA (12/08/2026 — o bug que o Victor via
+   como "o painel sobe e fica uma borda preta embaixo").
+   `overflow: hidden` esconde a barra mas NÃO impede a rolagem
+   programática: ao clicar num toggle, o navegador rolava o documento pra
+   trazer o controle focado à vista, o cabeçalho saía da tela e sobrava o
+   fundo preto embaixo do rodapé. Medido: 100px de deslocamento.
+   Travar o body no viewport mata a classe inteira de erro — o que precisa
+   rolar (a área de cada painel) tem overflow próprio e continua rolando. */
+body {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    width: 100%;
+}
+
+button {
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    background: none;
+    color: inherit;
+    padding: 0;
+}
+
+input[type="text"], input[type="email"], input[type="password"], input[type="search"], input[type="number"] {
+    font-family: inherit;
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 7px 10px;
+    color: var(--text);
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.15s, background 0.15s;
+}
+input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus, input[type="number"]:focus {
+    border-color: rgba(255,255,255,0.3);
+    background: var(--bg-4);
+}
+
+/* Selects (tema escuro, minimalista — sem o branco do navegador) */
+select {
+    font-family: inherit;
+    background-color: var(--bg-3);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 7px 28px 7px 10px;
+    font-size: 12px;
+    outline: none;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path fill='%239a9aa2' d='M0 0l5 6 5-6z'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    transition: border-color 0.15s, background-color 0.15s;
+}
+select:hover { border-color: var(--border-strong); }
+select:focus { border-color: rgba(255,255,255,0.3); background-color: var(--bg-4); }
+select option { background: #1f1f24; color: var(--text); }
+
+/* Botão que liga/desliga ao clicar (no lugar do toggle) */
+.toggle-btn.on {
+    border-color: #22c55e;
+    color: #22c55e;
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+    background: #2a2a30;
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover { background: #3a3a42; }
+
+/* ============================================================================
+   APP SHELL: flexbox vertical [header / banner / body / footer]
+============================================================================ */
+
+.app-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+    background: var(--bg-0);
+    overflow: hidden;
+}
+
+.app-shell.hidden { display: none; }
+
+.app-header,
+.update-banner,
+.app-footer { flex-shrink: 0; }
+
+.app-body { flex: 1 1 auto; min-height: 0; }
+
+/* ============================================================================
+   HEADER
+============================================================================ */
+
+.app-header {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--bg-1);
+    border-bottom: 1px solid var(--border);
+    min-height: 44px;
+}
+
+.header-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border-radius: var(--r-md);
+    transition: background 0.15s;
+}
+.header-brand:hover { background: var(--bg-2); }
+
+.brand-mark {
+    width: 22px;
+    height: 22px;
+    border-radius: 3px;
+    object-fit: contain;
+    background: #000;
+}
+
+.brand-text {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    color: var(--text);
+    white-space: nowrap;
+}
+
+.header-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-icon {
+    position: absolute;
+    left: 10px;
+    color: var(--text-3);
+    pointer-events: none;
+}
+
+#global-search {
+    width: 100%;
+    padding: 6px 10px 6px 30px;
+    border-radius: var(--r-md);
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    font-size: 12px;
+}
+#global-search:focus { border-color: rgba(255,255,255,0.3); }
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.icon-btn {
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--r-md);
+    color: var(--text-2);
+    transition: background 0.15s, color 0.15s;
+}
+.icon-btn:hover {
+    background: var(--bg-2);
+    color: var(--text);
+}
+
+/* Slider de zoom */
+.zoom-control {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 8px;
+    height: 30px;
+    border-radius: var(--r-md);
+    color: var(--text-3);
+}
+.zoom-control:hover { color: var(--text-2); }
+
+#preview-zoom {
+    -webkit-appearance: none;
+    width: 50px;
+    height: 3px;
+    background: var(--border-strong);
+    border-radius: 2px;
+    outline: none;
+    cursor: ew-resize;
+}
+#preview-zoom::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 11px;
+    height: 11px;
+    background: var(--brand-warn);
+    border-radius: 50%;
+    cursor: ew-resize;
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.15);
+}
+
+/* ============================================================================
+   BODY: sidebar + grid
+============================================================================ */
+
+.app-body {
+    display: grid;
+    grid-template-columns: 220px 4px 1fr;
+    overflow: hidden;
+}
+
+.resizer {
+    background: transparent;
+    cursor: col-resize;
+    transition: background 0.2s;
+    height: 100%;
+}
+.resizer:hover { background: var(--brand-accent); }
+
+/* ---- SIDEBAR ---- */
+
+.app-sidebar {
+    background: var(--bg-1);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+    height: 100%;
+}
+
+.sidebar-tabs {
+    display: flex;
+    padding: 6px;
+    gap: 4px;
+    border-bottom: 1px solid var(--border);
+}
+
+.sidebar-tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 6px 8px;
+    border-radius: var(--r-md);
+    color: var(--text-2);
+    font-size: 11px;
+    font-weight: 500;
+    transition: background 0.15s, color 0.15s;
+}
+.sidebar-tab:hover { background: var(--bg-2); color: var(--text); }
+.sidebar-tab.active {
+    background: var(--bg-3);
+    color: var(--text);
+}
+.sidebar-tab[data-filter="favorites"].active { color: var(--brand-warn); }
+
+.sidebar-tree {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 4px 0;
+    min-height: 0;
+}
+
+.sidebar-loading {
+    color: var(--text-3);
+    font-size: 11px;
+    text-align: center;
+    padding: 20px 10px;
+}
+
+/* Árvore: categorias e subcategorias */
+.tree-category {
+    margin: 0;
+    padding: 0;
+}
+.tree-category > summary,
+.tree-subcategory > summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    color: var(--text);
+    font-size: 11px;
+    cursor: pointer;
+    list-style: none;
+    position: relative;
+    transition: background 0.1s;
+}
+.tree-category > summary:hover,
+.tree-subcategory > summary:hover { background: var(--bg-2); }
+
+.tree-category > summary::-webkit-details-marker,
+.tree-subcategory > summary::-webkit-details-marker { display: none; }
+
+.tree-chevron {
+    width: 10px;
+    height: 10px;
+    flex-shrink: 0;
+    color: var(--text-3);
+    transition: transform 0.15s;
+}
+details[open] > summary .tree-chevron { transform: rotate(90deg); }
+
+.tree-category > summary {
+    font-weight: 600;
+    padding-left: 8px;
+    color: var(--brand-warn);
+}
+
+.tree-subcategory > summary {
+    padding-left: 24px;
+    font-weight: 500;
+    color: var(--text);
+}
+
+/* A LINHA DO LINE (14/08/2026): mesma cara do <summary> que ela substituiu,
+   sem chevron e sem gaveta. Ela SELECIONA; quem mostra os templates é a grade.
+   O `.active` importa mais aqui do que importava antes: sem a gaveta abrindo,
+   o realce é o único sinal de que o clique pegou. */
+.tree-subrow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px 6px 24px;
+    color: var(--text);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+.tree-subrow:hover { background: var(--bg-2); }
+.tree-subrow.active {
+    background: var(--bg-2);
+    color: var(--brand-warn);
+    box-shadow: inset 2px 0 0 var(--brand-warn);
+}
+
+.tree-leaf {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px 5px 40px;
+    color: var(--text-2);
+    font-size: 11px;
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+}
+.tree-leaf:hover {
+    background: var(--bg-2);
+    color: var(--text);
+}
+.tree-leaf.active {
+    background: linear-gradient(90deg, rgba(255,255,255,0.08) 0%, transparent 100%);
+    color: var(--brand-accent);
+    border-left: 2px solid var(--brand-accent);
+    padding-left: 38px;
+}
+
+.tree-leaf-icon {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+    color: var(--brand-warn);
+}
+
+.tree-count {
+    color: var(--text-3);
+    font-size: 10px;
+    margin-left: auto;
+    font-weight: 400;
+    padding: 1px 6px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.04);
+}
+
+/* ---- GRID DE PREVIEWS ---- */
+
+.app-content {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg-0);
+    min-height: 0;           /* crítico pro overflow funcionar no grid filho */
+    min-width: 0;
+}
+
+.preset-grid {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 8px 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    min-height: 0;
+}
+
+/* Seção por categoria */
+.tpl-section {
+    margin-bottom: 16px;
+}
+
+/* Fileira horizontal com scroll */
+.tpl-row {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;           /* WRAP — todos visíveis, sem scroll horizontal */
+    gap: 8px;
+    overflow-x: hidden;
+    overflow-y: visible;
+    padding-bottom: 4px;
+}
+
+/* Zoom controla quantas colunas aparecem por linha */
+#dynamic-categories-container[data-zoom="1"] .tpl-row .template-wrapper {
+    flex: 0 0 calc(100% - 0px);
+    width: calc(100% - 0px);
+}
+#dynamic-categories-container[data-zoom="2"] .tpl-row .template-wrapper {
+    flex: 0 0 calc(50% - 4px);
+    width: calc(50% - 4px);
+}
+#dynamic-categories-container[data-zoom="3"] .tpl-row .template-wrapper {
+    flex: 0 0 calc(33.33% - 6px);
+    width: calc(33.33% - 6px);
+}
+#dynamic-categories-container[data-zoom="4"] .tpl-row .template-wrapper {
+    flex: 0 0 calc(25% - 6px);
+    width: calc(25% - 6px);
+}
+
+.grid-loading {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: var(--text-3);
+    padding: 40px 20px;
+    font-size: 12px;
+}
+
+/* Empty state (nenhum template) — com instruções visuais */
+.empty-state {
+    grid-column: 1 / -1;
+    padding: 30px 20px;
+    text-align: center;
+    color: var(--text-2);
+    max-width: 460px;
+    margin: 0 auto;
+}
+.empty-icon {
+    font-size: 40px;
+    margin-bottom: 12px;
+    opacity: 0.6;
+}
+.empty-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 10px;
+}
+.empty-body {
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--text-2);
+}
+.empty-body pre {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 10px 12px;
+    margin: 10px 0;
+    font-family: ui-monospace, 'SF Mono', Monaco, monospace;
+    font-size: 10px;
+    color: var(--text-2);
+    text-align: left;
+    overflow-x: auto;
+    line-height: 1.5;
+}
+.empty-body pre b {
+    color: var(--brand-warn);
+    font-weight: 600;
+}
+.empty-body code {
+    background: var(--bg-2);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: ui-monospace, 'SF Mono', Monaco, monospace;
+    font-size: 10px;
+    color: var(--brand-accent);
+}
+.empty-hint {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border);
+    font-size: 10px;
+    color: var(--text-3);
+}
+.empty-debug {
+    margin-top: 16px;
+    text-align: left;
+    font-size: 10px;
+}
+.empty-debug summary {
+    cursor: pointer;
+    color: var(--text-3);
+    padding: 6px 8px;
+    border-radius: var(--r-sm);
+    background: var(--bg-2);
+    display: inline-block;
+}
+.empty-debug summary:hover { color: var(--text); }
+.empty-debug pre {
+    background: var(--bg-2);
+    padding: 8px 10px;
+    border-radius: var(--r-sm);
+    font-family: ui-monospace, monospace;
+    font-size: 10px;
+    color: var(--text-3);
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 200px;
+    overflow-y: auto;
+}
+.empty-retry {
+    margin-top: 16px;
+    padding: 8px 18px;
+    background: var(--brand-accent);
+    color: #fff;
+    border-radius: var(--r-md);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.empty-retry:hover { background: #555; }
+
+.grid-group-header {
+    grid-column: 1 / -1;
+    margin: 18px 0 8px;
+    padding: 7px 10px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--text-2);
+    text-transform: uppercase;
+    background: var(--bg-2);
+    border-radius: var(--r-sm);
+    border-left: 2px solid rgba(255,255,255,0.35);
+    /* Força novo grupo sempre em linha separada no grid */
+}
+
+/* Card de template */
+.template-wrapper {
+    position: relative;
+    aspect-ratio: 16/9;
+    background: #111;
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    cursor: pointer;
+    box-shadow: var(--shadow-card);
+    transition: transform 0.15s, box-shadow 0.15s;
+    border: 1px solid var(--border);
+}
+
+/* Placeholder quando thumb não existe */
+.template-wrapper .thumb-placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-3);
+    text-align: center;
+    line-height: 1.3;
+    background: repeating-linear-gradient(
+        45deg,
+        #111 0px, #111 8px,
+        #161616 8px, #161616 16px
+    );
+}
+.template-wrapper:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    border-color: rgba(255,255,255,0.3);
+}
+
+.template-preview-image,
+.template-preview-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.template-caption {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 6px 30px 6px 8px;
+    font-size: 10px;
+    color: #fff;
+    background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.85) 80%);
+    font-weight: 500;
+    pointer-events: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Estrela de favorito */
+.template-favorite {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.5);
+    color: var(--text-3);
+    z-index: 5;
+    transition: all 0.15s;
+}
+.template-favorite:hover {
+    background: rgba(0,0,0,0.75);
+    color: var(--brand-warn);
+    transform: scale(1.1);
+}
+.template-favorite.active {
+    color: var(--brand-warn);
+    background: rgba(245, 158, 11, 0.15);
+}
+/* AE: "usar no AutoEdit" (06/09/2026). Mesmo desenho da estrela, no canto oposto. */
+.template-autoedit {
+    position: absolute;
+    top: 6px;
+    right: 32px;   /* 06/09: ao lado da estrela; no canto esquerdo batia no ▶ de aplicar (print do Victor) */
+    height: 22px;
+    padding: 0 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 11px;
+    background: rgba(0,0,0,0.5);
+    color: var(--text-3);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    z-index: 5;
+    transition: all 0.15s;
+}
+.template-autoedit:hover { background: rgba(0,0,0,0.75); color: var(--brand-warn); transform: scale(1.06); }
+.template-autoedit.active { color: #151515; background: var(--brand-warn); }
+
+.template-btn-action {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    z-index: 3;
+}
+
+.template-apply-overlay {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    background: rgba(0, 0, 0, 0.65);
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.15s;
+    pointer-events: none;
+    z-index: 4;
+}
+.template-wrapper:hover .template-apply-overlay { opacity: 1; }
+.template-apply-overlay span {
+    display: none;
+}
+.template-apply-overlay::after {
+    content: '';
+    display: block;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 5px 0 5px 9px;
+    border-color: transparent transparent transparent rgba(255,255,255,0.9);
+    margin-left: 2px;
+}
+
+/* ============================================================================
+   STATUS BAR (abaixo do grid, acima do footer)
+============================================================================ */
+
+.status-bar {
+    padding: 0 12px 6px;
+    min-height: 0;
+    flex-shrink: 0;                 /* nunca encolhe pra dentro do grid */
+    background: var(--bg-0);
+    border-top: 1px solid var(--border);
+}
+.status-msg {
+    min-height: 14px;
+    font-size: 11px;
+    color: var(--text-2);
+    text-align: center;
+    padding: 4px 0 0;
+}
+.status-msg:empty {
+    min-height: 0;
+    padding: 0;
+}
+
+/* Barra de progresso batch */
+.batch-progress-container {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 8px 10px;
+    margin-top: 4px;
+}
+.batch-progress-container.hidden { display: none; }
+
+.batch-progress-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--text-2);
+    margin-bottom: 4px;
+}
+
+.batch-progress-bar-bg {
+    height: 4px;
+    background: var(--bg-3);
+    border-radius: 2px;
+    overflow: hidden;
+}
+.batch-progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--brand-accent), #d0d0d0);
+    width: 0%;
+    transition: width 0.3s;
+}
+
+/* ── MIX MODE (seleção múltipla no Automático) ─────────────────────────── */
+.mix-bar {
+    display: none;
+    flex-direction: column;
+    gap: 5px;
+    padding: 5px 8px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    margin-top: 4px;
+}
+.mix-bar.visible { display: flex; }
+
+/* Linha 1: label MIX  +  botões Limpar / Gerar */
+.mix-bar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    min-width: 0;
+}
+
+.mix-bar-label {
+    font-size: 10px;
+    color: var(--text-3);
+    white-space: nowrap;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    flex-shrink: 0;
+}
+
+/* Linha 2: slots com wrap */
+.mix-slots {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    min-width: 0;
+}
+
+.mix-slot {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    padding: 3px 7px;
+    font-size: 10px;
+    color: var(--text-2);
+    max-width: 110px;
+    min-width: 0;
+    flex: 1 1 60px;    /* cresce/encolhe; base 60px — quebra linha quando preciso */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    position: relative;
+}
+.mix-slot.filled {
+    border-color: var(--brand-accent);
+    color: var(--text-1);
+    background: rgba(255,255,255,0.04);
+}
+.mix-slot-num {
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--brand-accent);
+    flex-shrink: 0;
+}
+.mix-slot-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+}
+.mix-slot-remove {
+    flex-shrink: 0;
+    cursor: pointer;
+    color: var(--text-3);
+    font-size: 11px;
+    line-height: 1;
+    padding: 0 1px;
+}
+.mix-slot-remove:hover { color: #ff4444; }
+
+.mix-bar-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+    flex-wrap: nowrap;
+    align-items: center;
+}
+.btn-mix-clear {
+    font-size: 10px;
+    padding: 3px 8px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    color: var(--text-3);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.btn-mix-clear:hover { border-color: #ff4444; color: #ff4444; }
+
+.btn-mix-run {
+    font-size: 10px;
+    padding: 3px 10px;
+    background: var(--brand-accent);
+    border: none;
+    border-radius: var(--r-sm);
+    color: #000;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+.btn-mix-run:hover { opacity: 0.85; }
+.btn-mix-run:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-mix-stop {
+    font-size: 10px;
+    padding: 3px 10px;
+    background: #c0392b;
+    color: #fff;
+    border: none;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    transition: opacity 0.15s;
+    margin-left: 6px;
+    flex-shrink: 0;
+}
+.btn-mix-stop:hover { opacity: 0.85; }
+
+/* badge de ordem no card quando em mix mode */
+.mix-order-badge {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--brand-accent);
+    color: #000;
+    font-size: 10px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    pointer-events: none;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+}
+
+.template-wrapper.mix-selected {
+    border-color: var(--brand-accent) !important;
+    box-shadow: 0 0 0 2px var(--brand-accent), var(--shadow-card);
+}
+
+/* ============================================================================
+   FOOTER
+============================================================================ */
+
+.app-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: var(--bg-1);
+    border-top: 1px solid var(--border);
+    min-height: 44px;
+    /* Painel estreito: quebra em linha em vez de cortar/transbordar os botões */
+    flex-wrap: wrap;
+    row-gap: 6px;
+}
+
+.mode-selector {
+    display: flex;
+    gap: 2px;
+    background: var(--bg-3);
+    padding: 2px;
+    border-radius: var(--r-md);
+    flex-shrink: 0;
+}
+.mode-btn {
+    padding: 5px 10px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-2);
+    border-radius: 4px;
+    transition: all 0.15s;
+}
+.mode-btn:hover { color: var(--text); }
+.mode-btn.active {
+    background: var(--brand-accent);
+    color: #fff;
+}
+
+.track-selector {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+.track-selector-label {
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--text-2);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.track-select {
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-2);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 4px;
+    cursor: pointer;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+    text-align: center;
+    width: 46px;
+}
+.track-select:hover { border-color: var(--brand-accent); color: var(--text); }
+.track-select:focus { border-color: var(--brand-accent); }
+
+/* Dropdown customizado da Track — o CEF do Premiere não abre <select> nativo */
+.track-custom { position: relative; display: inline-block; }
+.track-custom-btn {
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-2);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 4px;
+    width: 46px;
+    cursor: pointer;
+    text-align: center;
+}
+.track-custom-btn:hover { border-color: var(--brand-accent); color: var(--text); }
+.track-custom-list {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 0;
+    min-width: 46px;
+    max-height: 200px;
+    overflow-y: auto;
+    background: var(--bg-2);
+    border: 1px solid var(--border-strong);
+    border-radius: 4px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.45);
+    z-index: 9999;
+    padding: 2px;
+}
+.track-custom-list.open { display: block; }
+.track-custom-opt {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-2);
+    padding: 5px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    text-align: center;
+    white-space: nowrap;
+}
+.track-custom-opt:hover { background: var(--bg-3); color: var(--text); }
+.track-custom-opt.active { background: var(--brand-accent); color: #fff; }
+
+/* Variante full-width: dropdowns custom dentro dos modais (Mac) — largura total,
+   abre PRA BAIXO (o do rodapé abre pra cima). */
+.track-custom--full { display: block; width: 100%; }
+.track-custom--full .track-custom-btn {
+    width: 100%;
+    text-align: left;
+    padding: 6px 8px;
+    font-size: 11px;
+}
+.track-custom--full .track-custom-list {
+    width: 100%;
+    min-width: 0;
+    top: calc(100% + 4px);
+    bottom: auto;
+    max-height: 220px;
+}
+
+.footer-srt {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.btn-srt-import {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 10px;
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    color: var(--text);
+    font-size: 10px;
+    font-weight: 600;
+    transition: all 0.15s;
+}
+.btn-srt-import:hover {
+    background: var(--bg-4);
+    border-color: rgba(255,255,255,0.3);
+}
+.btn-srt-import.has-data {
+    color: var(--brand-green);
+    border-color: var(--brand-green);
+}
+
+.btn-srt-icon { font-size: 10px; }
+
+.btn-srt-clear, .btn-save-model {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    color: var(--text-2);
+    font-size: 11px;
+    transition: all 0.15s;
+}
+.btn-srt-clear:hover {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--brand-red);
+    border-color: var(--brand-red);
+}
+.btn-save-model:hover {
+    background: var(--bg-4);
+    color: var(--text);
+    border-color: rgba(255,255,255,0.3);
+}
+
+/* Banner de update */
+.update-banner {
+    padding: 6px 10px;
+    background: linear-gradient(90deg, var(--brand-accent) 0%, #d0d0d0 100%);
+    color: #fff;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.update-banner.hidden { display: none; }
+.btn-update {
+    background: #fff;
+    color: var(--brand-accent);
+    padding: 3px 10px;
+    border-radius: var(--r-sm);
+    font-size: 10px;
+    font-weight: 700;
+}
+
+/* ============================================================================
+   MODAIS (genérico)
+============================================================================ */
+
+.modal {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ============================================================================
+   AUTOEDIT — a lista de etapas do maestro
+   ========================================================================= */
+/* A CARA DO AUTOEDIT (06/09/2026): a gramática da página da oferta — cabeçalho
+   curto, cards com linhas numeradas, controles segmentados, rodapé com contagem. */
+.ae-cabeca { padding: 2px 2px 12px; }
+.ae-titulo { font-size: 15px; font-weight: 700; letter-spacing: -.01em; color: var(--text); }
+.ae-sub { font-size: 11px; color: var(--text-2); line-height: 1.5; margin-top: 3px; }
+.ae-card { padding: 12px 14px 4px; margin-top: 10px; box-shadow: var(--shadow-card); }
+.ae-card .fs-bloco-titulo { margin-bottom: 4px; }
+.ae-card .fs-bloco-sub { margin-left: auto; font-weight: 500; }
+.ae-ajuste { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.ae-ajuste:last-of-type { border-bottom: none; }
+.ae-ajuste-nome { font-size: 12px; color: var(--text); flex: 1 1 auto; }
+/* 06/09: os três controles com a MESMA largura e opções proporcionais ("tudo proporcional", Victor) */
+.ae-seg { display: inline-flex; flex: 0 0 auto; width: 62%; max-width: 360px; min-width: 216px; box-sizing: border-box; padding: 2px; border-radius: 999px; background: var(--bg-1); border: 1px solid var(--border); }
+.ae-seg .caps-pill { flex: 1 1 0; text-align: center; white-space: nowrap; border: none; background: transparent; box-shadow: none; padding: 5px 8px; font-size: 10.5px; font-weight: 600; color: var(--text-3); border-radius: 999px; }
+.ae-seg .caps-pill:hover { color: var(--text); background: rgba(255,255,255,.05); }
+/* acesa = VAZADA com texto laranja, a regra da casa de 15/08 (fundo cheio amarelo é só de rótulo) */
+.ae-seg .caps-pill.on { color: var(--brand-warn); background: rgba(245,158,11,.12); box-shadow: inset 0 0 0 1px rgba(245,158,11,.45); }
+.ae-ajuste-dica { display: block; font-size: 10px; color: var(--text-3); padding: 2px 0 8px; min-height: 8px; }
+/* link discreto dentro do card (zerar escolhidos, 06/09) */
+.ae-link { background: none; border: 0; padding: 0 0 8px; margin: -4px 0 0; font-size: 10px; color: var(--text-3); text-decoration: underline dotted; cursor: pointer; }
+.ae-link:hover { color: var(--brand-warn); }
+.ae-rodape { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 2px 0; }
+.ae-contagem { display: inline-flex; align-items: center; gap: 7px; font-size: 11px; color: var(--text-2); }
+.ae-ponto { width: 7px; height: 7px; border-radius: 50%; background: var(--brand-green); box-shadow: 0 0 6px rgba(34,197,94,.7); }
+.ae-contagem.zerada .ae-ponto { background: var(--text-3); box-shadow: none; }
+.ae-rodape-botoes { display: inline-flex; gap: 8px; }
+.ae-rodar { margin-top: 0; padding: 12px 22px; font-size: 13px; font-weight: 700; border-radius: var(--r-lg); box-shadow: 0 2px 10px rgba(245,158,11,.25); }
+.ae-rodar:hover { filter: brightness(1.06); }
+.ae-parar { padding: 8px 12px; font-size: 11px; }
+.ae-status { margin-top: 10px; }
+.ae-detalhes-btn { display: block; margin-top: 4px; padding: 0 2px; background: none; border: none; color: var(--text-3); font-size: 10px; text-decoration: underline; cursor: pointer; text-align: left; }
+.ae-detalhes { font-size: 10px; color: var(--text-2); line-height: 1.5; white-space: pre-wrap; margin-top: 6px; padding: 8px 10px; border-radius: var(--r-md); background: var(--bg-1); border: 1px solid var(--border); }
+.ae-etapa { display: flex; align-items: center; gap: 8px; padding: 10px 2px; border-bottom: 1px solid var(--border); }
+.ae-etapa:last-child { border-bottom: none; }
+.ae-etapa-num { font-size: 10px; color: var(--text-3); flex: 0 0 14px; text-align: right; font-variant-numeric: tabular-nums; }
+.ae-etapa-nome { font-size: 12.5px; font-weight: 500; }
+.ae-etapa.obra { opacity: .5; }
+.ae-etapa.off .ae-etapa-nome { opacity: .45; }
+/* interruptor mini, mesma família dos switches do painel (estado = cor) */
+.ae-switch { display: inline-flex; align-items: center; flex: 0 0 auto; cursor: pointer; }
+.ae-etapa .switch-slider { width: 34px; height: 20px; border-radius: 10px; }
+.ae-etapa .switch-slider::after { width: 12px; height: 12px; }
+.ae-etapa .switch-input:checked ~ .switch-slider::after { left: 16px; }
+.ae-obra-tag {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--text-3);
+    border: 1px dashed var(--border-strong);
+    border-radius: 999px;
+    padding: 2px 8px;
+}
+.ae-etapa-est { font-size: 10px; color: var(--text-3); margin-left: auto; text-align: right; max-width: 55%; }
+.ae-etapa-est.ok   { color: #22c55e; }
+.ae-etapa-est.err  { color: var(--danger); }
+.ae-etapa-est.work { color: var(--brand-warn); }
+
+/* ============================================================================
+   ESPAÇAMENTO (modal Estilo) — [−][número][+] no padrão do stepper das
+   legendas. Duas classes no input: regra da cascata (o input[type=text]
+   global tem padding 7px 10px e comeria o campo por dentro — 5ª vez).
+   ========================================================================= */
+.fs-val-grupo .fs-track-caixa { display: inline-flex; align-items: center; gap: 2px; }
+.fs-val-grupo .fs-track-caixa input {
+    width: 56px;
+    padding: 3px 2px;
+    font-size: 11px;
+    text-align: center;
+}
+
+/* paginação do editor de legendas (VSLs gigantes: 6.600 legendas não podem
+   virar 6.600 textareas de uma vez) */
+.caps-pager { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 6px 0; }
+.caps-pager .caps-pager-rotulo { font-size: 11px; color: var(--text-2); min-width: 110px; text-align: center; }
+.caps-pager .caps-step[disabled] { opacity: .35; cursor: default; }
+
+/* ============================================================================
+   MODO DESENVOLVEDOR
+   Sondas, diagnósticos e exportações existem pro suporte Caption IA, não pro
+   aluno. Alt+Shift+D põe/tira a classe fs-dev no <body> (main.js) e persiste.
+   ========================================================================= */
+/* Esconde só FORA do modo dev — assim, no modo dev, nenhuma regra daqui se
+   aplica e o elemento volta com o display DA CLASSE DELE (revert devolvia o
+   padrão do navegador e achatava .fs-toggle, que é flex). */
+body:not(.fs-dev) .fs-dev-only { display: none !important; }
+
+/* AVISO PERMANENTE DE MODO DEV (15/08/2026).
+   Victor, depois de fechar e abrir o Premiere: "ainda aparece o J/L Cut
+   liberado, veja se minha versão está atualizada". A versão estava certa — o
+   modo dev é que estava LIGADO, gravado em localStorage desde alguma sessão
+   anterior. Fechar o Premiere não limpa isso.
+   O aviso só existia no instante de ligar, numa linha de status que some. Sem
+   marca permanente, não há como saber, e a conclusão vira "a versão não
+   atualizou". Agora a tarja fica na tela enquanto estiver ligado, e diz como
+   desligar. Some sozinha na entrega, onde a classe fs-dev nunca é posta. */
+body.fs-dev::after {
+    content: "MODO DESENVOLVEDOR LIGADO · Alt+Shift+D desliga";
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 99999;
+    pointer-events: none;
+    text-align: center;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    padding: 3px 8px;
+    color: var(--bg-0);
+    background: var(--brand-warn);
+}
+body.fs-dev .fs-nodev-only { display: none !important; }
+
+.modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    /* Sem backdrop-filter: o Chromium do CEP tem um bug de repintura que pinta
+       o painel de PRETO quando uma camada com blur muda de estado — o mesmo
+       que derrubou o .fs-vidro. O rgba 0.7 sozinho já escurece o fundo. */
+}
+
+.modal-box {
+    position: relative;
+    background: var(--bg-1);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-lg);
+    padding: 16px 18px;
+    width: 92%;
+    max-width: 380px;
+    max-height: 85vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    box-sizing: border-box;
+    box-shadow: var(--shadow-modal);
+}
+.modal-box--small { max-width: 300px; }
+
+.modal-header {
+    margin-bottom: 12px;
+    position: relative;
+}
+.modal-header h3 {
+    margin: 0 0 4px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+}
+.modal-header .save-model-modal-subtitle {
+    margin: 0;
+    font-size: 11px;
+    color: var(--text-2);
+}
+.modal-close {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: var(--text-3);
+    font-size: 14px;
+}
+.modal-close:hover { color: var(--text); background: var(--bg-3); }
+
+.modal-body { padding: 0; }
+.modal-text {
+    font-size: 11px;
+    color: var(--text-2);
+    line-height: 1.5;
+    margin: 0 0 16px;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+/* Bloco de Legendas tem muitos botões — normaliza tamanho e quebra em linhas uniformes */
+#captions-modal .modal-actions { flex-wrap: wrap; }
+#captions-modal .modal-actions button {
+    flex: 1 1 140px;
+    min-height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    line-height: 1.2;
+    white-space: normal;
+}
+
+/* Botões primários/secundários */
+.btn-primary, .btn-secondary {
+    flex: 1;
+    padding: 8px 14px;
+    border-radius: var(--r-md);
+    font-size: 11px;
+    font-weight: 700;
+    transition: all 0.15s;
+    text-align: center;
+}
+.btn-primary { 
+    background: linear-gradient(135deg, #e8e8e8 0%, #b0b0b0 100%);
+    color: #111;
+}
+.btn-primary:hover:not(:disabled) { background: linear-gradient(135deg, #fff 0%, #c0c0c0 100%); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary--orange { background: #888888; } .btn-primary--orange:hover { background: #666666; }
+.btn-primary--red    { background: #ef4444; } .btn-primary--red:hover    { background: #dc2626; }
+.btn-primary--green  { background: #22c55e; } .btn-primary--green:hover  { background: #16a34a; }
+.btn-primary--accent { background: linear-gradient(135deg, #e8e8e8 0%, #b0b0b0 100%); color: #111; }
+.btn-primary--full   { flex: 1 0 100%; width: 100%; }
+
+.btn-secondary {
+    background: var(--bg-3);
+    color: var(--text-2);
+    border: 1px solid var(--border);
+}
+.btn-secondary:hover {
+    background: var(--bg-4);
+    color: var(--text);
+}
+
+/* Switch (toggle customizado) */
+.switch-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+}
+.switch-row:last-child, .switch-row--top { border-bottom: none; }
+.switch-row--top { margin-bottom: 8px; }
+.switch-row-wrapper:last-child .switch-row { border-bottom: none; }
+
+.switch-label {
+    font-size: 11px;
+    color: var(--text);
+}
+
+/* CAUSA RAIZ do "painel sobe e fica borda preta" (12/08/2026, medido).
+   O input do interruptor é invisível e posicionado ABSOLUTO — mas sem
+   âncora ele calculava a posição em relação a um ancestral distante e
+   caía fora da vista (medido: top 984px). Ao clicar no label, o
+   navegador FOCA esse input e rola o container pra trazê-lo à vista:
+   cabeçalho e rodapé subiam 100px e sobrava fundo preto embaixo.
+   Ancorar o input no PRÓPRIO controle mata a causa: ele passa a estar
+   sempre visível, e não há o que rolar. */
+.switch-input {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+/* Quem hospeda o interruptor vira a âncora do input acima. */
+.switch-row,
+.fs-toggle,
+.fs-toggle-topo,
+.caps-linha,
+.sfx-bar-linha {
+    position: relative;
+}
+
+.switch-slider {
+    position: relative;
+    display: inline-block;
+    width: 46px;
+    height: 26px;
+    background: #5a5a66;
+    border: 2px solid #9090a0;
+    box-sizing: border-box;
+    border-radius: 13px;
+    transition: background 0.2s, border-color 0.2s;
+    flex-shrink: 0;
+}
+.switch-slider::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    background: #ffffff;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    /* `left` e NÃO transform: animar transform cria/destrói uma camada de
+       composição na GPU a cada clique, e o Chromium do CEP tem um bug que
+       compõe o painel inteiro PRETO nessa troca (relato do Victor no desfoque
+       do zoom, 09/08/2026 — mesma família do bug do backdrop-filter). Animar
+       left repinta sem mexer em camada. */
+    transition: left 0.2s;
+}
+.switch-input:checked ~ .switch-slider {
+    background: #22c55e;
+    border-color: #16a34a;
+}
+.switch-input:checked ~ .switch-slider::after {
+    left: 22px;   /* mesmo pouso do translateX(20px) de antes: 2px + 20px */
+}
+.switch-state {
+    color: #22c55e;
+    font-weight: 700;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+}
+.switch-state.off { color: var(--text-3); }
+
+/* Form field */
+.form-field {
+    margin-bottom: 10px;
+}
+.form-field label {
+    display: block;
+    font-size: 10px;
+    color: var(--text-2);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.form-field input {
+    width: 100%;
+}
+
+.save-model-error {
+    color: var(--brand-red);
+    font-size: 10px;
+    min-height: 14px;
+    margin-top: 4px;
+}
+
+/* ============================================================================
+   FONT MODAL
+============================================================================ */
+
+.font-modal-content {
+    transition: opacity 0.2s;
+}
+.font-modal-content.disabled {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+.font-section {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+}
+.font-section:last-child { border-bottom: none; }
+
+.font-section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.font-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    border-radius: 3px;
+    border: 1px solid transparent;
+}
+.font-badge--highlight {
+    background: rgba(232, 232, 236, 0.10);
+    color: var(--text);
+    border-color: rgba(232, 232, 236, 0.18);
+}
+.font-badge--support {
+    background: rgba(154, 154, 162, 0.06);
+    color: var(--text-2);
+    border-color: rgba(154, 154, 162, 0.14);
+}
+
+.color-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.color-swatch {
+    width: 22px; height: 22px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    background: none;
+    padding: 0;
+}
+.color-swatch::-webkit-color-swatch-wrapper { padding: 0; }
+/* campo vazio = "nao mexe": o swatch apaga pra nao parecer uma cor escolhida (06/09) */
+.color-swatch--vazio { opacity: .3; filter: grayscale(1); }
+.fs-cores-escopo { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.color-swatch::-webkit-color-swatch { border: none; border-radius: 3px; }
+
+.color-hex {
+    width: 78px;
+    font-size: 10px;
+    padding: 4px 6px;
+    text-align: center;
+}
+
+.font-size-group {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+.font-size-input {
+    width: 46px;
+    font-size: 10px;
+    padding: 4px 5px;
+    text-align: center;
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    outline: none;
+    -moz-appearance: textfield;
+}
+.font-size-input::-webkit-outer-spin-button,
+.font-size-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.font-size-input:hover { border-color: var(--brand-accent); }
+.font-size-input:focus { border-color: var(--brand-accent); }
+.font-size-input::placeholder { color: var(--text-3); }
+.font-size-label {
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--text-2);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.font-search-wrap { position: relative; }
+/* Classe dobrada de propósito: (0,2,0) vence o input[type="text"] global
+   (0,1,1) — com uma classe só, o padding e a fonte daqui eram letra morta. */
+.font-search-input.font-search-input {
+    width: 100%;
+    font-size: 11px;
+    padding: 6px 8px;
+}
+.font-list-container {
+    display: none;
+    position: absolute;
+    left: 0; right: 0;
+    top: calc(100% + 2px);
+    max-height: 180px;
+    overflow-y: auto;
+    background: var(--bg-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-md);
+    z-index: 100;
+}
+.font-list-container.open { display: block; }
+
+.font-list-item {
+    padding: 6px 10px;
+    font-size: 11px;
+    color: var(--text);
+    cursor: pointer;
+}
+.font-list-item:hover { background: var(--bg-3); }
+.font-list-item.selected {
+    background: var(--brand-accent);
+    color: #fff;
+}
+
+.font-list-empty {
+    padding: 12px;
+    font-size: 10px;
+    color: var(--text-3);
+    text-align: center;
+}
+
+.font-selected {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 8px;
+    margin-top: 6px;
+    background: var(--bg-2);
+    border-radius: var(--r-sm);
+}
+.font-selected-name {
+    font-size: 10px;
+    color: var(--text-3);
+}
+.font-selected.has-font .font-selected-name { color: var(--brand-accent); }
+.font-clear-btn {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    color: var(--text-3);
+    font-size: 10px;
+}
+.font-clear-btn:hover { background: var(--bg-3); color: var(--text); }
+
+/* ============================================================================
+   RESPONSIVE (painel estreito)
+============================================================================ */
+
+/* Painel estreito: botões de ação viram SÓ ÍCONE (cabe 1 linha, sem cortar nem
+   quebrar torto). O texto reaparece quando o painel é largo. Tooltip explica cada um. */
+/* 670px e não 760: MEDIDO. Com os nomes visíveis o rodapé ocupa 655px
+   (modos 201 + trilha 84 + botões 338 + espaços). O limite antigo escondia o
+   nome 105px cedo demais, herança de quando o rodapé tinha mais botões — hoje
+   tem menos, e o nome cabe por muito mais tempo (Victor, 10/08/2026). */
+@media (max-width: 670px) {
+    .btn-srt-label { display: none; }
+    .btn-srt-import { padding: 5px 8px; }
+    .btn-srt-icon { font-size: 13px; }
+    .footer-srt { gap: 5px; }
+    .mode-btn { padding: 4px 7px; font-size: 9px; }
+    .track-selector-label { display: none; }
+    .app-footer { gap: 6px; }
+}
+/* Muito estreito: as ações descem pra 2a linha (modos+trilha em cima), sem cruzar */
+@media (max-width: 520px) {
+    .footer-srt { width: 100%; margin-left: 0; justify-content: flex-end; }
+}
+
+@media (max-width: 480px) {
+    .app-body {
+        grid-template-columns: 1fr;
+    }
+    .app-sidebar {
+        position: absolute;
+        top: 44px;
+        bottom: 44px;
+        left: 0;
+        width: 70%;
+        max-width: 240px;
+        z-index: 50;
+        transform: translateX(-100%);
+        transition: transform 0.2s ease;
+        box-shadow: 4px 0 20px rgba(0,0,0,0.4);
+    }
+    .app-sidebar.open { transform: translateX(0); }
+    .resizer { display: none; }
+    .brand-text { display: none; }
+    #global-search { font-size: 11px; }
+    .mode-btn { padding: 5px 7px; font-size: 9px; }
+    /* Rodapé estreito: botões menores e que quebram, sem cortar */
+    .btn-srt-import { padding: 4px 7px; font-size: 9px; }
+    .footer-srt { gap: 4px; }
+    .app-footer { padding: 6px 8px; }
+}
+
+/* ============================================================================
+   UTILITÁRIOS
+============================================================================ */
+
+.hidden { display: none !important; }
+
+/* ============================================================================
+   SFX GRID — Estilo Premiere Composer
+============================================================================ */
+
+/* Container principal — grade que quebra linha */
+.sfx-grid-container {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 3px;
+    padding: 6px;
+    align-content: flex-start;
+}
+
+/* Tamanho do card controlado pelo zoom do pai */
+#dynamic-categories-container[data-zoom="1"] .sfx-grid-card { flex: 0 0 100%; }
+#dynamic-categories-container[data-zoom="2"] .sfx-grid-card { flex: 0 0 calc(50% - 2px); }
+#dynamic-categories-container[data-zoom="3"] .sfx-grid-card { flex: 0 0 calc(33.33% - 2px); }
+#dynamic-categories-container[data-zoom="4"] .sfx-grid-card { flex: 0 0 calc(25% - 3px); }
+
+/* Card */
+.sfx-grid-card {
+    position: relative;
+    background: var(--bg-2);
+    border: 1px solid transparent;
+    border-radius: 3px;
+    overflow: hidden;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    transition: border-color 0.1s;
+}
+.sfx-grid-card:hover  { border-color: var(--border-strong); background: var(--bg-3); }
+.sfx-grid-card.playing { border-color: var(--brand-warn); }
+
+/* Waveform */
+.sfx-grid-wave {
+    width: 100%;
+    height: 50px;
+    background: #111113;
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+}
+.sfx-grid-wave canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* Barra de progresso */
+.sfx-grid-progress {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 0%;
+    background: rgba(245,158,11,0.18);
+    pointer-events: none;
+    transition: width 0.08s linear;
+}
+
+/* Overlay play — aparece no hover, centralizado */
+.sfx-grid-play-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.1s;
+    pointer-events: none;
+}
+.sfx-grid-card:hover .sfx-grid-play-overlay,
+.sfx-grid-card.playing .sfx-grid-play-overlay { opacity: 1; }
+
+.sfx-grid-play-icon {
+    width: 24px; height: 24px;
+    background: rgba(245,158,11,0.92);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: #000;
+    font-size: 9px;
+    font-weight: bold;
+}
+
+/* Nome — legível, igual Premiere Composer */
+.sfx-grid-label {
+    padding: 4px 6px;
+    font-size: 11px;
+    color: var(--text-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+    flex-shrink: 0;
+}
+.sfx-grid-card.playing .sfx-grid-label { color: var(--brand-warn); }
+
+/* Botão Aplicar — aparece no hover */
+.sfx-grid-actions {
+    display: flex;
+    gap: 3px;
+    padding: 0 4px 4px;
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transition: max-height 0.12s, opacity 0.12s;
+    flex-shrink: 0;
+}
+.sfx-grid-card:hover .sfx-grid-actions {
+    max-height: 28px;
+    opacity: 1;
+}
+.sfx-grid-btn {
+    flex: 1;
+    font-size: 10px;
+    padding: 3px 6px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    background: var(--bg-3);
+    color: var(--text-2);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.1s;
+}
+.sfx-grid-btn:hover { background: var(--bg-4); color: var(--text); }
+.sfx-grid-btn.apply {
+    background: var(--brand-warn);
+    color: #000;
+    border-color: transparent;
+    font-weight: 700;
+}
+.sfx-grid-btn.apply:hover { opacity: 0.85; }
+
+/* Estrela favorito */
+.sfx-grid-fav {
+    position: absolute;
+    top: 4px; right: 4px;
+    width: 18px; height: 18px;
+    background: rgba(0,0,0,0.55);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-3);
+    opacity: 0;
+    transition: opacity 0.1s, color 0.1s;
+    z-index: 3;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+}
+.sfx-grid-card:hover .sfx-grid-fav,
+.sfx-grid-fav.active { opacity: 1; }
+.sfx-grid-fav.active { color: var(--brand-warn); }
+
+/* Ícone indicador de áudio (canto inferior esq, igual Premiere Composer) */
+.sfx-grid-badge {
+    position: absolute;
+    bottom: 26px; left: 3px;
+    background: rgba(0,200,100,0.85);
+    border-radius: 2px;
+    padding: 1px 3px;
+    font-size: 8px;
+    font-weight: 700;
+    color: #000;
+    letter-spacing: 0.3px;
+    pointer-events: none;
+}
+
+/* ── Row legado (mantido para compatibilidade) ── */
+.sfx-row-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 4px 0;
+}
+.sfx-card-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+    transition: background 0.1s;
+    cursor: default;
+}
+.sfx-card-wrap:hover { background: var(--bg-2); }
+.sfx-card-icon { font-size: 14px; flex-shrink: 0; color: var(--text-3); }
+.sfx-card-name { flex: 1; font-size: 11px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.sfx-waveform { flex: 1; min-width: 0; max-width: 120px; height: 28px; cursor: pointer; overflow: hidden; display: flex; align-items: center; }
+.sfx-waveform canvas { width: 100%; height: 100%; display: block; pointer-events: none; }
+.sfx-card-actions { display: flex; gap: 4px; flex-shrink: 0; position: relative; z-index: 1; }
+.sfx-card-play { background: var(--bg-3); border: 1px solid var(--border); border-radius: var(--r-sm); color: var(--text-2); font-size: 9px; padding: 3px 8px; cursor: pointer; transition: all 0.12s; white-space: nowrap; }
+.sfx-card-play:hover,.sfx-card-play.playing { background: var(--brand-warn); color: #000; border-color: var(--brand-warn); }
+.sfx-card-apply { background: var(--brand-accent); border: none; border-radius: var(--r-sm); color: #000; font-size: 9px; font-weight: 700; padding: 3px 8px; cursor: pointer; transition: opacity 0.12s; white-space: nowrap; }
+.sfx-card-apply:hover { opacity: 0.8; }
+.sfx-card-wrap .template-favorite { position: static; width: 22px; height: 22px; flex-shrink: 0; opacity: 0.4; margin-left: 4px; }
+.sfx-card-wrap .template-favorite:hover,.sfx-card-wrap .template-favorite.active { opacity: 1; }
+
+/* ============================================================================
+   USER LIBRARY
+============================================================================ */
+.user-lib-add-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 6px 10px;
+    background: var(--bg-2);
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--r-md);
+    color: var(--text-2);
+    font-size: 0.78em;
+    cursor: pointer;
+    transition: all 0.15s;
+    box-sizing: border-box;
+}
+.user-lib-add-btn:hover { background: var(--bg-3); color: var(--text); border-color: var(--brand-warn); }
+
+.user-lib-empty { padding: 16px; }
+
+/* Linha de pasta — clicável */
+.user-lib-folder-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.78em;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: background 0.1s;
+    flex-shrink: 0;
+    min-width: 0;
+}
+.user-lib-folder-row:hover { background: var(--bg-2); color: var(--text); }
+.user-lib-folder-row.active { background: var(--bg-3); color: var(--brand-warn); border-left: 2px solid var(--brand-warn); }
+
+.user-lib-folder-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+.user-lib-folder-remove {
+    background: none;
+    border: none;
+    color: var(--text-3);
+    cursor: pointer;
+    font-size: 0.85em;
+    padding: 2px 4px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    transition: color 0.1s;
+    line-height: 1;
+}
+.user-lib-folder-remove:hover { color: #f87171; }
+
+/* Painel — responsivo e não some ao redimensionar */
+#user-lib-panel {
+    /* Oculto por padrão — mesmo comportamento do sidebar-tree */
+    display: none;
+    flex-direction: column;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 0;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+}
+#user-lib-panel.visible {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* ===== Transcrição (Whisper / Groq) ===== */
+.transcribe-hint {
+    display: block;
+    margin-top: 4px;
+    font-size: 10px;
+    color: var(--text-3);
+    line-height: 1.35;
+}
+.transcribe-status {
+    min-height: 16px;
+    margin-top: 10px;
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--text-2);
+    word-break: break-word;
+}
+.transcribe-status--work { color: var(--warn, #e0a800); }
+.transcribe-status--ok   { color: var(--success, #22c55e); }
+.transcribe-status--err  { color: var(--danger, #ef4444); }
+
+/* ============================================================================
+   EDITOR DE LEGENDAS (captions)
+============================================================================ */
+.modal-box--captions {
+    /* 500 e não 460: a linha da DIVISÃO (stepper + unidade + Preposições +
+       2 linhas) precisa de ~430px de conteúdo — em 460 faltavam 8px e o último
+       item quebrava pra baixo (print do Victor, 09/08; na época o item era o
+       Re-dividir, hoje removido). Painel estreito segue protegido pelo 94vw. */
+    width: 500px;
+    max-width: 94vw;
+    max-height: 86vh;
+    display: flex;
+    flex-direction: column;
+}
+.captions-count {
+    font-size: 11px;
+    color: var(--text-3);
+    font-weight: 400;
+}
+.captions-list {
+    max-height: 56vh;
+    overflow-y: auto;
+    margin: 4px -4px 0 -4px;
+    padding: 0 4px;
+}
+.caption-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    padding: 8px 4px;
+    border-bottom: 1px solid var(--border);
+}
+.caption-row:last-child { border-bottom: none; }
+.caption-idx {
+    flex: 0 0 22px;
+    text-align: right;
+    font-size: 11px;
+    color: var(--text-3);
+    padding-top: 4px;
+}
+.caption-mid { flex: 1 1 auto; min-width: 0; }
+/* Apagar uma legenda: discreto até o hover — o editor é de leitura/correção,
+   e uma fileira de X vermelhos gritaria mais alto que o texto. */
+.caption-del {
+    flex: 0 0 auto;
+    background: none;
+    border: none;
+    color: var(--text-3);
+    font-size: 12px;
+    line-height: 1;
+    padding: 6px;
+    cursor: pointer;
+    border-radius: var(--r-sm);
+    opacity: .45;
+}
+.caption-row:hover .caption-del { opacity: 1; }
+.caption-del:hover { color: #f87171; background: rgba(239, 68, 68, 0.12); }
+
+/* Editor de legendas — pastilhas compactas (mesma família do vidro da
+   Dinâmica). O estado é a COR: pastilha acesa = ligada. Nada de
+   "LIGADO/DESLIGADO" escrito — era isso que enchia o painel de palavra. */
+.caps-linha { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+.caps-num {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 3px 10px 3px 4px;
+}
+/* Precisa do `.caps-linha` na frente: existe um `input[type="number"]` global
+   com `padding: 7px 10px`, que tem o MESMO peso de `.caps-num input` (0,1,1) e
+   ganhava por vir depois. Com box-sizing: border-box, os 20px de recheio
+   sobravam 10px de conteúdo e o campo CORTAVA "20" (aparecia "2("). Dois
+   dígitos são obrigatórios: palavras vai até 20 e caracteres até 80. */
+.caps-linha .caps-num input {
+    width: 40px;
+    box-sizing: border-box;
+    padding: 0 3px;
+    border: none; background: none;
+    text-align: center; font-weight: 600; color: var(--text);
+}
+.caps-num span { font-size: 11px; color: var(--text-3); }
+.caps-pill {
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.065);
+    border-radius: 999px;
+    color: var(--text-3);
+    font-size: 11px; font-weight: 600;
+    padding: 6px 11px;
+    cursor: pointer;
+    transition: background .16s ease, color .16s ease, border-color .16s ease;
+}
+.caps-pill:hover { color: var(--text); background: rgba(255, 255, 255, 0.07); }
+.caps-pill.on {
+    color: var(--brand-warn);
+    background: rgba(255, 255, 255, 0.10);
+    border-color: rgba(255, 255, 255, 0.16);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.09);
+}
+.caps-caixa {
+    display: flex; gap: 3px;
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 3px;
+}
+.caps-caixa .caps-pill { border-color: transparent; background: none; padding: 4px 10px; }
+.caps-caixa .caps-pill.on {
+    background: rgba(255, 255, 255, 0.10);
+    border-color: rgba(255, 255, 255, 0.14);
+}
+
+/* Stepper − / + do "palavras": botão de dedo, não setinha de sistema.
+   As setas nativas do input number somem — eram miúdas demais pra clicar. */
+.caps-num input::-webkit-inner-spin-button,
+.caps-num input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+/* A largura do campo mora numa regra só, lá em cima (.caps-linha .caps-num
+   input). Havia um segundo `.caps-num input { width: 30px }` aqui que ganhava
+   por vir depois e apertava o campo — duas regras pro mesmo tamanho é como o
+   número acabou cortado. */
+.caps-step {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    color: var(--text-2);
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    cursor: pointer;
+    flex: 0 0 auto;
+}
+.caps-step:hover { color: var(--text); background: rgba(255, 255, 255, 0.12); }
+/* ação principal do rodapé (Inserir): laranja cheio.
+   O .fs-acao herda a cor de --fs-cor, que só é definida dentro dos .fs-bloco —
+   fora deles o botão saía BRANCO. Aqui a cor da marca entra explícita. */
+.caps-acao { margin-top: 0; flex: 0 0 auto; padding: 8px 14px; --fs-cor: var(--brand-warn); }
+/* Grupos com rótulo: "Divisão" e "Texto". Nomeia a família em vez de deixar
+   a pilha de pastilha solta — o olho acha a opção pelo grupo, não lendo tudo. */
+.caps-grupo { margin-bottom: 8px; }
+.caps-grupo .caps-linha { margin-bottom: 0; }
+.caps-rotulo {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    margin: 0 0 5px 2px;
+}
+/* Rodapé: grade 2×2 — larguras e alturas IGUAIS, nada solto pra desalinhar
+   (feedback do Victor, 09/08/2026). O Parar, quando aparece, vira linha
+   inteira embaixo. */
+/* TRÊS EM CIMA, DUAS EMBAIXO (14/08/2026). Victor: "temos quatro botões
+   perfeito empilhados, mas se colocarmos pra cinco vai sobrar alguma coisa".
+   Sobraria mesmo numa grade de 2 colunas — o quinto ficaria órfão numa terceira
+   linha, que é exatamente o defeito que a gente acabou de consertar no Parar.
+   A saída é agrupar por FUNÇÃO: 6 colunas de base, as três auxiliares ocupando
+   2 cada e as duas inserções ocupando 3 cada. Some o órfão e a leitura fica
+   melhor do que era — auxiliares em cima, ação principal embaixo. */
+.caps-acoes {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+    margin-top: 10px;
+}
+/* 05/09/2026: com o "CC no In/Out" as auxiliares viraram DUAS linhas de dois
+   (Reverter + SRT / CC Subtítulos + CC no In/Out), cada uma fechando os 6. */
+.caps-acoes #btn-captions-revert,
+.caps-acoes #btn-captions-export-srt,
+.caps-acoes #btn-captions-subtitulos,
+.caps-acoes #btn-captions-subtitulos-io { grid-column: span 3; }
+.caps-acoes #btn-captions-insert-io,
+.caps-acoes #btn-captions-insert { grid-column: span 3; }
+/* O TRIO FIXO fecha a linha (26/08/2026): com o "CC Subtítulos" as auxiliares
+   permanentes viraram três de span 2 = linha de 6 completa, sem buraco e sem
+   a regra condicional do tem-tirar que existia quando eram duas. O "Tirar"
+   (que só aparece depois de uma inserção) ganha a LINHA INTEIRA: span 2 no
+   meio do trio empurraria tudo e abriria buraco, e um desfazer merece
+   destaque mesmo. */
+.caps-acoes #btn-captions-tirar { grid-column: 1 / -1; }
+.caps-acoes button { margin: 0; width: 100%; padding: 10px 12px; }
+/* O Parar atravessa as duas colunas, e a LINHA é de propósito automática
+   (13/08/2026, Victor: "o Parar desce pra baixo e o Inserir some, fica muito
+   feio"). O que fazia ele descer não era o CSS: era o JS esconder só o
+   "Inserir" e deixar o "No In/Out" ocupando metade da linha 2 — aí não cabia
+   mais um item de duas colunas ali, e ele ia pra uma terceira.
+   Com as duas inserções saindo juntas (js/captions.js), a linha 2 fica livre e
+   a colocação automática põe ele exatamente nela.
+   Fixar `grid-row: 2` aqui foi tentado e DESCARTADO: item com linha fixa não
+   desvia de ninguém, então bastaria os dois lados saírem de sincronia pra ele
+   imprimir POR CIMA do "No In/Out". Automático nunca sobrepõe. */
+.caps-acoes #btn-captions-stop { grid-column: 1 / -1; }
+/* secundárias (Reverter / SRT): MESMA forma dos vizinhos de rodapé
+   (btn-secondary dá cor e borda) — a pastilha redonda aqui destoava dos
+   retângulos do "No In/Out" e do "Inserir" (feedback do Victor, 09/08/2026:
+   "alguns têm borda mais fechada, outros não — tem que ser tudo no mesmo
+   padrão"). Esta classe só encolhe; a forma vem do padrão. */
+.caps-mini {
+    font-size: 11px;
+    padding: 8px 12px;
+    flex: 0 0 auto;
+}
+.caption-tc {
+    font-size: 10px;
+    color: var(--text-3);
+    font-variant-numeric: tabular-nums;
+    margin-bottom: 4px;
+    letter-spacing: 0.3px;
+}
+.caption-text {
+    width: 100%;
+    box-sizing: border-box;
+    resize: none;
+    overflow: hidden;
+    min-height: 30px;
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--text);
+    -webkit-text-fill-color: var(--text);
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 6px 8px;
+    outline: none;
+    transition: border-color 0.15s, background 0.15s;
+}
+.caption-text:focus {
+    border-color: var(--brand-accent, rgba(255,255,255,0.3));
+    background: var(--bg-4);
+}
+.captions-empty {
+    text-align: center;
+    color: var(--text-3);
+    font-size: 11px;
+    padding: 24px 8px;
+}
+#openai-key-input {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 11px;
+    padding: 7px 9px;
+    letter-spacing: 0.5px;
+}
+
+/* ===================================================================
+   BARRA DE FUNÇÕES + PAINÉIS DE FERRAMENTA (Caption IA)
+   -------------------------------------------------------------------
+   Antes as abas ficavam na lateral. O problema: a regra de largura mede
+   o PAINEL, não a coluna. Painel largo com lateral estreita virava cinco
+   colunas de 40px e o rótulo sumia ("T...", "F..."). Aqui a barra ocupa
+   a largura toda, então cada função tem o espaço do próprio nome.
+=================================================================== */
+.fs-toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 3px;
+    padding: 5px 8px;
+    background: var(--bg-2);
+    border-bottom: 1px solid var(--border);
+    flex: 0 0 auto;
+}
+.fs-toolbar-sep {
+    width: 1px;
+    align-self: stretch;
+    min-height: 18px;
+    background: var(--border);
+    margin: 0 2px;
+}
+/* O rótulo manda na largura: sem esticar, sem espremer, sem cortar. */
+.fs-toolbar .sidebar-tab {
+    flex: 0 0 auto !important;
+    width: auto;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: visible;
+    padding: 5px 7px;
+    gap: 4px;
+    border-radius: var(--r-md);
+}
+.fs-toolbar .sidebar-tab span {
+    overflow: visible;
+    text-overflow: clip;
+}
+/* Painel bem estreito: a barra rola na horizontal em vez de virar uma
+   pilha alta que come a área dos modelos. */
+@media (max-width: 460px) {
+    .fs-toolbar {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+    }
+    .fs-toolbar::-webkit-scrollbar { height: 4px; }
+    .fs-toolbar::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 2px;
+    }
+}
+
+/* Conteúdo dos painéis: uma coluna só.
+   A versão anterior partia em duas colunas no painel largo e quebrava a
+   ordem de leitura (o "copiar" de um lado, o "colar" do outro).
+   O teto de 780px SAIU (12/08/2026, print do Victor com o painel esticado):
+   passando disso o conteúdo parava de crescer e sobrava faixa vazia com a
+   cor do fundo dos dois lados — em TODAS as abas que usam .fs-col (são 5).
+   Agora acompanha a largura do painel; o padding de baixo dá o respiro que
+   faltava entre a última linha de ajuda e a barra do rodapé (elas estavam
+   coladas). */
+.fs-col {
+    width: 100%;
+    margin: 0 auto;
+    padding-bottom: 18px;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* Dinâmica: sub-abas.
+   A aba vai acumular função (zoom, transição, J-Cut, safezone...) e empilhar
+   tudo numa rolagem só ficava longo demais pra achar qualquer coisa.
+
+   A barra ROLA na horizontal em vez de encolher o rótulo: rótulo espremido foi
+   exatamente o que quebrou a barra de funções antes ("T...", "F..."). Por isso
+   `flex: 0 0 auto` + `nowrap` em cada botão, e nenhuma media query aqui — em
+   CEP a media query mede o painel inteiro, não esta coluna. */
+/* Sub-abas e seletores em vidro.
+   O primeiro desenho era sublinhado laranja, que some no meio de um painel já
+   cheio de linha e borda. Este aqui é pastilha translúcida: a aba ativa parece
+   ELEVADA sobre o vidro, então a leitura é de relevo, não de mais um traço.
+
+   O laranja fica só no RÓTULO ativo. Pastilha laranja cheia competiria com os
+   botões de ação, que é onde o laranja significa "isto executa alguma coisa". */
+.fs-vidro {
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.065);
+    border-radius: 10px;
+    /* SEM backdrop-filter: o Chromium do CEP tem bug de repintura com ele —
+       qualquer troca de camada (ex.: desmarcar o checkbox do desfoque) pintava
+       o painel de PRETO no Premiere (Victor, 09/08/2026). Sobre fundo chapado
+       escuro o blur era invisível mesmo; o vidro fica por conta do rgba. */
+}
+.fs-vidro-item {
+    white-space: nowrap;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    color: var(--text-3);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .16s ease, color .16s ease, border-color .16s ease;
+}
+.fs-vidro-item:hover {
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.055);
+}
+.fs-vidro-item.active {
+    color: var(--brand-warn);
+    background: rgba(255, 255, 255, 0.10);
+    border-color: rgba(255, 255, 255, 0.13);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.09);
+}
+
+.dyn-subtabs,
+.fav-subtabs {
+    display: flex;
+    /* QUEBRA DE LINHA, NÃO ROLAGEM ESCONDIDA (20/08, print do Victor com a
+       Autotrilha: "some algumas funções, fica cortado ao diminuir o painel").
+       A barra rolava pro lado com a barra de rolagem invisível — o que não
+       cabia sumia sem pista. Painel estreito agora quebra as pills pra
+       segunda fileira: tudo visível, sempre. */
+    flex-wrap: wrap;
+    gap: 3px;
+    overflow-x: visible;
+    overflow-y: visible;
+    padding: 4px;
+    margin-bottom: 12px;
+    scrollbar-width: none;
+    /* .fs-col é um flex column, então esta barra é um ITEM FLEX. O conteúdo
+       abaixo dela é bem mais alto que o painel, e sem isto o navegador encolhia
+       a barra pra 1px — sobrava só a borda, e a impressão era de que as abas
+       nem tinham sido criadas. flex-shrink: 0 é o que a mantém inteira. */
+    flex: 0 0 auto;
+}
+.dyn-subtabs::-webkit-scrollbar,
+.fav-subtabs::-webkit-scrollbar { height: 0; }
+/* A de Favoritos mora fora do painel, logo abaixo da barra de funções: precisa
+   da mesma margem lateral que o corpo, senão cola nas bordas. */
+.fav-subtabs { margin: 0 10px 0; }
+.dyn-subtab {
+    flex: 0 0 auto;
+    font-size: 11.5px;
+    padding: 7px 13px;
+}
+.dyn-sec { display: none; }
+.dyn-sec.active { display: block; }
+
+/* Escolha de 3 estados lado a lado (Só intercalar / J-Cut / L-Cut).
+   Aqui um <select> esconderia a escolha atrás de um clique, e são só três
+   opções que a pessoa troca o tempo todo comparando uma com a outra. */
+.fs-seg {
+    display: flex;
+    gap: 3px;
+    padding: 3px;
+}
+.fs-seg button {
+    flex: 1 1 0;
+    font-size: 11px;
+    padding: 7px 4px;
+}
+
+/* Dinâmica: dois blocos com identidade própria.
+   Transição e zoom são ações distintas e estavam empilhadas em cinza, uma
+   igual à outra. Cada uma ganha cor, título e o próprio botão de ação. */
+.fs-bloco {
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    background: var(--bg-2);
+    padding: 11px 12px 12px;
+    margin-top: 12px;
+    border-left: 3px solid var(--fs-cor, var(--brand-accent));
+}
+.fs-bloco-titulo {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--fs-cor, var(--text));
+    margin-bottom: 9px;
+}
+.fs-bloco-titulo .fs-bloco-sub {
+    margin-left: auto;
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--text-3);
+}
+.fs-bloco .form-field:first-of-type { margin-top: 0; }
+/* Botão de ação do bloco: pintado com a cor do bloco, para o olho achar
+   na hora qual é a ação principal ali dentro. */
+.fs-acao {
+    width: 100%;
+    margin-top: 10px;
+    padding: 9px 10px;
+    border-radius: var(--r-md);
+    font-size: 12px;
+    font-weight: 600;
+    color: #0f0f11;
+    background: var(--fs-cor, var(--brand-accent));
+    border: none;
+    cursor: pointer;
+    transition: filter 0.15s;
+}
+.fs-acao:hover:not(:disabled) { filter: brightness(1.12); }
+.fs-acao:disabled { opacity: 0.45; cursor: default; }
+.fs-acao-linha { display: flex; gap: 8px; align-items: stretch; margin-top: 10px; }
+.fs-acao-linha .fs-acao { margin-top: 0; }
+.fs-desfazer {
+    flex: 0 0 auto;
+    padding: 9px 12px;
+    border-radius: var(--r-md);
+    background: var(--bg-4);
+    color: var(--text-2);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    font-size: 12px;
+}
+.fs-desfazer:hover:not(:disabled) { color: var(--text); background: var(--bg-3); }
+
+/* Fileira de chaves de ativação.
+   Antes cada chave vinha solta, com um texto explicativo entre uma e outra, e
+   a lista virava uma escada. Aqui viram cartões lado a lado quando há largura
+   e empilham sozinhos quando não há. */
+.fs-toggles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 8px;
+    margin-top: 5px;
+}
+/* Compacto desde 12/08/2026: os cartões tinham a explicação em 3 linhas
+   cada e empurravam o "O que levar junto" pra fora da tela — o Victor
+   tinha que copiar o estilo, ROLAR até embaixo pra ligar as chaves e
+   voltar. A explicação virou tooltip (continua a um passe de mouse) e o
+   bloco inteiro subiu pro topo do "Colar", que é a ordem da decisão:
+   escolho o que levar → onde colar → colo. */
+.fs-toggle {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 7px 10px;
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    cursor: pointer;
+    transition: border-color 0.15s;
+}
+.fs-toggle:hover { border-color: var(--fs-cor, var(--brand-accent)); }
+.fs-toggle-topo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+.fs-toggle-nota {
+    font-size: 10px;
+    color: var(--text-3);
+    line-height: 1.4;
+}
+/* Chave menor dentro do cartão, senão ela domina o texto ao lado. */
+.fs-toggle .switch-slider { width: 38px; height: 22px; }
+.fs-toggle .switch-slider::after { width: 14px; height: 14px; }
+.fs-toggle .switch-input:checked ~ .switch-slider::after { left: 18px; } /* 2px + os 16px do antigo translateX */
+/* Ligado na cor da marca, igual aos botões de ação. */
+.fs-bloco .switch-input:checked ~ .switch-slider {
+    background: var(--fs-cor, var(--brand-warn));
+    border-color: var(--fs-cor, var(--brand-warn));
+}
+.fs-campo-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    color: var(--text);
+    margin: 14px 0 6px;
+}
+/* Campo que só faz sentido com a chave ligada. */
+.fs-inativo { opacity: 0.4; pointer-events: none; }
+
+/* Zoom v2: controles de arrastar em vez de digitar número. */
+.fs-presets {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 6px;
+    margin-bottom: 4px;
+}
+.fs-preset {
+    padding: 7px 8px;
+    font-size: 11px;
+    border-radius: var(--r-md);
+    background: var(--bg-3);
+    color: var(--text-2);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    white-space: nowrap;
+}
+.fs-preset:hover { color: var(--text); border-color: var(--fs-cor, var(--brand-warn)); }
+.fs-preset.fs-on {
+    color: #0f0f11;
+    background: var(--fs-cor, var(--brand-warn));
+    border-color: var(--fs-cor, var(--brand-warn));
+    font-weight: 600;
+}
+.fs-slider { margin-top: 10px; }
+.fs-slider label {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 10px;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--text-3);
+    margin-bottom: 5px;
+}
+.fs-slider label b {
+    font-size: 12px;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--fs-cor, var(--brand-warn));
+}
+.fs-slider input[type=range] { width: 100%; }
+/* Pontos de ancoragem: para onde o zoom converge. */
+/* Grade 3x3 em vez de pontos posicionados por script: aparece sempre, sem
+   depender de JS ter rodado, e o alvo de clique fica maior. */
+/* O grid tem a FORMA DO QUADRO (13/08/2026, Victor: "está muito feio, muito
+   arredondado, parece que está amassado"). Estava 168x96 fixo, então as células
+   eram retângulos deitados 56x32 — amassados mesmo, e sem relação nenhuma com o
+   vídeo. Agora a proporção vem da sequência (`--fs-quadro`, posta pelo
+   dinamica.js): numa 9:16 o grid fica em pé, igual ao vídeo, e cada célula é um
+   nono do quadro de verdade. Cantos quase retos: é uma régua, não um botão. */
+.fs-ancora {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 2px;
+    height: 196px;
+    width: auto;
+    aspect-ratio: var(--fs-quadro, 16 / 9);
+    min-width: 92px;
+    max-width: 100%;
+    padding: 2px;
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-top: 5px;
+}
+.fs-ancora-p {
+    border-radius: 2px;
+    background: var(--bg-4);
+    border: 1px solid transparent;
+    cursor: pointer;
+    padding: 0;
+    min-width: 0;
+}
+.fs-ancora-p:hover { border-color: var(--fs-cor, var(--brand-warn)); }
+.fs-ancora-p.fs-on {
+    background: var(--fs-cor, var(--brand-warn));
+    border-color: var(--fs-cor, var(--brand-warn));
+}
+/* A CAIXA DA CURVA (06/09/2026): razão 320:140 SEMPRE. Painel curto encolhia a
+   altura fixa de 140px numa largura qualquer e o "none" esticava o desenho
+   (alças viravam elipses, "amassada" - Victor com print). O padding-bottom em
+   porcentagem da largura (140/320 = 43,75%) mantém a proporção em qualquer
+   largura; o teto de 320px é o tamanho nativo do desenho (regra de 14/08: as
+   alças no tamanho em que foram desenhadas). Abaixo de 320, encolhe inteira. */
+.fs-curva-caixa {
+    width: 100%;
+    max-width: 320px;
+    margin: 9px auto 0;
+}
+/* a razão mora no FILHO: padding-bottom em % é relativo à largura do pai (a caixa,
+   no máximo 320px) - na própria caixa valia sobre a coluna inteira (bug de 06/09) */
+.fs-curva-razao {
+    position: relative;
+    width: 100%;
+    height: 0;
+    padding-bottom: 43.75%;
+}
+.fs-curva {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    margin-top: 0;
+    cursor: crosshair;
+    touch-action: none;
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    display: block;
+}
+
+/* Controles de arrastar na cor da marca, não no azul do sistema.
+   A opacidade da Safezone entrou aqui em 13/08/2026: ela nasceu fora da
+   `.fs-slider` (mora numa linha com a trilha) e por isso apareceu AZUL no
+   meio de um painel laranja. */
+.fs-slider input[type=range],
+.guia-opac,
+#autocut-sens {
+    accent-color: var(--brand-warn);
+}
+
+/* Segunda cor do degradê colada na primeira: "vai desta cor pra esta". */
+.fs-grad-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px; height: 20px;
+    flex: 0 0 auto;
+    border-radius: 4px;
+    background: var(--bg-4);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    margin-left: 2px;
+}
+.fs-grad-btn input { position: absolute; opacity: 0; pointer-events: none; }
+.fs-grad-mais { font-size: 13px; line-height: 1; color: var(--text-3); }
+.fs-grad-btn:hover { border-color: var(--brand-warn); }
+.fs-grad-btn:hover .fs-grad-mais { color: var(--brand-warn); }
+/* Sem :has(): a classe no grupo (posta pelo gradiente.js) é quem pinta. */
+.color-group.fs-grad-on .fs-grad-btn {
+    background: var(--brand-warn);
+    border-color: var(--brand-warn);
+}
+.color-group.fs-grad-on .fs-grad-mais { color: #0f0f11; }
+/* Uma legenda por linha dentro do bloco Cores: rótulo, cor e (na principal)
+   o botão do degradê. */
+/* Rótulo como cabeçalho de linha inteira, não dentro da linha das cores:
+   assim as duas cores do degradê cabem lado a lado, e sobra altura pra fonte
+   aparecer sem precisar rolar. */
+.fs-cor-titulo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 0 2px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--text-3);
+}
+.fs-cor-titulo::before, .fs-cor-titulo::after {
+    content: '';
+    flex: 1 1 auto;
+    height: 1px;
+    background: var(--border);
+}
+.fs-cor-titulo span { flex: 0 0 auto; }
+.fs-cor-linha {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+/* Cor final do degradê: mesma linha, some quando o degradê está desligado. */
+.fs-grad-linha {
+    display: none;
+    align-items: center;
+    gap: 8px;
+}
+.fs-grad-linha.fs-grad-on { display: inline-flex; }
+.fs-grad-seta { font-size: 13px; color: var(--text-3); flex: 0 0 auto; }
+.fs-grad-txt { font-size: 10px; color: var(--text-3); }
+/* O cabeçalho quebra em vez de empurrar o tamanho da fonte pra fora. */
+.font-section-head { flex-wrap: wrap; gap: 6px; }
+
+/* Valor + botão de voltar pro padrão do modelo. */
+.fs-val-grupo { display: inline-flex; align-items: center; gap: 6px; }
+.fs-reset {
+    width: 18px; height: 18px;
+    padding: 0;
+    line-height: 1;
+    font-size: 11px;
+    border-radius: 4px;
+    background: var(--bg-4);
+    color: var(--text-3);
+    border: 1px solid var(--border);
+    cursor: pointer;
+}
+.fs-reset:hover { color: var(--brand-warn); border-color: var(--brand-warn); }
+/* Controle ainda não definido: apagado, pra ficar claro que quem manda é o
+   modelo. Encostou nele, acende. */
+.fs-slider input[type=range].fs-indef { opacity: 0.4; }
+
+/* PRINCIPAL e SECUNDÁRIO na cor da marca: são as âncoras de leitura do modal,
+   quem olha se guia por eles pra achar onde mexer. Cinza sumia no fundo. */
+.fs-cor-titulo { color: var(--brand-warn); }
+.font-badge--highlight {
+    background: rgba(245, 158, 11, 0.14);
+    color: var(--brand-warn);
+    border-color: rgba(245, 158, 11, 0.40);
+}
+/* O secundário é o mesmo assunto, um degrau abaixo: mesma cor, peso menor. */
+.font-badge--support {
+    background: rgba(245, 158, 11, 0.07);
+    color: rgba(245, 158, 11, 0.75);
+    border-color: rgba(245, 158, 11, 0.22);
+}
+
+/* Alternar entre ver a velocidade e ver o valor, como no After Effects. */
+.fs-vista { display: flex; gap: 4px; margin-top: 9px; }
+.fs-vista-b {
+    padding: 4px 10px;
+    font-size: 10px;
+    border-radius: var(--r-md);
+    background: var(--bg-3);
+    color: var(--text-3);
+    border: 1px solid var(--border);
+    cursor: pointer;
+}
+.fs-vista-b.fs-on {
+    background: var(--brand-warn);
+    border-color: var(--brand-warn);
+    color: #0f0f11;
+    font-weight: 600;
+}
+.fs-curva-caixa { margin-top: 5px; }
+
+/* Curvas guardadas pelo usuário. */
+.fs-curvas { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.fs-curva-salva {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    padding: 5px 6px 4px;
+    border-radius: var(--r-md);
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    width: 66px;
+}
+.fs-curva-mini {
+    width: 54px;
+    height: 30px;
+    display: block;
+    background: var(--bg-4);
+    border-radius: 3px;
+}
+.fs-curva-num {
+    font-size: 10px;
+    color: var(--text-2);
+    font-variant-numeric: tabular-nums;
+}
+.fs-curva-nome {
+    font-size: 9px;
+    color: var(--text-3);
+    max-width: 56px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.fs-curva-salva:hover { color: var(--text); border-color: var(--brand-warn); }
+
+/* Lista de presets: altura própria e rolagem, pra crescer sem empurrar o resto
+   do painel pra fora da tela. */
+.fs-lista {
+    margin-top: 8px;
+    max-height: 260px;   /* a biblioteca de estilos usa a versão curta abaixo */
+    min-height: 70px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    background: var(--bg-2);
+    padding: 4px;
+}
+.fs-item {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: var(--r-md);
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--text);
+}
+.fs-item:hover { background: var(--bg-4); }
+/* Item ACESO da biblioteca de estilos: sem isso o clique não dava sinal
+   nenhum e o aluno não sabia se tinha selecionado (Victor, 12/08/2026).
+   Estado é cor, como no resto do painel. */
+.fs-item.fs-on {
+    background: rgba(245, 158, 11, 0.13);
+    box-shadow: inset 2px 0 0 var(--brand-warn);
+}
+.fs-item.fs-on .fs-item-nome { color: var(--brand-warn); font-weight: 600; }
+.fs-item-nome {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.fs-item-info { flex: 0 0 auto; font-size: 10px; color: var(--text-3); }
+.fs-vazio { padding: 14px 8px; font-size: 11px; color: var(--text-3); line-height: 1.55; }
+/* Arquivos de pack adicionados, fora da lista. */
+.fs-arquivos { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.fs-arq {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 6px 3px 8px;
+    font-size: 10px;
+    border-radius: var(--r-md);
+    background: var(--bg-3);
+    color: var(--text-2);
+    border: 1px solid var(--border);
+    max-width: 160px;
+}
+.fs-arq span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.fs-arq button {
+    background: none;
+    border: none;
+    color: var(--text-3);
+    cursor: pointer;
+    padding: 0 2px;
+    font-size: 11px;
+    flex: 0 0 auto;
+}
+.fs-arq button:hover { color: var(--brand-warn); }
+/* ✕ de tirar preset da lista (19/08/2026): mora no canto da linha e só
+   aparece quando o mouse está nela — a lista fica limpa e o clique de
+   aplicar continua sendo o alvo grande. */
+.fs-item-x {
+    background: none;
+    border: none;
+    color: var(--text-3);
+    cursor: pointer;
+    padding: 0 2px;
+    font-size: 11px;
+    flex: 0 0 auto;
+    opacity: 0;
+}
+.fs-item:hover .fs-item-x { opacity: 1; }
+.fs-item-x:hover { color: var(--brand-warn); }
+
+/* ===================================================================
+   IDENTIDADE: a laranja da marca nos controles de ação
+   -------------------------------------------------------------------
+   O botão principal era um degradê cinza/branco, herdado de antes da
+   identidade. Ele aparece 15 vezes no painel, então era o maior desvio
+   sozinho. Aqui ele e os controles de estado passam pra cor da marca.
+
+   O que NÃO muda de propósito: verde de sucesso e vermelho de ação
+   destrutiva. Eles carregam SIGNIFICADO, não identidade. Se o "deu
+   certo" ficasse laranja, ele passaria a se confundir com "clique aqui".
+=================================================================== */
+.btn-primary {
+    background: var(--brand-warn);
+    color: #0f0f11;
+}
+.btn-primary:hover:not(:disabled) {
+    background: var(--brand-warn);
+    filter: brightness(1.12);
+}
+.btn-primary--accent {
+    background: var(--brand-warn);
+    color: #0f0f11;
+}
+/* A variante "orange" estava literalmente cinza. */
+.btn-primary--orange { background: var(--brand-warn); color: #0f0f11; }
+.btn-primary--orange:hover { background: var(--brand-warn); filter: brightness(1.12); }
+
+/* Botão de liga/desliga em texto. */
+.toggle-btn.on {
+    border-color: var(--brand-warn);
+    color: var(--brand-warn);
+}
+/* Chave ligada: laranja em todo o painel, não só dentro dos blocos. */
+.switch-input:checked ~ .switch-slider {
+    background: var(--brand-warn);
+    border-color: var(--brand-warn);
+}
+.switch-state { color: var(--brand-warn); }
+
+/* Aba ativa na barra de funções: marca discreta, sem gritar. */
+.sidebar-tab.active {
+    background: rgba(245, 158, 11, 0.14);
+    color: var(--brand-warn);
+}
+.sidebar-tab.active svg { color: var(--brand-warn); }
+
+/* ============================================================================
+   RODAPÉ DO SFX — onda, reverso e volume do som escolhido
+   ----------------------------------------------------------------------------
+   Mora na status-bar, do mesmo jeito que a mix-bar: some quando não há som
+   escolhido e não rouba altura da grade quando está fora.
+
+   Segue as regras da casa: a opção (Reverso) é PASTILHA e acende em cor — sem
+   texto "ligado/desligado"; o laranja cheio fica só no Aplicar, que é a única
+   coisa ali que executa. Nada é ancorado à direita: a linha flui e quebra pra
+   esquerda quando o painel estreita.
+============================================================================ */
+.sfx-bar {
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+    padding: 7px 9px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    margin-top: 4px;
+}
+.sfx-bar.visible { display: flex; }
+
+.sfx-bar-linha {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+
+/* Botão de ouvir: redondo e discreto. Vira laranja SÓ enquanto toca, que é
+   estado, não ação — a mesma leitura do card da grade, que fica com a borda
+   laranja tocando. */
+.sfx-bar-play {
+    flex: 0 0 auto;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    border: 1px solid var(--border-strong);
+    background: var(--bg-3);
+    color: var(--text-2);
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background .14s ease, color .14s ease;
+}
+.sfx-bar-play:hover { background: var(--bg-4); color: var(--text); }
+.sfx-bar-play.tocando { color: var(--brand-warn); border-color: var(--brand-warn); }
+
+/* A onda ocupa a largura inteira, em linha própria — é o que a barra tem de
+   mais informativo, e espremê-la entre botões desenharia um risco. Também é o
+   que evita o "Aplicar" quebrar sozinho no painel estreito: com a onda fora da
+   linha, as três opções cabem juntas em 420px. */
+.sfx-bar-onda {
+    position: relative;
+    width: 100%;
+    height: 34px;
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    overflow: hidden;
+    cursor: pointer;
+}
+.sfx-bar-onda canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+.sfx-bar-progresso {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 0%;
+    background: rgba(245, 158, 11, 0.18);
+    pointer-events: none;
+    transition: width .08s linear;
+}
+
+.sfx-bar-dur {
+    flex: 0 0 auto;
+    font-size: 10px;
+    color: var(--text-3);
+    font-variant-numeric: tabular-nums;
+}
+
+.sfx-bar-fechar {
+    flex: 0 0 auto;
+    width: 20px; height: 20px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--text-3);
+    font-size: 11px;
+    cursor: pointer;
+    border-radius: var(--r-sm);
+}
+.sfx-bar-fechar:hover { color: var(--text); background: var(--bg-3); }
+
+/* O nome encolhe antes de tudo: é a única coisa da linha que pode ser cortada
+   sem perder função (o caminho inteiro fica no title). */
+.sfx-bar-nome {
+    flex: 1 1 60px;
+    min-width: 0;
+    font-size: 11px;
+    color: var(--text-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sfx-bar-rev { flex: 0 0 auto; height: 26px; box-sizing: border-box; padding: 0 11px; }
+
+.sfx-bar-vol {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+/* Altura travada em 26px nos três controles da linha de baixo (pastilha, campo
+   e ação). Sem isso saíam 26 / 30 / 25 e a linha ficava serrilhada. */
+/* Precisa do `.sfx-bar` na frente: existe um `input[type="text"]` global com
+   `padding: 7px 10px`, e ele tem MAIS peso que uma classe sozinha (0,1,1 contra
+   0,1,0). Sem isso o padding de 10px comia o campo por dentro e "−40" saía
+   cortado — era o texto que não cabia, não a caixa que era estreita. */
+.sfx-bar .sfx-bar-db {
+    width: 38px;
+    height: 26px;
+    box-sizing: border-box;
+    text-align: center;
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    color: var(--text);
+    font-size: 11px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    padding: 0 2px;
+}
+.sfx-bar .sfx-bar-db:focus { outline: none; border-color: var(--border-strong); background: var(--bg-3); }
+.sfx-bar-db-un { font-size: 10px; color: var(--text-3); }
+
+.sfx-bar-aplicar {
+    flex: 0 0 auto;
+    height: 26px;
+    box-sizing: border-box;
+    padding: 0 14px;
+    border: 1px solid transparent;
+    border-radius: var(--r-sm);
+    background: var(--brand-warn);
+    color: #000;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.sfx-bar-aplicar:hover { opacity: .85; }
+
+/* Modal da Transcrição: largura própria.
+   Ele usava o `--small` (300px), que não comporta a linha do trio
+   (− número + palavras|caracteres ≈ 380px). O `--small` continua como está,
+   porque as Preferências dependem dele. */
+.modal-box--transcribe { max-width: 440px; }
+
+/* Ícone dos botões do rodapé: agora é SVG de traço, não emoji.
+   O `font-size` de antes servia pro glifo; o SVG precisa alinhar com o rótulo,
+   senão fica pendurado acima da linha de base do texto. */
+.btn-srt-icon { display: inline-flex; align-items: center; }
+.btn-srt-icon svg { display: block; }
+/* O ícone do cabeçalho do modal acompanha o tamanho do título. */
+.modal-header h3 svg { vertical-align: -2px; margin-right: 2px; }
+
+/* Biblioteca de estilos: lista curta de propósito. Ela mora ENTRE o
+   Copiar e o Colar, então cada pixel dela empurra o botão de colar pra
+   baixo. 5 itens à vista bastam; o resto rola.
+   ATENÇÃO: há uma SEGUNDA regra pra este mesmo id mais abaixo (a que tirou o
+   teto de largura em 13/08). Ela vem depois e ganha na altura — 156px. Se for
+   mexer na altura, é lá. */
+#style-lib-list {
+    max-height: 132px;
+    min-height: 0;
+}
+
+/* Sub-abas da Clonar (12/08/2026): mesma mecânica das da Dinâmica —
+   a seção ativa aparece, as outras somem. Separar "copiar e colar" de
+   "biblioteca" encurta os dois fluxos: cada botão fica junto do que ele
+   opera, em vez de o "Colar" viver no fim de um painel rolado. */
+.clone-sec { display: none; }
+.clone-sec.active { display: block; }
+
+/* PAINEL LARGO = UM PAINEL SÓ, BEM DIAGRAMADO (12/08/2026).
+   O Victor desenhou por cima do print: o vazio à direita do "Copiar" é
+   onde as opções devem morar, e o "Colar estilo" ocupa a largura toda
+   embaixo. Duas colunas soltas (a versão anterior) ficaram ruins porque
+   partiam o fluxo em dois blocos altos e desiguais.
+   Abaixo de 720px tudo empilha, que é como cabe no painel estreito. */
+@media (min-width: 720px) {
+    .clone-sec[data-clone-sec="copiar"].active {
+        display: grid;
+        grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.15fr);
+        grid-template-areas:
+            "copiar opcoes"
+            "colar  opcoes";
+        gap: 10px;
+        align-items: stretch;
+    }
+    /* "O que levar" acompanha a ALTURA dos dois cards da esquerda
+       (desenho do Victor, 12/08/2026) — o vão entre Copiar e Colar
+       sumiu e os três cards fecham num retângulo só. */
+    .fs-bloco--opcoes { display: flex; flex-direction: column; }
+    .fs-bloco--copiar { grid-area: copiar; }
+    .fs-bloco--opcoes { grid-area: opcoes; }
+    .fs-bloco--colar  { grid-area: colar; }
+    .clone-sec[data-clone-sec="copiar"].active > .fs-bloco { margin: 0; }
+    /* na coluna, o botão usa a largura dela */
+    .clone-sec[data-clone-sec="copiar"].active #btn-style-copy { max-width: none; }
+    /* os 4 interruptores em 2x2 preenchem o quadrante direito */
+    .fs-bloco--opcoes .fs-toggles {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+    /* Colar estilo é a ação principal: largura confortável, não infinita */
+    .fs-bloco--colar .fs-acao-linha { max-width: 560px; }
+}
+}
+
+/* Botões de ação com largura de BOTÃO (12/08/2026 — o Victor esticou o
+   painel e o "Copiar estilo" virou uma barra de ponta a ponta).
+   O conteúdo continua acompanhando a largura do painel; o que para de
+   crescer é só o clicável, que não fica melhor com 1000px. */
+#style-clone-panel .fs-acao,
+#style-clone-panel .btn-secondary,
+#style-clone-panel .fs-acao-linha {
+    max-width: 420px;
+}
+#style-clone-panel .fs-acao-linha { width: 100%; }
+/* A lista de estilos ACOMPANHA a largura do card (13/08/2026, Victor: "olha
+   como está sobrando espaço ali na direita, ela tem que acompanhar o
+   conteúdo"). O teto de 640px vinha de quando o painel era estreito; num
+   painel largo ele deixava meia tela em branco ao lado da lista, e o nome do
+   estilo espremido contra a contagem de parâmetros.
+   A altura continua limitada: 6 itens à vista e o resto rola. */
+#style-lib-list {
+    max-height: 156px;
+}
+
+/* Interruptores ALINHADOS: o rótulo empurra o switch pra borda do card,
+   então "Fonte" e "Tempo de animação" ficam com a chave na mesma coluna
+   (antes a chave colava no fim da palavra e cada uma parava num lugar). */
+.fs-toggle > .fs-toggle-topo {
+    width: 100%;
+    justify-content: space-between;
+    gap: 10px;
+}
+.fs-toggle .switch-label { flex: 1 1 auto; }
+.fs-toggle .switch-slider { flex: 0 0 auto; }
+
+/* Recado do Clonar: BRANCO (12/08/2026, pedido do Victor — o cinza do
+   status genérico sumia no card). Fica no rodapé do "O que levar", que é
+   onde o olho está depois de copiar ou colar. */
+#style-clone-status {
+    color: var(--text);
+    font-size: 11px;
+    line-height: 1.5;
+}
+#style-clone-status.err { color: #fca5a5; }
+#style-clone-status.ok  { color: #86efac; }
+
+/* A aba tem que abrir INTEIRA, sem corte: os cards do Clonar usam
+   espaçamento mais curto que o padrão do resto do painel. */
+#style-clone-panel .fs-bloco { padding: 10px 12px; }
+#style-clone-panel .fs-bloco-titulo { margin-bottom: 8px; }
+#style-clone-panel .form-field { margin-top: 8px; }
+
+/* ===================== ABA AUTOCUT (12/08/2026, arranjo do Victor) =========
+   A regra que manda em tudo: ANALISAR E CORTAR TÊM QUE APARECER NO INSTANTE
+   EM QUE A ABA ABRE — "para o usuário não precisar arrastar para baixo".
+   Tudo abaixo existe pra servir a isso.
+
+       ┌──────────────────┬──────────────────┐
+       │ Onde cortar      │ Precisão do corte│  mesma altura
+       ├──────────────────┼──────────────────┤
+       │ [Analisar]       │                  │
+       │ [Cortar]         │  Prévia dos      │
+       ├──────────────────┤  cortes          │
+       │ Histórico        │                  │
+       └──────────────────┴──────────────────┘
+
+   A precisão SUBIU pra primeira linha (era o lugar do histórico), os dois
+   cards de ajuste dividem a linha na mesma altura, os botões entram logo
+   abaixo — ainda acima da dobra — e o histórico fica embaixo deles. A coluna
+   da direita é o VÃO onde a prévia nasce depois do Analisar: a alternância
+   que o Victor testou e aprovou.
+   Abaixo de 720px tudo empilha na ordem do HTML, que é a ordem de uso.
+   (Foi 860 por um dia: a coluna única no painel de ~760px virou ROLAGEM
+   demais — print do Victor de 13/08. Voltou a 720 com os cards COMPACTOS
+   no painel médio, que era o que faltava na primeira tentativa.) */
+
+/* As duas escolhas pequenas dividem uma linha; abaixo de ~420px o wrap
+   empilha sozinho, sem media query. */
+#autocut-panel .ac-linha-campos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+#autocut-panel .ac-linha-campos .form-field {
+    flex: 1 1 165px;
+    min-width: 0;
+    margin-top: 0;
+}
+#autocut-panel .ac-linha-campos select { width: 100%; }
+
+/* AÇÕES: bloco próprio, sem moldura — são A ação da aba, não mais uma seção
+   de ajuste. Empilhados (pedido da 1ª rodada) e com largura de BOTÃO, não de
+   painel: o conteúdo acompanha a largura, o clicável para de crescer (mesma
+   regra que o Clonar levou quando o "Copiar estilo" virou uma barra). */
+#autocut-panel #autocut-acoes {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    margin-top: 12px;
+    max-width: 420px;
+}
+#autocut-panel #autocut-acoes .fs-acao,
+#autocut-panel #autocut-acoes .btn-secondary {
+    width: 100%;
+    margin-top: 0;
+    white-space: nowrap;
+}
+/* O interruptor da rede de segurança fecha o grupo da ação. Um respiro maior
+   o separa dos dois botões — sem isso ele vira um terceiro botão na pilha. */
+#autocut-panel #autocut-acoes .switch-row { margin-top: 5px; }
+/* A dica que EXPLICA o interruptor: clara e com respiro (Victor, 12/08 —
+   estava cinza e colada na borda). As outras dicas seguem cinza de propósito:
+   se tudo é destaque, nada é. */
+#autocut-panel .ac-dica-forte {
+    display: block;
+    color: var(--text);
+    opacity: 1;
+    margin-top: 4px;
+}
+/* Status VAZIO não ocupa lugar: o .transcribe-status carrega min-height 16px
+   + margin 10px pra não pular quando o texto aparece, e sem recado nenhum
+   deixava um vão morto embaixo do "Cortar silêncios". */
+#autocut-panel #autocut-status:empty { display: none; }
+
+/* A lista da prévia respira quando há espaço, mas nunca vira uma faixa
+   gigante — mesmo critério da lista de estilos do Clonar. */
+#autocut-panel #autocut-list {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+@media (min-width: 720px) {
+    /* Grade NOMEADA: com áreas, esconder a prévia (que nasce escondida) ou o
+       histórico não reorganiza nada — a área fica vazia e os vizinhos não
+       pulam de lugar. Era o que quebrava com os blocos soltos no grid. */
+    #autocut-panel .fs-col {
+        display: grid;
+        grid-template-columns: minmax(300px, 1fr) minmax(320px, 1fr);
+        grid-template-areas:
+            "intro    intro"
+            "onde     precisao"
+            "previa   previa"
+            "retake   retake"
+            "hist     hist"
+            "dev      dev";
+        /* A PRÉVIA ATRAVESSA (5ª rodada, 12/08 — "a prévia dos cortes poderia
+           tomar toda a parte horizontal"). Antes ela dividia a linha com o
+           histórico e sobrava meia tela vazia embaixo dele. Agora: dois cards
+           de ajuste em cima, a prévia inteira atravessando, e o histórico
+           fechando embaixo — sem vão em lugar nenhum. */
+        grid-template-rows: auto auto auto auto auto auto;
+        gap: 0 10px;
+        align-items: start;
+        /* SEM ISTO a aba abre esburacada: o .fs-col é `flex: 1 1 auto` dentro
+           do painel, então sobra altura, e o align-content padrão do grid
+           (stretch) reparte essa sobra ENTRE AS LINHAS — nascia um vão de
+           ~130px entre a dica do topo e os cards, e os dois cards esticavam
+           com um vazio no rodapé. `start` empurra tudo pro alto e a sobra
+           fica embaixo, que é onde a prévia vai entrar. */
+        align-content: start;
+    }
+    #autocut-panel #autocut-intro            { grid-area: intro; }
+    #autocut-panel #autocut-bloco-onde       { grid-area: onde; }
+    #autocut-panel #autocut-bloco-precisao   { grid-area: precisao; }
+    #autocut-panel #autocut-bloco-resultado  { grid-area: previa; }
+    #autocut-panel #autocut-retake           { grid-area: retake; }
+    #autocut-panel #autocut-hist             { grid-area: hist; }
+    /* O stretch dos dois cards SAIU (13/08/2026): com os botões e o status
+       dentro do "Onde cortar", ele cresce mais que a Precisão — e esticar a
+       Precisão pra acompanhar criava exatamente o VÃO que o Victor apontou.
+       Cada card agora tem a altura do próprio conteúdo. */
+    #autocut-panel #autocut-dev-tools { grid-area: dev; padding: 2px 10px; }
+    /* A lista atravessa: em vez de uma coluna comprida com metade da largura
+       vazia, ela vira COLUNAS. Com 3 colunas cabem 3x mais cortes na mesma
+       altura — é o que "preencher todo o campo" quer dizer aqui.
+       Continua com teto: a prévia é conferência, não lugar de trabalho. */
+    #autocut-panel #autocut-list {
+        max-height: 260px;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+        align-content: start;
+        gap: 0 10px;
+    }
+    /* O card da direita começa na mesma linha do da esquerda: o .fs-bloco
+       tem margin-top de 12px, que aqui viraria degrau entre as colunas. */
+    #autocut-panel #autocut-bloco-precisao,
+    #autocut-panel #autocut-bloco-resultado { margin-top: 12px; }
+}
+
+/* Os dois cartões do resultado LADO A LADO (resumo verde à esquerda, sugestão
+   à direita). Abaixo de ~640px de card eles empilham sozinhos pelo wrap. */
+/* align-items: START, não stretch (Victor, 13/08: "a sensibilidade aparece
+   uma frase e embaixo fica tudo vazio"). Esticado, o cartão da sugestão
+   copiava a altura do resumo verde e sobrava meio cartão em branco. Cada um
+   com a sua altura. */
+#autocut-panel #autocut-cartoes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: flex-start;
+    margin: 8px 0;
+}
+/* Vazio não ocupa lugar: os cartões só nascem depois do Analisar, e a margem
+   sozinha deixava um degrau embaixo do título. */
+#autocut-panel #autocut-cartoes:empty { display: none; }
+#autocut-panel #autocut-cartoes > * {
+    flex: 1 1 300px;
+    min-width: 0;
+    margin: 0 !important;
+}
+
+/* ANALISAR aceso (Victor, 12/08: "está meio cinza, parece desativado").
+   Contorno e texto no âmbar da casa — da mesma família do "Cortar silêncios",
+   sem competir: o preenchido é o que MEXE na timeline, este só lê o áudio.
+   Desabilitado (durante o trabalho) volta ao cinza, que aí é a verdade. */
+#autocut-panel .ac-analisar:not(:disabled) {
+    border-color: var(--brand-warn);
+    color: var(--brand-warn);
+}
+#autocut-panel .ac-analisar:not(:disabled):hover {
+    background: rgba(245, 158, 11, 0.12);
+}
+
+/* HISTÓRICO: os quatro botões se espalham na largura do card (Victor, 12/08 —
+   "vamos distribuir melhor os botões"). O card atravessa a tela desde a 5ª
+   rodada, e um 2x2 preso em 520px deixava dois terços da faixa vazios.
+   auto-fit resolve sem media query: 1x4 quando há espaço, 2x2 quando não há. */
+#autocut-panel .ac-hist-botoes {
+    display: grid;
+    /* DETERMINÍSTICO (13/08/2026, print do Victor com 3+1 e um órfão): o
+       auto-fit dependia da largura e quebrava torto em painéis médios.
+       Agora: 2x2 por padrão, 1x4 no painel largo — nunca 3+1. */
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+}
+@media (min-width: 720px) {
+    #autocut-panel .ac-hist-botoes { grid-template-columns: repeat(4, 1fr); }
+}
+
+/* O eco da precisão: mesmo tamanho do status, sem ocupar lugar quando vazio. */
+#autocut-panel #autocut-precisao-eco { margin-top: 10px; }
+#autocut-panel #autocut-precisao-eco:empty { display: none; }
+
+/* RETAKE: linhas da lista de grupos. Cada grupo é um interruptor de corte —
+   o aluno desliga o grupo que não quer cortar. Grupo com ⚠ (tempos
+   sobrepostos na transcrição) nasce DESLIGADO. */
+#autocut-panel .retake-grupo {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 6px 8px;
+    font-size: 11px;
+    line-height: 1.45;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+#autocut-panel .retake-grupo input { margin-top: 2px; }
+#autocut-panel .retake-grupo > span { flex: 1 1 auto; min-width: 0; }
+/* ▶ leva a agulha até o trecho. Fica na ponta, discreto: é pra CONFERIR antes
+   de decidir, não é a ação da linha. */
+#autocut-panel .retake-ir {
+    flex: 0 0 auto;
+    margin-top: -1px;
+    padding: 3px 8px;
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+    border-radius: var(--r-sm, 4px);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    background: rgba(245, 158, 11, 0.08);
+    color: var(--brand-warn, #f59e0b);
+    cursor: pointer;
+    white-space: nowrap;
+}
+#autocut-panel .retake-ir:hover {
+    background: rgba(245, 158, 11, 0.20);
+    border-color: rgba(245, 158, 11, 0.6);
+}
+#autocut-panel #retake-lista { max-height: 240px; overflow-y: auto; }
+#autocut-panel #retake-status:empty { display: none; }
+
+/* PAINEL MÉDIO (720-899px): as 2 colunas entram, mas em densidade COMPACTA —
+   foi a falta disto que fez o 720 parecer espremido na 1ª tentativa. */
+@media (min-width: 720px) and (max-width: 899px) {
+    #autocut-panel .fs-bloco { padding: 9px 10px 10px; }
+    #autocut-panel .fs-bloco-titulo { margin-bottom: 7px; }
+    #autocut-panel .form-field { margin-top: 8px; }
+    #autocut-panel .transcribe-hint { font-size: 10px; }
+    #autocut-panel .ac-botoes { margin-top: 9px; }
+    #autocut-panel #autocut-acoes { margin-top: 9px; }
+}
+
+/* AUTOEDIT: o ⏹ na PRÓPRIA linha da etapa (13/08/2026, pedido do Victor —
+   "tem que ter o botão de parar em cada etapa"). Só aparece na etapa que
+   está rodando; o Parar do rodapé continua valendo e os dois disparam o
+   mesmo pedido. Discreto de propósito: é saída de emergência, não ação. */
+.ae-etapa-parar {
+    flex: 0 0 auto;
+    margin-left: 6px;
+    padding: 2px 7px;
+    border-radius: var(--r-sm, 4px);
+    border: 1px solid rgba(239, 68, 68, 0.45);
+    background: rgba(239, 68, 68, 0.10);
+    color: #fca5a5;
+    font-size: 11px;
+    line-height: 1.4;
+    cursor: pointer;
+}
+.ae-etapa-parar:hover:not(:disabled) { background: rgba(239, 68, 68, 0.20); }
+.ae-etapa-parar:disabled { opacity: 0.45; cursor: default; }
+
+/* .ac-botoes: os dois botões do Retake (Procurar / Cortar repetições).
+   A classe tinha ficado órfã quando o bloco de ações virou #autocut-acoes, e
+   sem regra o "Cortar repetições" esticava de ponta a ponta sozinho (.fs-acao
+   é width:100%) — o "botão muito grande" do Victor. */
+/* Empilhados sobrava meia tela à direita (Victor, 13/08: "no lado direito
+   está sobrando muito espaço, muito espaço mesmo"). Lado a lado e ocupando a
+   largura do card. Procurar fica no tamanho do rótulo e Cortar toma o resto:
+   dividir meio a meio daria um botão gigante pra uma palavra só, e a ação
+   principal é a de cortar. Em painel estreito o wrap devolve a pilha. */
+#autocut-panel .ac-botoes {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 7px;
+    margin-top: 10px;
+}
+#autocut-panel .ac-botoes .fs-acao,
+#autocut-panel .ac-botoes .btn-secondary {
+    margin-top: 0;
+    white-space: nowrap;
+}
+#autocut-panel .ac-botoes .btn-secondary {
+    flex: 0 0 auto;
+    min-width: 190px;
+}
+#autocut-panel .ac-botoes .fs-acao {
+    flex: 1 1 260px;
+    width: auto;
+}
+
+/* A lista de repetições ganha moldura própria: sem ela as linhas ficavam
+   soltas no card e não se lia onde a lista começa.
+   overflow-y AUTO aqui é obrigatório: esta regra é mais específica que a
+   `#retake-lista` de cima (o :not(:empty) pesa mais), e quando ela dizia
+   `overflow: hidden` MATAVA a rolagem exatamente quando a lista tinha
+   conteúdo — com muitos retakes o aluno via 3-4 linhas e não conseguia
+   descer pra marcar as caixas (Victor, 19/08/2026). */
+#autocut-panel #retake-lista:not(:empty) {
+    margin-top: 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md, 6px);
+    background: rgba(255, 255, 255, 0.03);
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+#autocut-panel #retake-lista .retake-grupo:last-child { border-bottom: none; }
+
+/* ==========================================================================
+   SAFEZONE / Frame Grid (13/08/2026) — Victor: "os botões estão muito grande,
+   inspire na aba Clonar". Rótulo à esquerda e pastilhas à direita na MESMA
+   linha: são escolhas, não ações, e ocupam a largura sem virar banner.
+   ========================================================================== */
+/* DUAS COLUNAS NO PAINEL LARGO (13/08/2026, Victor: "estou achando que ele tem
+   muito espaço sobrando"). Escolhas de um lado, ajustes e ações do outro —
+   a mesma divisão já assentada na Clonar, no AutoCut e no SFX.
+   A primeira linha de cada coluna perde a margem de cima pra as duas
+   começarem na mesma altura; abaixo de 720px empilha e volta ao que era. */
+@media (min-width: 720px) {
+    .guia-cols {
+        display: grid;
+        grid-template-columns: minmax(300px, 1fr) minmax(300px, 1fr);
+        gap: 0 24px;
+        align-items: start;
+    }
+    .guia-col > .guia-linha:first-child { margin-top: 0; }
+}
+
+.guia-linha {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    margin-top: 9px;
+}
+.guia-rot {
+    flex: 0 0 auto;
+    min-width: 92px;
+    font-size: 10px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    opacity: .6;
+}
+.guia-pills { display: flex; flex-wrap: wrap; gap: 5px; }
+/* O select é ENFEITADO pelo fsEnhanceSelect: o <select> some e nasce um
+   .track-custom--full no lugar. Aquela variante é dos modais — largura total e
+   texto centralizado — e por isso o dropdown "bugava" aqui, tomando a linha
+   inteira e abrindo por cima do rodapé. Nesta linha ele vira caixa normal. */
+.guia-linha--ajustes .track-custom {
+    flex: 0 1 210px;
+    display: block;
+    width: auto;
+    min-width: 150px;
+}
+.guia-linha--ajustes .track-custom-btn {
+    width: 100%;
+    text-align: left;
+    font-size: 11px;
+    padding: 7px 9px;
+}
+.guia-linha--ajustes .track-custom-list {
+    width: 100%;
+    min-width: 190px;
+    left: 0;
+    right: auto;
+}
+.guia-linha--ajustes .track-custom-opt { text-align: left; font-size: 11px; }
+/* fallback pra quando o enfeite não roda (o <select> cru aparece) */
+.guia-sel { flex: 0 1 210px; min-width: 150px; font-size: 11px; padding: 6px 8px; }
+
+/* OPACIDADE, na mesma linha da trilha (13/08/2026). Os dois são ajustes
+   pequenos: separar em linhas próprias devolveria o "muito espaço pra pouca
+   coisa" de mais cedo. O rótulo secundário não tem a largura mínima do
+   primeiro — ele não abre coluna, só encosta no controle. */
+.guia-rot--2 { min-width: 0; margin-left: 6px; }
+.guia-opac { flex: 0 1 150px; min-width: 110px; }
+.guia-opac-val {
+    flex: 0 0 auto;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    opacity: .75;
+    min-width: 34px;
+}
+/* Os dois botões LADO A LADO. A regra de .ac-botoes é do #autocut-panel e não
+   alcança a Dinâmica — foi por isso que o "Tirar a guia" ficou sozinho numa
+   linha. Em painel estreito o wrap devolve a pilha. */
+/* A linha de ação: trilha + Tirar + Pôr, tudo junto. A regra .ac-botoes é
+   escopada em #autocut-panel e não alcança a Dinâmica — foi por isso que o
+   "Tirar a guia" nasceu sozinho numa linha. */
+/* AS AÇÕES TÊM LARGURA DE BOTÃO, não de barra (13/08/2026). Com `flex: 1 1`,
+   o "Pôr a guia na timeline" esticava até a borda do painel — num painel largo
+   virava uma barra laranja de 700px. Mesma regra já assentada na Clonar e no
+   SFX: o conteúdo acompanha o painel, o clicável não. */
+.guia-linha--acao { align-items: center; margin-top: 12px; max-width: 460px; }
+.guia-linha--acao .btn-secondary {
+    flex: 0 0 auto;
+    margin-top: 0;
+    padding: 7px 14px;
+    white-space: nowrap;
+}
+.guia-linha--acao .fs-acao {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 150px;
+    margin-top: 0;
+    padding: 7px 14px;
+    white-space: nowrap;
+}
+
+/* DUAS COLUNAS no zoom: ancoragem à esquerda, suavização à direita. O grid é
+   estreito por natureza e deixava meia tela vazia ao lado. Abaixo de ~560px
+   volta a empilhar sozinho. */
+/* DUAS COLUNAS: suavização | curva (13/08/2026, 4ª rodada).
+   A grade "para onde o zoom vai" saiu a pedido do Victor — a maioria dos
+   editores usa o zoom no centro, e o controle só ocupava espaço. Sobraram a
+   suavização (coluna estreita) e o editor de curva com os dois ease colados
+   nele, que é onde se ajusta olhando. */
+/* UMA COLUNA SÓ (14/08/2026, Victor: "perceba que tem um espaço vazio, ele
+   precisa ficar na horizontal ocupando toda a tela").
+   Era duas colunas: a suavização à esquerda (260px pra UM select e uma dica) e
+   o editor à direita. Num painel largo aquela coluna virava 560px de vazio, e
+   a curva — que é o que a pessoa usa — ficava espremida no que sobrava.
+   Agora a suavização é uma linha no topo e o editor ocupa a largura inteira.
+   O select ganha teto pra não virar uma barra de ponta a ponta. */
+/* AR E LEITURA NAS ESCOLHAS DA ABA ZOOM (15/08/2026, Victor: "está com pouca
+   margem, ela está bem coladinha, mas a margem mais colada está na quantidade
+   [...] essa descrição deveria ser em branco").
+
+   Duas queixas, uma causa cada:
+   - a dica nascia a 4px das pastilhas, e o próximo grupo vinha a 9px. Quase o
+     mesmo vão dos dois lados, então o olho não sabia de quem a dica era. Agora
+     ela encosta no dono (6px) e os grupos se afastam (16px). É o vão que
+     agrupa, não a linha.
+   - ela era `--text-3` (#6a6a72) em 10px, o cinza mais escuro do painel: dava
+     pra ver que havia texto e não dava pra ler. Vai pro branco do painel.
+
+   Escopado à aba Zoom de propósito: o resto do painel ele já aprovou como está,
+   e clarear tudo de uma vez mexeria em telas fechadas. */
+/* DESTAQUE NOS NOMES DAS ESCOLHAS (15/08/2026, Victor: "aplicar em, em qual
+   trilha, quantidade, destino: eles deveriam ter destaque pro usuário saber o
+   que está aplicando").
+
+   O rótulo era 10px com `opacity: .6` — mais apagado que a própria pastilha que
+   ele nomeia, e mais apagado que "Estilo do zoom" e "Suavização da curva" duas
+   linhas abaixo, que são `.fs-campo-label` (12px/600, branco). A aba falava
+   duas línguas de rótulo. Agora fala uma só, a que ele já tinha aprovado.
+
+   NÃO vai laranja de propósito: laranja é AÇÃO, e é o estado da pastilha acesa.
+   Rótulo laranja competiria com a escolha e quebraria a regra de que a cor diz
+   o que está ligado.
+
+   O `min-width` sobe junto com a fonte: é ele que mantém as pastilhas de todas
+   as fileiras começando na MESMA coluna. Medido no painel: o nome mais largo é
+   "Em qual trilha", com 85px, e com 104px as seis fileiras começam em x=139. */
+/* A CAIXINHA ATRÁS DO NOME (15/08/2026, 2ª rodada: "eles deveriam ter um shape
+   atrás, tipo um botão pra destacar, pra pessoa prestar atenção").
+
+   Três decisões pra ela NÃO virar um botão falso:
+
+   1. RAIO DE 6px, não 999px. Neste painel o redondo total quer dizer OPÇÃO
+      (.caps-pill). Se o rótulo virasse pastilha, a pessoa tentaria clicar nele
+      e a linha teria quatro coisas com cara de clicável e só três que são.
+   2. SEM LARANJA. Laranja é ação e é o estado da pastilha acesa. Rótulo laranja
+      competiria com a escolha e quebraria "a cor diz o que está ligado".
+   3. SEM hover e com cursor default: nada nele responde ao mouse, que é como o
+      olho aprende em meio segundo que ali não se clica.
+
+   A largura é FIXA (não min-width com texto solto): as seis caixinhas do mesmo
+   tamanho formam uma coluna, e é a coluna que ancora o olho. Ragged seria
+   enfeite. box-sizing pra o padding não empurrar as pastilhas pra fora do
+   alinhamento — elas continuam começando todas no mesmo x. */
+[data-dyn-sec="zoom"] .guia-rot {
+    opacity: 1;
+    font-size: 12px;
+    letter-spacing: .3px;
+    text-transform: none;
+    box-sizing: border-box;
+    width: 124px;
+    min-width: 124px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: default;
+
+    /* O SHAPE AMARELO (15/08/2026, Victor: "ele precisaria estar amarelo, o
+       shape atrás da palavra").
+
+       O risco de pintar o rótulo com a cor da marca é matar o sinal de estado:
+       se rótulo e pastilha acesa forem os dois laranja, a cor deixa de dizer o
+       que está ligado. A saída não é mudar o matiz, é mudar o PREENCHIMENTO:
+
+         rótulo  = fundo CHEIO amarelo, texto ESCURO   (crachá, não se clica)
+         acesa   = fundo vazado,        texto LARANJA  (estado)
+         apagada = fundo vazado,        texto CINZA
+
+       Cheio contra vazado o olho separa em um piscar, mesmo com a cor perto —
+       é diferença de peso, não de tom. O texto escuro é o que sela: nada
+       clicável neste painel tem texto escuro.
+
+       Continua sem hover e com cursor default, que é o que ensina que ali não
+       se clica. */
+    background: var(--brand-warn);
+    border: 1px solid var(--brand-warn);
+    color: var(--bg-0, #141417);
+    font-weight: 700;
+}
+/* Intensidade e Duração entram junto. Não estavam na lista dele, mas eram
+   `.fs-slider label` (10px, --text-3, caixa alta) e, depois do ajuste acima,
+   viraram os DOIS únicos nomes apagados da aba — a incoerência que eu tinha
+   acabado de tirar, de volta. O número laranja (`label b`) não muda: ali o
+   laranja é o valor, não o nome. */
+[data-dyn-sec="zoom"] .fs-slider label {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .3px;
+    text-transform: none;
+    color: var(--text);
+}
+[data-dyn-sec="zoom"] .guia-linha { margin-top: 16px; }
+[data-dyn-sec="zoom"] .transcribe-hint {
+    margin-top: 6px;
+    color: var(--text);
+}
+/* O Preview vive na linha da Quantidade: largura do nome, não de barra, e a
+   altura casando com a pastilha ao lado. O `width:100%` que ele tinha inline
+   saiu do HTML junto. */
+[data-dyn-sec="zoom"] #btn-zoom-preview {
+    /* `flex: 0 0 auto` é o que segura o tamanho, não o `width: auto`: o
+       .btn-secondary traz flex-grow 1, e dentro de um flex container ele
+       esticava pra 1063px de novo — a mesma barra atravessada, só que agora
+       dentro da linha. Medido antes de acreditar. */
+    flex: 0 0 auto;
+    width: auto;
+    margin-left: 6px;
+    padding: 6px 12px;
+    font-size: 11px;
+    line-height: 1.2;
+}
+/* A divisa entre ONDE o zoom entra (alcance, trilha, quantidade) e COMO ele se
+   move (destino, estilo, intensidade, curva). Separa sem gastar palavra. */
+.zoom-divisa {
+    height: 1px;
+    border: 0;
+    background: var(--border);
+    margin: 20px 0 4px;
+}
+
+/* O TRIO: Direção · Modo · Suavização (15/08/2026, Victor: "olha como temos
+   muito espaço na lateral direita [...] ter um conteúdo maior no painel, sem
+   sobrar bordas ou muito espaço vazio").
+
+   Medido antes: num painel de 1499px, a Direção deixava 1118px vazios, o Modo
+   1170px e a Suavização 1182px. Três linhas quase inteiras de nada, empilhadas.
+
+   As três são a mesma coisa — um nome e duas ou três opções — então dividem a
+   largura em três colunas IGUAIS, e dentro de cada uma as pastilhas ESTICAM pra
+   preencher. Esticar é o que responde ao pedido: sem isso as colunas dividiriam
+   o vazio em três em vez de acabar com ele.
+
+   Aqui a pastilha estica; nas fileiras de cima (Aplicar em, trilha, quantidade)
+   ela continua do tamanho do nome. A diferença é de propósito: lá as opções
+   moram numa linha junto do rótulo e do Preview, e esticar bagunçaria o
+   alinhamento da coluna de caixinhas. */
+.zoom-trio {
+    display: grid;
+    /* auto-fit com PISO em vez de três colunas fixas mais um ponto de quebra.
+       Medido: com `repeat(3, 1fr)` e quebra em 860px, um painel de 900px dava
+       coluna de 86px e as pastilhas saíam "Curva calc…" e "Sem suaviza…" —
+       pastilha com reticência mente o próprio nome, que é pior que empilhar.
+       O piso de 340px é o que cabe as três maiores ("Sem suavização" pede
+       ~110px cada). Assim ele mesmo decide: 3 colunas no painel largo, 2 no
+       médio, 1 no estreito, e nunca corta. */
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 14px 18px;
+    align-items: start;
+    margin-top: 16px;
+}
+.zoom-trio-col { min-width: 0; }
+/* A caixinha do nome no trio: do tamanho da PALAVRA, não da coluna.
+   Com o shape amarelo (15/08/2026) o `display: block` daqui virava uma FAIXA
+   de 469px — três barras amarelas atravessando o painel. O Victor pediu shape
+   atrás da palavra; faixa é outra coisa, e três delas cansam a tela.
+   `inline-block` faz o crachá ter o tamanho do nome, como nas fileiras de
+   cima. A coluna continua ancorada, só que pelo alinhamento, não pela barra. */
+.zoom-trio-col .guia-rot {
+    display: inline-block;
+    width: auto;
+    min-width: 0;
+    margin-bottom: 7px;
+}
+.zoom-trio-col .guia-pills { display: flex; gap: 6px; }
+.zoom-trio-col .caps-pill {
+    flex: 1 1 0;
+    min-width: 0;
+    text-align: center;
+    padding-left: 6px;
+    padding-right: 6px;
+    /* nome comprido ("Sem suavização") não pode empurrar a coluna nem quebrar
+       em duas linhas: a fileira tem que ficar com a mesma altura das vizinhas */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.zoom-trio-col .transcribe-hint { margin-top: 7px; }
+
+/* A CURVA CRESCE COM O PAINEL (14/08/2026, Victor: "está sobrando muita
+   borda... se tiver como colocar a curva de uma maneira que preencha").
+   Com o `preserveAspectRatio="none"` o desenho passou a esticar, mas a altura
+   continuava em 140px fixos — num painel largo o editor virava uma FITA de
+   1173x140, e arrastar ponto numa proporção 8:1 é pior que a borda que a gente
+   tirou. A altura acompanha a largura, com teto pra não engolir o painel. */
+/* O EDITOR TEM LARGURA DE EDITOR, e fica CENTRALIZADO (14/08/2026, 3ª rodada
+   — Victor: "está muito grande e muito achatada, a qualidade do pixel está
+   estranha; é pra ela ficar igual estava antes, porém centralizada").
+   640x280 é exatamente a proporção 320:140 do desenho: assim o `meet` não
+   sobra borda NENHUMA e a escala é uniforme, sem achatar. O bloco inteiro
+   (curva + os dois ease) é centralizado junto, pra não ficar desalinhado. */
+@media (min-width: 720px) {
+    /* O BLOCO usa a largura INTEIRA (Victor, 14/08/2026: "as barras deveriam
+       encher todo o campo, e a pessoa conseguiria mexer na curva e olhar como
+       está a barra"). Limitar o bloco também encolhia os sliders, que são
+       justamente o que ganha em ser largo: mais curso pro mesmo 0-100%, então
+       mais precisão por pixel arrastado.
+       Quem fica centralizado é SÓ a curva, pelo max-width dela logo abaixo —
+       ela não ganha nada em esticar, os sliders ganham tudo. */
+    /* E A CAIXA DA CURVA fica no TAMANHO NATIVO do desenho: 320x140.
+       Com `meet`, o desenho já era desenhado sempre em 320x140 e centralizado —
+       o que incomodava era só a caixa VAZIA em volta dele. Ao esticar a caixa
+       pra 640 (2ª tentativa), o desenho ampliou 2x junto: a curva ficou enorme
+       e as alças viraram bolas (Victor, 14/08/2026: "essas bolinhas que ficam
+       na ponta está muito grande também").
+       Casando a caixa com o desenho, some a borda E o tamanho volta ao de
+       antes — as alças voltam ao tamanho em que foram desenhadas. */
+    /* 06/09/2026: a caixa .fs-curva-caixa já faz isto em QUALQUER largura (e
+       encolhe proporcional abaixo de 320px); a regra fica aqui só como registro. */
+    .fs-curva-caixa { max-width: 320px; }
+}
+
+/* ============================================================================
+   SFX AUTO EM DOIS QUADRANTES (13/08/2026, pedido do Victor: "colocar o
+   conteúdo de sons e o de disparo dividido, e alguns botões embaixo").
+   O painel abria numa coluna só: com o painel largo, os cards ficavam com
+   metade da tela vazia à direita e as três ações no fim de uma rolagem.
+
+   Mesma receita já assentada na Clonar e no AutoCut: grade NOMEADA. Com áreas,
+   esconder o "Aplicar em" (que some nos modos que não são de seleção) ou o
+   resumo do Preview não reorganiza nada — a área fica vazia e os vizinhos não
+   pulam de lugar.
+   ========================================================================= */
+@media (min-width: 720px) {
+    #autosfx-panel .fs-col {
+        display: grid;
+        grid-template-columns: minmax(300px, 1fr) minmax(320px, 1fr);
+        grid-template-areas:
+            /* AS AÇÕES MORAM NA COLUNA DA DIREITA (13/08/2026, 3ª rodada —
+               Victor: "quando aumenta o painel os botões ficam colado no
+               rodapé, e não é pra acontecer isso").
+               Enquanto elas tinham uma FAIXA PRÓPRIA embaixo dos dois cards, a
+               posição delas dependia da altura do painel: painel alto = faixa
+               solta no meio do vazio; painel da altura do conteúdo = faixa
+               encostada no rodapé do plugin. Não havia altura certa.
+               Aqui elas deixam de ser faixa e viram conteúdo: ficam sob o
+               Disparo, e o card de Sons desce até a mesma linha de base. É o
+               desenho da aba Clonar, que ele próprio desenhou em 12/08. */
+            "intro   intro"
+            "sons    disparo"
+            "sons    acoes"
+            "status  status";
+        /* GAP NAS DUAS DIREÇÕES (13/08/2026, 2ª rodada — Victor: "não ficou
+           proporcional, os botões estão colados no rodapé"). O gap de linha
+           era ZERO: status e ações encostavam no card de cima e o rodapé
+           parecia grudado. */
+        gap: 12px 10px;
+        /* STRETCH, não start (Victor: "os cards não têm o mesmo tamanho, você
+           tem que fazer eles ter o mesmo tamanho"). O de Sons cresce com o mix
+           e o de Disparo tem altura fixa — com `start`, o mais curto deixava um
+           vão embaixo dele. Esticados, os dois fecham na mesma linha de base
+           independente de qual está maior no momento. */
+        align-items: stretch;
+        /* SEM ISTO a aba abre esburacada: o .fs-col é `flex: 1 1 auto` dentro
+           do painel, então sobra altura e o grid reparte a sobra ENTRE AS
+           LINHAS. `start` empurra tudo pro alto e a sobra fica embaixo. */
+        align-content: start;
+    }
+    /* Linha de status VAZIA não pode ocupar linha nenhuma: sem isto ela come
+       a altura dela mais os dois gaps, e abre um vão entre os cards e as
+       ações que não tem nada dentro. */
+    #autosfx-panel #autosfx-status:empty { display: none; }
+    #autosfx-panel #autosfx-caps          { grid-area: intro; }
+    #autosfx-panel #autosfx-bloco-sons    { grid-area: sons; }
+    #autosfx-panel #autosfx-bloco-disparo { grid-area: disparo; }
+    #autosfx-panel #autosfx-status        { grid-area: status; }
+    #autosfx-panel #autosfx-acoes         { grid-area: acoes; }
+    /* O card da direita começa na mesma linha do da esquerda: o .fs-bloco tem
+       margin-top, que aqui viraria degrau entre as colunas. */
+    #autosfx-panel #autosfx-bloco-sons,
+    #autosfx-panel #autosfx-bloco-disparo { margin-top: 0; }
+}
+
+/* Largura de BOTÃO, não de barra (mesma regra da aba Clonar, 12/08/2026):
+   num painel largo, esticar de ponta a ponta não deixa o clicável melhor,
+   só maior. O conteúdo continua acompanhando a largura da coluna. */
+/* Na coluna da direita a largura JÁ é a da coluna: um teto aqui deixaria os
+   três botões desalinhados dos selects logo acima deles. No painel estreito
+   (fora da grade) o teto continua valendo. */
+#autosfx-panel #autosfx-acoes { max-width: 560px; align-self: start; }
+@media (min-width: 720px) {
+    #autosfx-panel #autosfx-acoes { max-width: none; }
+}
+#autosfx-panel #autosfx-pick,
+#autosfx-panel .fs-bloco .form-field > select,
+#autosfx-panel .fs-bloco .form-field > .track-custom { max-width: 440px; }
+
+/* ============================================================================
+   AS RÉGUAS DA CASA (30/08/2026, pedido do Victor: "não faz sentido ficar
+   azul... precisamos manter a nossa identidade, luxuoso, minimalista").
+   O range cru do Chromium é azul de sistema; a identidade já existia no
+   zoom do cabeçalho (#preview-zoom): trilho fino, bolinha âmbar com halo.
+   Esta classe generaliza aquela linguagem pra TODO slider do painel; o
+   preenchimento até o valor vem da variável --fs-range-p, pintada pelo
+   fsVestirRanges (main.js) a cada arraste.
+============================================================================ */
+/* 31/08: "um pouquinho maior pra ser mais fácil" — trilho 5px, bolinha 16px,
+   área de toque 20px. A linguagem é a mesma; só cresceu o alvo do dedo. */
+input[type="range"].fs-range {
+    -webkit-appearance: none;
+    height: 20px;               /* área de clique confortável */
+    background: transparent;
+    outline: none;
+    cursor: ew-resize;
+    padding: 0;
+    margin: 0;
+}
+input[type="range"].fs-range::-webkit-slider-runnable-track {
+    height: 5px;
+    border-radius: 3px;
+    background: linear-gradient(90deg,
+        var(--brand-warn) var(--fs-range-p, 0%),
+        var(--bg-4) var(--fs-range-p, 0%));
+}
+input[type="range"].fs-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    margin-top: -5.5px;
+    border-radius: 50%;
+    background: var(--brand-warn);
+    border: 2px solid var(--bg-0);
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.18);
+    cursor: ew-resize;
+    transition: box-shadow 0.15s;
+}
+input[type="range"].fs-range:hover::-webkit-slider-thumb,
+input[type="range"].fs-range:active::-webkit-slider-thumb {
+    box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.25);
+}
+
+/* Caption IA 3.1.0 branding */
+.header-brand .brand-text{letter-spacing:-0.02em;}
