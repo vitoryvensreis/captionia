@@ -1305,6 +1305,13 @@
                         <button type="button" class="caps-pill" data-cores-escopo="todas" title="Todas as legendas (blocos do Caption IA) da timeline">Timeline toda</button>
                     </span>
                 </div>
+                <div class="guia-linha">
+                    <span class="guia-rot">Texto ativo</span>
+                    <div class="color-group">
+                        <input type="color" id="clone-karaoke-active-visual" class="color-swatch" value="#000000">
+                        <input type="text" id="clone-karaoke-active-hex" class="color-hex" value="" placeholder="só Karaokê" maxlength="7">
+                    </div>
+                </div>
                 <button id="btn-clone-cores" class="fs-acao caps-acao" style="width:100%;margin-top:8px;">Aplicar as cores nos selecionados</button>
             </div>
                     </div>
@@ -2255,7 +2262,7 @@
                 <button id="btn-captions-tirar" class="btn-secondary caps-mini" style="display:none;">↩ Tirar da timeline</button>
                 <button id="btn-captions-insert-io" class="fs-acao caps-acao" title="Insere os gráficos só no trecho marcado com In (I) e Out (O)">⬇ No In/Out</button>
                 <button id="btn-captions-insert" class="fs-acao caps-acao" title="Cria um bloco de gráfico por legenda na timeline (pra usar no Custom)">⬇ Inserir na timeline</button>
-                <button id="btn-captions-word-highlight" class="fs-acao caps-acao" style="grid-column:1 / -1;" title="Insere o modelo Caption IA Word Highlight usando os timestamps reais de cada palavra da transcrição">Word Highlight</button>
+                <button id="btn-captions-word-highlight" class="fs-acao caps-acao" style="display:none;" aria-hidden="true" tabindex="-1">Word Highlight</button>
                 <button id="btn-captions-stop" class="btn-secondary" style="display:none;">⏹ Parar</button>
             </div>
         </div>
@@ -2447,6 +2454,14 @@
                         <input type="color" id="gradient-support-end-visual" class="color-swatch" value="#FFFFFF">
                         <input type="text" id="gradient-support-end-picker" class="color-hex" value="#FFFFFF" maxlength="7">
                     </span>
+                </div>
+                <div class="fs-cor-titulo"><span>TEXTO ATIVO (KARAOKÊ)</span></div>
+                <div class="fs-cor-linha">
+                    <div class="color-group" id="styles-section-color-karaoke-active">
+                        <input type="color" id="karaoke-active-color-visual" class="color-swatch" value="#000000">
+                        <input type="text" id="karaoke-active-color-picker" class="color-hex" value="#000000" maxlength="7">
+                    </div>
+                    <span class="transcribe-hint" style="margin:0 0 0 6px;">cor da palavra sobre o destaque</span>
                 </div>
                 <span class="transcribe-hint" id="gradient-hint" style="display:none;">O degradê vale só nos modelos que têm.</span>
             </div>
