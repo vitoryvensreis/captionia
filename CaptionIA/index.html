@@ -4,7 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Caption IA</title>
-    <link rel="stylesheet" href="css/style.css?v=9">\n    <link rel="stylesheet" href="css/theme_site.css?v=1">
+    <link rel="stylesheet" href="css/style.css?v=9">
+    <link rel="stylesheet" href="css/theme_site.css?v=1">
 <!-- ====================================================================
          TELA BRANCA TEM QUE TER NOME (22/08/2026, um aluno no Windows: o
          painel abre e fica em branco). Erro de JS no carregamento derruba a
@@ -43,8 +44,11 @@
                 d.id = 'fs-erro-fatal';
                 d.style.cssText = 'position:fixed;inset:0;z-index:999999;background:#151515;color:#ddd;'
                     + 'font:12px/1.6 -apple-system,Segoe UI,Arial,sans-serif;padding:18px;overflow:auto;';
-                var texto = 'Caption IA ' + (window.FS_VERSAO || '') + '\n' + titulo + '\n' + detalhe
-                    + '\n' + navigator.userAgent;
+                var texto = 'Caption IA ' + (window.FS_VERSAO || '') + '
+' + titulo + '
+' + detalhe
+                    + '
+' + navigator.userAgent;
                 d.innerHTML =
                     '<div style="font-size:14px;font-weight:700;color:#E8A33D;margin-bottom:8px;">'
                   + 'O painel não conseguiu abrir</div>'
@@ -79,7 +83,8 @@
             }
             var m = (ev && ev.message) ? ev.message : 'erro desconhecido';
             var onde = (ev && ev.filename) ? (ev.filename + ':' + ev.lineno + ':' + ev.colno) : '';
-            cartao('Erro ao carregar o painel.', m + (onde ? ('\n' + onde) : ''));
+            cartao('Erro ao carregar o painel.', m + (onde ? ('
+' + onde) : ''));
         }, true);
         window.addEventListener('unhandledrejection', function (ev) {
             var m = '';
@@ -94,7 +99,11 @@
             if (pintou) { return; }
             cartao('O painel abriu mas não montou a interface.',
                 'Nenhum elemento da tela foi criado em 8 segundos.'
-                + (anotados.length ? ('\n\nErros anotados:\n' + anotados.join('\n')) : ''));
+                + (anotados.length ? ('
+
+Erros anotados:
+' + anotados.join('
+')) : ''));
         }, 8000);
     })();
     </script>
@@ -103,7 +112,9 @@
          novo do CEP nao tem, e o main.js ja le as preferencias inteiras -->
     <script src="js/paths.js"></script>
     <script src="js/cofre.js"></script>
-    <script src="js/secure_storage.js"></script>\n    <script src="js/license_storage.js"></script>\n    <script src="js/auth.js"></script>
+    <script src="js/secure_storage.js"></script>
+    <script src="js/license_storage.js"></script>
+    <script src="js/auth.js"></script>
     <script src="js/template_contract.js"></script>
     <script src="js/patches_3_1.js"></script>
     <!-- 05/09/2026: o seletor de arquivo NATIVO do CEP (abre na frente do Premiere).
