@@ -31,7 +31,7 @@ jobs:
         id: version
         shell: bash
         run: |
-          VERSION="$(node -e \"const fs=require('fs');const s=fs.readFileSync('CaptionIA/js/main.js','utf8');const m=s.match(/CURRENT_VERSION='([^']+)'/);if(!m)process.exit(1);process.stdout.write(m[1]);\")"
+          VERSION="$(node scripts/read-version.js)"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Build ZIP
