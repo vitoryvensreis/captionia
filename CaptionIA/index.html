@@ -247,7 +247,7 @@
                     <span>AutoCut</span>
                 </button>
                 
-                <button class="sidebar-tab" data-filter="dinamica" title="Zoom, transição, J/L Cut e presets de efeito" data-tool="1" id="dyn-tab">
+                <button class="sidebar-tab" data-filter="dinamica" title="Zoom, transição, presets e ferramentas de timeline" data-tool="1" id="dyn-tab">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M3 12h4l3-8 4 16 3-8h4"/>
@@ -320,10 +320,9 @@
             <div class="dyn-subtabs fs-vidro" id="dyn-subtabs">
                 <button type="button" class="dyn-subtab fs-vidro-item active" data-dyn="zoom">Zoom</button>
                 <button type="button" class="dyn-subtab fs-vidro-item" data-dyn="transicao">Transição</button>
-                <button type="button" class="dyn-subtab fs-vidro-item" data-dyn="jlcut">J/L Cut</button>
                 <button type="button" class="dyn-subtab fs-vidro-item" data-dyn="presets">Presets</button>
                 <button type="button" class="dyn-subtab fs-vidro-item" data-dyn="guias">Frame Grid</button>
-                <button type="button" class="dyn-subtab fs-vidro-item" data-dyn="animfs">Animações FS</button>
+                <button type="button" class="dyn-subtab fs-vidro-item" data-dyn="animfs">Animações</button>
                 <button type="button" class="dyn-subtab fs-vidro-item" data-dyn="autotrilha">Autotrilha</button>
                 <!-- ANUNCIADAS ANTES DE EXISTIREM (15/08/2026, pedido do Victor:
                      "vamos fazer isso para os usuários já ter noção e ciência
@@ -844,11 +843,11 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <rect x="3" y="3" width="18" height="18" rx="2"/><rect x="7" y="7" width="10" height="10" rx="1"/>
                     </svg>
-                    Safezone
-                    <span class="fs-bloco-sub">onde a rede social cobre a tela</span>
+                    Grid
+                    <span class="fs-bloco-sub">guia visual para posicionamento</span>
                 </div>
                 <span class="transcribe-hint" style="display:block;margin-top:4px;">
-                    Guia por cima do vídeo mostrando o que o app tapa. Serve pra posicionar, não vai pro corte final.
+                    Guia do Instagram por cima do vídeo para posicionar textos e elementos. Remova antes de exportar.
                 </span>
 
                 <!-- DUAS COLUNAS (13/08/2026, Victor: "estou achando que ele
@@ -864,12 +863,6 @@
                     <span class="guia-pills" id="guias-plataformas">
                         <button type="button" class="caps-pill" data-guia-plat="">Nenhuma</button>
                         <button type="button" class="caps-pill" data-guia-plat="instagram">Instagram</button>
-                        <!-- YouTube saiu em 13/08/2026: as guias de inspiração
-                             foram apagadas e só ficaram as artes do Victor
-                             (Instagram e TikTok). Botão sem arquivo devolveria
-                             "SEM_ARQUIVO" — melhor não existir. Volta na hora
-                             em que a arte do YouTube existir. -->
-                        <button type="button" class="caps-pill" data-guia-plat="tiktok">TikTok</button>
                     </span>
                 </div>
 
@@ -976,21 +969,7 @@
                  fossem fs-nodev-only, a aba ficaria VAZIA no modo dev e
                  pareceria defeito. Entao sao visiveis sempre. -->
             <div class="dyn-sec" data-dyn-sec="colorgrading">
-                <div style="text-align:center;padding:30px 14px 26px;">
-                    <div style="display:inline-block;font-size:10px;font-weight:700;letter-spacing:.08em;
-                                text-transform:uppercase;color:var(--bg-0);background:var(--brand-warn);
-                                border-radius:999px;padding:4px 12px;margin-bottom:12px;">Em breve</div>
-                    <div style="font-size:14px;font-weight:600;letter-spacing:.02em;margin-bottom:6px;">Color Grading</div>
-                    <div style="font-size:11px;color:var(--text-2);line-height:1.6;max-width:340px;margin:0 auto;">
-                        Esta função está em desenvolvimento no
-                        <b>Caption IA</b>. O Color Grading vai tratar a cor do seu vídeo em um
-                        clique, com looks prontos e ajuste fino, sem você sair do painel.
-                    </div>
-                    <div style="font-size:10px;color:var(--text-3);line-height:1.55;max-width:340px;margin:10px auto 0;">
-                        Ela chega numa próxima versão do Caption IA. Avisamos quando estiver
-                        disponível para você baixar.
-                    </div>
-                </div>
+                <div style="text-align:center;padding:42px 14px;font-size:14px;font-weight:700;color:var(--brand-warn);">Em breve</div>
             </div>
 
             <!-- TELA DIVIDIDA (30/08/2026): a janela recortada sobre o vídeo base.

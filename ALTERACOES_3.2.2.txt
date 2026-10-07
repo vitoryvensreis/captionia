@@ -1,0 +1,17 @@
+Caption IA 3.2.2
+================
+
+AJUSTES DE INTERFACE
+- "Animações FS" renomeada para "Animações".
+- Aba J/L Cut removida da navegação da Dinâmica.
+- O motor e o script do J/L Cut não foram excluídos neste patch; ficam sem acesso pela interface para reduzir risco de regressão em código compartilhado.
+- Frame Grid: título do card alterado de "Safezone" para "Grid".
+- Frame Grid: opção TikTok removida.
+- Moldura do Instagram substituída pela nova arte moudura-insta.png fornecida nesta atualização.
+- Configurações antigas que ainda apontavam para TikTok são neutralizadas ao carregar a ferramenta.
+- Color Grading simplificado para exibir somente "Em breve".
+
+COMPATIBILIDADE
+- Nenhuma mudança no hostscript.jsxbin.
+- As funções de Zoom, Transição, Presets, Animações, Autotrilha, Tela Dividida e aplicação/remoção do Frame Grid foram preservadas.
+- O nome físico do asset do Instagram continua plat_instagram_916.png para manter compatibilidade com o host já compilado.
