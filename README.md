@@ -1,4 +1,4 @@
-# Caption IA 3.2.2 — versão livre / sem login
+# Caption IA 3.2.3 — versão livre / sem login
 
 Esta árvore foi criada a partir do pacote recuperado do FrameSpeed 2.2.
 
@@ -6,7 +6,7 @@ Esta árvore foi criada a partir do pacote recuperado do FrameSpeed 2.2.
 - Nome público alterado para **Caption IA**.
 - Nome público e menu do CEP alterados para **Caption IA**.
 - IDs internos `com.editbest` / `com.editbest.panel` foram preservados por compatibilidade e para evitar duplicar a extensão em projetos/instalações existentes.
-- Versão atual: **3.2.2**.
+- Versão atual: **3.2.3**.
 - Tela de login removida.
 - Cliente de autenticação e chamadas `login.php`, `validate.php` e `logout.php` removidos do plugin.
 - Revalidação periódica de sessão removida.
@@ -63,3 +63,10 @@ Veja `ALTERACOES_3.2.0.txt` para detalhes.
 - Frame Grid: removida a opção TikTok e substituída a moldura do Instagram pela arte atual fornecida.
 - Preferências antigas salvas como TikTok são limpas automaticamente ao abrir a ferramenta.
 - Color Grading agora mostra somente "Em breve".
+
+
+## Correção 3.2.3
+- Corrigida a distribuição do Karaoke/Word Highlight em várias trilhas de vídeo.
+- O caminho especial do Karaoke agora respeita a mesma trilha preferencial já escolhida pelo AutoEdit/Auto-aplicar.
+- Enquanto os blocos não se sobrepõem, o plugin reutiliza a mesma trilha em vez de procurar uma nova trilha para cada frase.
+- Se houver uma trilha explicitamente informada pelo lote, ela continua tendo prioridade.

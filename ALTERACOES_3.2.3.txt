@@ -1,0 +1,18 @@
+Caption IA 3.2.3
+================
+
+CORRECAO DE TRILHAS DO KARAOKE
+- Corrigido um desvio introduzido pela integração especial do Word Highlight.
+- O AutoEdit/Auto-aplicar já escolhia uma trilha livre para o intervalo inteiro e gravava essa escolha no seletor global.
+- Modelos comuns respeitavam essa trilha por preferredTrack.
+- O caminho especial do Karaoke ignorava preferredTrack quando preTrackIndex vinha como -1; cada bloco era então entregue ao host em modo automático e podia cair em uma nova trilha.
+- Agora o dispatcher do Karaoke resolve a trilha nesta ordem:
+  1. trackIndex explícito do lote, se >= 0;
+  2. trilha preferencial já escolhida pelo AutoEdit/Auto-aplicar;
+  3. automático (-1) somente se nenhuma das anteriores existir.
+
+RESULTADO ESPERADO
+- Frases sequenciais de Karaoke ocupam a mesma trilha sempre que não houver conflito temporal.
+- Novas trilhas só são necessárias quando houver conflito/ocupação real.
+- O comportamento de modelos normais não foi alterado.
+- Nenhuma mudança foi feita no hostscript.jsxbin.
