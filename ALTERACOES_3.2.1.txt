@@ -1,0 +1,14 @@
+Caption IA 3.2.1
+================
+
+CORRECOES
+- Corrigido o AutoEdit com modelo Karaoke/Word Highlight: o planejador genérico trabalha com unidades pequenas de texto para encaixar modelos convencionais, e isso podia fazer o Karaoke receber blocos de uma palavra.
+- Quando TODOS os modelos disponíveis para a etapa de legenda são Karaoke, o AutoDistrib agora ignora o planejador de slots e usa diretamente as frases já segmentadas em premiereSrtData.
+- O MOGRT continua recebendo WORD_TIMINGS palavra por palavra, mas CAPTION_TEXT passa a receber a frase completa do bloco.
+- template.json do Word Highlight 01 alterado de lineCount 4 para lineCount 1 e marcado com captionMode "phrase".
+- Removido do cabeçalho o ícone antigo fs_logo.webp; nome e versão continuam visíveis.
+
+COMPATIBILIDADE
+- Modelos normais continuam usando exatamente o planejador anterior.
+- Pools mistos (Karaoke + modelos convencionais) continuam usando o planejador genérico, sem alterar o comportamento existente dos outros modelos.
+- Nenhum ajuste foi feito no hostscript.jsxbin.

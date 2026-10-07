@@ -3,7 +3,7 @@
   "name": "Word Highlight 01",
   "type": "karaoke",
   "engine": "word-highlight",
-  "lineCount": 4,
+  "lineCount": 1,
   "maxWords": 16,
   "requiresWordTiming": true,
   "parameters": {
@@ -14,5 +14,6 @@
     "background": "Background Color",
     "inactiveText": "Inactive Text Color",
     "activeText": "Active Text Color"
-  }
+  },
+  "captionMode": "phrase"
 }

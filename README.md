@@ -1,4 +1,4 @@
-# Caption IA 3.2.0 — versão livre / sem login
+# Caption IA 3.2.1 — versão livre / sem login
 
 Esta árvore foi criada a partir do pacote recuperado do FrameSpeed 2.2.
 
@@ -6,7 +6,7 @@ Esta árvore foi criada a partir do pacote recuperado do FrameSpeed 2.2.
 - Nome público alterado para **Caption IA**.
 - Nome público e menu do CEP alterados para **Caption IA**.
 - IDs internos `com.editbest` / `com.editbest.panel` foram preservados por compatibilidade e para evitar duplicar a extensão em projetos/instalações existentes.
-- Versão atual: **3.2.0**.
+- Versão atual: **3.2.1**.
 - Tela de login removida.
 - Cliente de autenticação e chamadas `login.php`, `validate.php` e `logout.php` removidos do plugin.
 - Revalidação periódica de sessão removida.
@@ -48,3 +48,9 @@ Veja `ALTERACOES_3.1.0.txt`. Esta versão inclui correções de metadados .fsm, 
 - Validador de release e workflow de empacotamento adicionados para reduzir regressões.
 
 Veja `ALTERACOES_3.2.0.txt` para detalhes.
+
+
+## Correções 3.2.1
+- Karaoke/Word Highlight no AutoEdit volta a usar a frase completa de cada legenda; o destaque continua avançando palavra por palavra dentro da mesma frase.
+- O modelo Karaoke passa a declarar uma única fonte de texto de frase (`lineCount: 1`) em vez de ser tratado como quatro slots genéricos.
+- Removido o ícone antigo do cabeçalho; permanece apenas o nome Caption IA e a versão.
