@@ -1,0 +1,59 @@
+name: Build Windows installer
+
+on:
+  workflow_run:
+    workflows:
+      - "Validate and package Caption IA"
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-installer:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main'
+      )
+    runs-on: windows-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout validated commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.workflow_run.head_sha }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Read version
+        id: version
+        shell: pwsh
+        run: |
+          $version = node scripts/read-version.js
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Build EXE
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$version" "installer\CaptionIA.iss"
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: CaptionIA-Setup-${{ steps.version.outputs.version }}
+          path: installer/output/CaptionIA-Setup-${{ steps.version.outputs.version }}.exe
+          if-no-files-found: error
+          retention-days: 30

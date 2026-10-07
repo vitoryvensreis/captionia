@@ -1,0 +1,86 @@
+/* Caption IA 3.3 — visual alinhado à plataforma web sem alterar a estrutura funcional */
+:root{
+  --bg-0:#090909;
+  --bg-1:#111111;
+  --bg-2:#171717;
+  --bg-3:#202020;
+  --bg-4:#292929;
+  --border:#303030;
+  --border-strong:#464646;
+  --text:#f4f4f4;
+  --text-2:#b1b1b1;
+  --text-3:#747474;
+  --brand:#ff6a35;
+  --brand-accent:#ff5a1f;
+  --brand-warn:#ff9f0a;
+  --brand-green:#46d37b;
+  --brand-red:#ff6767;
+  --success:#58dd88;
+  --danger:#ff7676;
+  --warn:#ff9f43;
+  --r-sm:6px;
+  --r-md:9px;
+  --r-lg:12px;
+  --shadow-card:0 8px 24px rgba(0,0,0,.18);
+  --shadow-modal:0 24px 70px rgba(0,0,0,.72);
+}
+html,body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:#090909}
+.app-shell{background:#090909}
+.app-header{
+  min-height:48px;
+  padding:8px 12px;
+  gap:10px;
+  background:linear-gradient(90deg,#220201 0%,#5c0b03 46%,#37101f 100%);
+  border-bottom:1px solid rgba(255,255,255,.09);
+  box-shadow:0 6px 20px rgba(0,0,0,.16);
+}
+.header-brand{border-radius:10px}.header-brand:hover{background:rgba(255,255,255,.07)}
+.brand-text{font-weight:800;letter-spacing:-.01em;font-size:12px}.brand-version{color:rgba(255,255,255,.75)!important}
+#global-search,input[type="text"],input[type="email"],input[type="password"],input[type="search"],input[type="number"],select{
+  background:#171717;border-color:#343434;border-radius:9px;color:#f3f3f3
+}
+#global-search:focus,input:focus,select:focus{background:#1d1d1d!important;border-color:#666!important;box-shadow:0 0 0 2px rgba(255,90,31,.08)}
+.search-icon,.icon-btn,.zoom-control{color:#c2b7bc}.icon-btn:hover,.zoom-control:hover{background:rgba(255,255,255,.07);color:#fff}
+#preview-zoom{background:#54352b}#preview-zoom::-webkit-slider-thumb{background:#ff9f0a;box-shadow:0 0 0 3px rgba(255,159,10,.12)}
+.fs-toolbar{background:#101010!important;border-bottom:1px solid #2b2b2b!important;padding:5px 8px!important;gap:4px!important}
+.sidebar-tab{border-radius:8px;color:#aaa;font-weight:650}.sidebar-tab:hover{background:#1a1a1a;color:#fff}.sidebar-tab.active{background:#2a1a12;color:#ffb55a;box-shadow:inset 0 -1px 0 rgba(255,159,10,.38)}
+.app-sidebar,.app-footer{background:#111;border-color:#2d2d2d}.app-content,.preset-grid,.status-bar{background:#090909}
+.tree-category>summary{color:#ff9f0a;font-weight:800}.tree-subrow.active,.tree-leaf.active{background:linear-gradient(90deg,rgba(255,90,31,.12),transparent);color:#ff9f0a;box-shadow:inset 2px 0 0 #ff5a1f}
+.tree-count{background:#242424;color:#8f8f8f}
+.grid-group-header{background:#151515;border:1px solid #303030;border-left:3px solid #ff5a1f;color:#d9d9d9;border-radius:9px;padding:8px 10px}
+.template-wrapper{background:#111;border-color:#333;border-radius:12px;box-shadow:0 8px 18px rgba(0,0,0,.18)}
+.template-wrapper:hover{border-color:#555;box-shadow:0 10px 26px rgba(0,0,0,.34);transform:translateY(-1px)}
+.template-favorite.active{color:#ffad33;background:rgba(255,159,10,.12)}.template-autoedit.active{background:#ff9f0a;color:#111}
+.app-footer{min-height:46px;padding:7px 10px}.mode-selector{background:#1b1b1b;border:1px solid #2f2f2f;border-radius:10px}.mode-btn{border-radius:7px}.mode-btn.active{background:#ff5a1f;color:#fff}
+button[class*="btn"],.button{border-radius:9px}
+.modal-content,[class*="-card"],[class*="-panel"],[class*="-box"]{border-color:#303030}
+::-webkit-scrollbar-thumb{background:#343434}::-webkit-scrollbar-thumb:hover{background:#474747}
+@media(max-width:560px){
+  .app-header{grid-template-columns:auto minmax(110px,1fr) auto;padding:7px 8px}
+  .brand-version{display:none}.header-search{min-width:0}#global-search{min-width:0}
+  .app-body{grid-template-columns:minmax(150px,34vw) 3px minmax(0,1fr)}
+  .app-footer{gap:5px;padding:6px 7px}.mode-btn{padding:5px 7px}
+}
+@media(max-width:430px){
+  .brand-text{display:none}.zoom-control{padding:0 3px}#preview-zoom{width:34px}
+  .app-body{grid-template-columns:132px 3px minmax(0,1fr)}
+}
+
+/* Gate de licença */
+html.cia-auth-pending #app-content{visibility:hidden;pointer-events:none}
+#cia-auth-gate{position:fixed;inset:0;z-index:1000000;display:flex;align-items:center;justify-content:center;padding:18px;background:
+  radial-gradient(circle at 18% 0%,rgba(233,34,49,.38),transparent 42%),
+  radial-gradient(circle at 82% 8%,rgba(121,30,170,.34),transparent 42%),
+  linear-gradient(145deg,#160909 0%,#0b0b0b 52%,#090909 100%);color:#f5f5f5}
+.cia-auth-shell{width:min(430px,100%)}.cia-auth-card{background:rgba(18,18,18,.94);border:1px solid #353535;border-radius:18px;padding:28px;box-shadow:0 28px 90px rgba(0,0,0,.5)}
+.cia-auth-mark{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;background:#0b0b0b;border:1px solid #3b3b3b;font-weight:900;margin-bottom:16px}
+.cia-auth-kicker{display:inline-flex;padding:5px 8px;border-radius:999px;background:#ff5a1f;color:#111;font-size:9px;font-weight:900;letter-spacing:.1em}
+.cia-auth-card h1{font-size:27px;line-height:1;margin:16px 0 9px;letter-spacing:-.035em}.cia-auth-copy{margin:0;color:#aaa;line-height:1.55;font-size:12px}
+.cia-login-form{display:grid;gap:12px;margin-top:20px}.cia-login-form label{display:grid;gap:6px;font-size:10px;font-weight:750;color:#d7d7d7}.cia-login-form input{width:100%;padding:11px 12px}
+.cia-auth-primary,.cia-auth-retry{min-height:40px;border:0;border-radius:10px;background:#fff;color:#111;font-weight:850;padding:0 15px}.cia-auth-primary:hover,.cia-auth-retry:hover{filter:brightness(.92)}
+.cia-auth-message{min-height:16px;margin-top:11px;font-size:10px;color:#999;line-height:1.45}.cia-auth-message.error{color:#ff8d8d}.cia-auth-message.loading{color:#d0b7c1}
+.cia-auth-links{display:flex;gap:8px;margin-top:12px}.cia-auth-links button{flex:1;min-height:34px;border:1px solid #383838;border-radius:9px;background:#181818;color:#ddd;font-size:10px;font-weight:750}.cia-auth-links button:hover{background:#202020}
+.cia-auth-retry{width:100%;margin-top:10px;background:#ff5a1f}
+.cia-account-chip{height:30px;display:flex;align-items:center;gap:6px;padding:0 8px;border:1px solid rgba(255,255,255,.15);border-radius:999px;background:rgba(0,0,0,.2);color:#fff}.cia-account-chip span{width:19px;height:19px;border-radius:50%;display:grid;place-items:center;background:#fff;color:#111;font-size:9px;font-weight:900}.cia-account-chip b{font-size:9px}
+.cia-account-popover{position:fixed;z-index:1000001;display:none;width:220px;padding:12px;border:1px solid #343434;border-radius:12px;background:#151515;box-shadow:0 20px 60px rgba(0,0,0,.55)}.cia-account-popover.open{display:grid;gap:7px}.cia-account-popover strong{font-size:12px}.cia-account-popover small{color:#858585;overflow:hidden;text-overflow:ellipsis}.cia-account-plan{padding:8px;border-radius:8px;background:#1f1f1f;color:#ffbd72;font-size:10px}.cia-account-popover button{min-height:32px;border-radius:8px;background:#222;border:1px solid #363636;font-size:10px}.cia-account-popover button.danger{color:#ff8686}
+@media(max-width:430px){.cia-auth-card{padding:21px}.cia-account-chip b{display:none}}

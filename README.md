@@ -70,3 +70,21 @@ Veja `ALTERACOES_3.2.0.txt` para detalhes.
 - O caminho especial do Karaoke agora respeita a mesma trilha preferencial já escolhida pelo AutoEdit/Auto-aplicar.
 - Enquanto os blocos não se sobrepõem, o plugin reutiliza a mesma trilha em vez de procurar uma nova trilha para cada frase.
 - Se houver uma trilha explicitamente informada pelo lote, ela continua tendo prioridade.
+
+
+## Login e licença
+
+A partir da 3.3.0, o painel usa a API da plataforma oficial:
+
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/refresh`
+- `GET /api/v1/license/check`
+- `GET /api/v1/me`
+
+O usuário entra com a mesma conta do site. O `device_uuid` fica persistente no computador, e a API aplica o limite de dispositivos definido no plano. O refresh token é armazenado localmente cifrado e a senha nunca é salva pelo plugin.
+
+## Instalador Windows
+
+O repositório possui `installer/CaptionIA.iss` e o workflow `Build Windows installer`. Após uma validação bem-sucedida da `main`, o GitHub Actions gera um instalador `.exe` com interface moderna, remoção automática de instalações antigas e configuração do CEP.
+
+O BAT antigo continua disponível como fallback técnico.

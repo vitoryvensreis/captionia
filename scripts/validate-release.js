@@ -33,10 +33,10 @@ const required = [
   'CaptionIA/js/main.js',
   'CaptionIA/js/wordhighlight.js',
   'CaptionIA/js/template_contract.js',
-  'CaptionIA/js/secure_storage.js',
+  'CaptionIA/js/secure_storage.js',\n  'CaptionIA/js/license_storage.js',\n  'CaptionIA/js/auth.js',\n  'CaptionIA/css/theme_site.css',
   'CaptionIA/jsx/hostscript.jsxbin',
   'INSTALAR_CAPTION_IA.bat',
-  'INSTALAR_CAPTION_IA_MAC.command'
+  'INSTALAR_CAPTION_IA_MAC.command',\n  'installer/CaptionIA.iss'
 ];
 for (const rel of required) {
   const p = path.join(root, rel);
