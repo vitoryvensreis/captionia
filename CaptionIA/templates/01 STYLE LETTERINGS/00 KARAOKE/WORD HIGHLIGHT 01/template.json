@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "name": "Word Highlight 01",
+  "type": "karaoke",
+  "engine": "word-highlight",
+  "lineCount": 4,
+  "maxWords": 16,
+  "requiresWordTiming": true,
+  "parameters": {
+    "text": "CAPTION_TEXT",
+    "wordTimings": "WORD_TIMINGS"
+  },
+  "colors": {
+    "background": "Background Color",
+    "inactiveText": "Inactive Text Color",
+    "activeText": "Active Text Color"
+  }
+}

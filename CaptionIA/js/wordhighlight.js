@@ -95,7 +95,7 @@ function twoLines(text){
   }
   return w.slice(0,best).join(' ')+'\r'+w.slice(best).join(' ');
 }
-function prepare(src){
+function prepare(src,maxWords){maxWords=parseInt(maxWords,10)||16;if(maxWords<1)maxWords=16;if(maxWords>64)maxWords=64;
   src=src||[];
   var out=[],errors=[];
   for(var i=0;i<src.length;i++){
@@ -104,7 +104,7 @@ function prepare(src){
     var text=clean(c.text),tokens=tokenList(text),words=alignWords(text,c);
     if(!words.length){errors.push('Legenda '+(i+1)+': sem timing real por palavra ou texto não alinhado.');continue;}
     if(tokens.length!==words.length){errors.push('Legenda '+(i+1)+': '+tokens.length+' palavra(s) no texto e '+words.length+' timing(s).');continue;}
-    if(words.length>16){errors.push('Legenda '+(i+1)+': '+words.length+' palavras. O Karaoke aceita até 16 por bloco.');continue;}
+    if(words.length>maxWords){errors.push('Legenda '+(i+1)+': '+words.length+' palavras. Este Karaoke aceita até '+maxWords+' por bloco.');continue;}
     out.push({text:text,startTime:c.startTime,endTime:c.endTime,captionText:twoLines(text),wordTimings:timingString(c,words),words:words});
   }
   return{blocks:out,errors:errors,total:src.length};
@@ -163,7 +163,7 @@ function applyBlocks(src,opt,done){
   opt=opt||{};done=typeof done==='function'?done:function(){};
   if(BUSY){done({ok:false,error:'Karaoke já está sendo aplicado.'});return;}
   if(typeof csInterface==='undefined'){done({ok:false,error:'csInterface indisponível.'});return;}
-  var path=resolvePath(opt),prep=prepare(src);
+  var path=resolvePath(opt),prep=prepare(src,opt.maxWords||16);
   if(!prep.blocks.length){done({ok:false,error:prep.total?'Karaoke precisa de timestamps reais por palavra. Transcreva pelo Caption IA.':'Nenhuma legenda carregada.',details:prep.errors});return;}
   if(prep.errors.length){done({ok:false,error:'Não apliquei para evitar dessincronização. '+prep.errors.slice(0,3).join(' '),details:prep.errors});return;}
   var sel=el('captions-track'),track=typeof opt.trackIndex==='number'?opt.trackIndex:(sel?parseInt(sel.value,10):-1);
