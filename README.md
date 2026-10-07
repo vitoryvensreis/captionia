@@ -1,4 +1,4 @@
-# Caption IA 3.1.0 — versão livre / sem login
+# Caption IA 3.2.0 — versão livre / sem login
 
 Esta árvore foi criada a partir do pacote recuperado do FrameSpeed 2.2.
 
@@ -6,7 +6,7 @@ Esta árvore foi criada a partir do pacote recuperado do FrameSpeed 2.2.
 - Nome público alterado para **Caption IA**.
 - Nome público e menu do CEP alterados para **Caption IA**.
 - IDs internos `com.editbest` / `com.editbest.panel` foram preservados por compatibilidade e para evitar duplicar a extensão em projetos/instalações existentes.
-- Versão alterada para **3.1.0**.
+- Versão atual: **3.2.0**.
 - Tela de login removida.
 - Cliente de autenticação e chamadas `login.php`, `validate.php` e `logout.php` removidos do plugin.
 - Revalidação periódica de sessão removida.
@@ -36,3 +36,15 @@ principalmente para preservar preferências, cache e a chave Groq já salva.
 
 ## Correções 3.1.0
 Veja `ALTERACOES_3.1.0.txt`. Esta versão inclui correções de metadados .fsm, encaixe de texto, SFX, paginação, instalação segura e persistência verificada da chave de API.
+
+
+## Novidades 3.2.0
+- Karaoke/Word Highlight integrado à biblioteca normal de templates e ao AutoEdit.
+- Contrato opcional `template.json` para declarar engine, limite de palavras e requisitos sem depender só do nome da pasta.
+- Terceira cor de estilo para a palavra ativa do Karaoke.
+- Identidades visuais de cliente passam a persistir também degradê secundário, sombra, tracking, regra de 1 linha e cor ativa do Karaoke.
+- Caminhos persistentes centralizados mantendo `Documentos/editBest` como raiz compatível; cofre legado em `Frame Speed` é migrado sem apagar a origem.
+- Chave da API no macOS usa Keychain quando disponível, com fallback compatível se o sistema recusar.
+- Validador de release e workflow de empacotamento adicionados para reduzir regressões.
+
+Veja `ALTERACOES_3.2.0.txt` para detalhes.

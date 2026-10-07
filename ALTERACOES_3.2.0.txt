@@ -1,0 +1,47 @@
+Caption IA 3.2.0
+================
+
+NOVIDADES PRINCIPAIS
+- Karaoke / Word Highlight agora é um template normal da biblioteca em STYLE LETTERINGS.
+- O Karaoke participa de Favoritos, Escolhidos, Mix e AutoEdit.
+- Quando o plano usa somente Karaoke, a etapa de legendas pode cobrir todos os blocos em vez de tratar o modelo apenas como destaque.
+- O Karaoke exige timestamps reais por palavra. Quando só há timing sintético/SRT, o modelo é ignorado com aviso para evitar falso sincronismo.
+- O estilo ganhou a terceira cor "Texto ativo (Karaokê)", além de fundo/destaque e texto inativo/secundário.
+
+ARQUITETURA DE TEMPLATES
+- Adicionado contrato opcional template.json por modelo.
+- O contrato pode declarar engine, tipo, lineCount, maxWords, requiresWordTiming e nomes de parâmetros.
+- O scanner mantém fallback pelas regras antigas quando não existe template.json, preservando os modelos atuais.
+- WORD HIGHLIGHT 01 passa a declarar explicitamente CAPTION_TEXT, WORD_TIMINGS e limite de 16 palavras.
+- O limite de palavras agora pode vir do contrato do template.
+
+PERSISTENCIA E COMPATIBILIDADE
+- Adicionado módulo central de caminhos persistentes.
+- Documentos/editBest continua como raiz canônica de compatibilidade.
+- O cofre antigo de Documentos/Frame Speed/_config é copiado para a raiz atual somente quando necessário; a origem não é apagada.
+- Exportação de estilos continua encontrando a pasta legada quando ela já existe.
+- Perfis de cliente agora preservam também:
+  * degradê secundário;
+  * regra de modelo de 1 linha usar secundária;
+  * sombra;
+  * tracking;
+  * cor do texto ativo do Karaoke.
+- Chaves internas framespeed_* continuam preservadas.
+
+SEGURANCA
+- Windows continua usando DPAPI por usuário para a chave da API.
+- macOS passa a usar o Keychain do sistema via /usr/bin/security.
+- Credenciais antigas salvas em arquivo local no Mac são migradas para o Keychain quando possível.
+- Se o Keychain falhar, o fallback antigo é mantido para não quebrar a transcrição nem apagar a chave.
+
+QUALIDADE / REGRESSAO
+- Adicionado scripts/validate-release.js.
+- O validador confere versão main/manifest, arquivos obrigatórios, scripts do index, sintaxe JS, template.json, caminhos absolutos de desenvolvedor e presença do backend.
+- Adicionado workflow do GitHub para validar e gerar ZIP automaticamente em pushes da main.
+
+VALIDACAO REALIZADA
+- Arquivos JavaScript alterados passaram por validação sintática antes dos commits.
+- O fluxo antigo de templates sem template.json foi preservado por fallback.
+- A detecção antiga do Karaoke por nome foi mantida como compatibilidade.
+- O armazenamento antigo da chave e as pastas antigas continuam com fallback/migração.
+- A validação final de inserção/render/undo dentro do Premiere continua dependendo de teste no host Adobe; nenhum código pode substituir esse teste real.
