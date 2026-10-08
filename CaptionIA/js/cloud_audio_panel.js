@@ -16,9 +16,10 @@ function transcribe(file,token,lang){
     headers:{Authorization:'Bearer '+token,'Content-Type':'multipart/form-data; boundary='+boundary,'Content-Length':body.length}},function(r){
       var chunks=[],bytes=0;
       r.on('data',function(c){bytes+=c.length;if(bytes>2097152){req.destroy(Error('Resposta muito grande.'));return;}chunks.push(c);});
+      r.on('error',fail);
       r.on('end',function(){try{
        var obj=JSON.parse(Buffer.concat(chunks).toString('utf8'));
-       if(r.statusCode!==200||!obj.ok||!Array.isArray(obj.words))throw Error(obj.error||'Resposta inválida');
+       if(r.statusCode!==200||!obj.ok||!Array.isArray(obj.words)||!obj.words.length)throw Error(obj.error||'Resposta inválida');
        ok(obj);
       }catch(e){fail(e);}});
    });
