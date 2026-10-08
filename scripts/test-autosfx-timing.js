@@ -6,6 +6,7 @@ global.localStorage={
  getItem(k){return store.has(k)?store.get(k):null;},
  setItem(k,v){store.set(k,String(v));}
 };
+global.window={_fsLastResp:null};
 const cal=require('../CaptionIA/js/sfx_timing_calibration.js');
 const source=fs.readFileSync('CaptionIA/js/autosfx.js','utf8');
 const html=fs.readFileSync('CaptionIA/index.html','utf8');
@@ -43,6 +44,7 @@ assert.throws(()=>cal.apply([0.2,0.51,0.8,1.1]),/mudou/);
 
 const swapped=cal.read(list);
 swapped.global=0;
+swapped.corrections[1]=15;
 swapped.corrections[2]=-15;
 cal.write(list,swapped);
 assert.throws(()=>cal.apply(times),/inverterem a ordem/);
