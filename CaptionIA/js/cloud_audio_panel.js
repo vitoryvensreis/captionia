@@ -176,7 +176,7 @@ function init(){
  var modal=el('transcribe-modal');if(!modal)return;
  // A implementação legada permanece fisicamente para compatibilidade interna,
  // mas sua caixa de chave e chamadas diretas ao Groq não podem ser usadas no produto.
- ['openai-key-input','btn-key-colar','transcribe-provider','transcribe-api-advanced'].forEach(function(id){
+ ['openai-key-input','btn-key-colar','transcribe-servicos','transcribe-custom','transcribe-provider','transcribe-api-advanced'].forEach(function(id){
   var field=el(id);if(!field)return;
   var wrapper=field.closest&&field.closest('.form-field');
   if(wrapper)wrapper.style.display='none';else field.style.display='none';
@@ -206,6 +206,23 @@ function init(){
  },true);
  // O maestro AutoEdit usa esta API, então a mesma rota Cloud atende a etapa Transcrever.
  w.fsAutoEditTranscrever=function(done){run('timeline',done);};
+ var legacyLegendas=w.fsAutoEditLegendas;
+ if(typeof legacyLegendas==='function'){
+  w.fsAutoEditLegendas=function(done){
+   if(typeof w.fsConferirDonoTranscricao!=='function'){done({ok:false,erro:'Sequência não verificada.'});return;}
+   w.fsConferirDonoTranscricao(function(s){
+    if(!s||!s.seq){done({ok:false,erro:'Abra uma sequência.'});return;}
+    var existing=w._fsLastResp;
+    if(existing&&String(existing._fsSeq)===String(s.seq)&&Array.isArray(existing.words)&&existing.words.length){
+     legacyLegendas(done);return;
+    }
+    run('timeline',function(value){
+     if(value&&value.ok)legacyLegendas(done);
+     else done(value||{ok:false,erro:'Transcrição Cloud indisponível.'});
+    });
+   });
+  };
+ }
 }
 if(d.readyState==='loading')d.addEventListener('DOMContentLoaded',init);else init();
 })(window,document);
