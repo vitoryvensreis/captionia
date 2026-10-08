@@ -190,5 +190,16 @@ if (fs.existsSync(path.join(root, 'scripts', 'test-cloud-release.js'))) {
   }
 }
 
+if (fs.existsSync(path.join(root,'scripts','test-sfx-media-store.js'))) {
+  try {
+    const cp=require('child_process');
+    const message=cp.execFileSync(process.execPath,[path.join(root,'scripts','test-sfx-media-store.js')],{
+      cwd:root,encoding:'utf8',timeout:12000
+    });
+    ok('SFX persistent media validation: '+message.trim());
+  }catch(e){
+    fail('Persistência de SFX falhou: '+String((e.stdout||'')+(e.stderr||'')+e.message).slice(0,1600));
+  }
+}
 if (process.exitCode) process.exit(process.exitCode);
 console.log('VALIDAÇÃO CONCLUÍDA');
