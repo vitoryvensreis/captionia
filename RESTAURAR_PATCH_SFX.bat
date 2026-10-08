@@ -3,7 +3,7 @@ setlocal EnableExtensions DisableDelayedExpansion
 chcp 65001 >nul 2>&1
 title Caption IA - Desfazer AutoSFX Patch
 set "DEST=%APPDATA%\Adobe\CEP\extensions\CaptionIA"
-set "BACKUP=%LOCALAPPDATA%\CaptionIA\SfxDualTracksBackup"
+set "BACKUP=%LOCALAPPDATA%\CaptionIA\SfxDiagnosticBackup"
 echo ==========================================
 echo      CAPTION IA - RESTAURAR AUTOSFX
 echo ==========================================
