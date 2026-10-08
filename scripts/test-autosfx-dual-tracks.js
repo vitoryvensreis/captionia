@@ -40,12 +40,12 @@ dual.run({csInterface:cs,times:phrase,paths:['FS Crisp Snap.wav'],volumes:[-14],
  assert.equal(result.cortados,0);
  assert.equal(result.track,'A4 + A5');
  assert.equal(calls.length,2);
- assert.deepEqual(calls[0].times,[0.1,0.48]);
- assert.deepEqual(calls[1].times,[0.27,0.77]);
+ assert.deepEqual(Array.from(calls[0].times),[0.1,0.48]);
+ assert.deepEqual(Array.from(calls[1].times),[0.27,0.77]);
  assert.equal(calls[0].track,3);
  assert.equal(calls[1].track,4);
- assert.deepEqual(calls[0].ends,[]);
- assert.deepEqual(calls[1].ends,[]);
+ assert.deepEqual(Array.from(calls[0].ends),[]);
+ assert.deepEqual(Array.from(calls[1].ends),[]);
 });
 let blocked=false;
 dual.run({csInterface:{evalScript(cmd,done){if(!cmd.includes('var all=[],free=[]'))throw Error('audio changed without tracks');done(JSON.stringify({ok:true,free:[3]}));}},times:phrase,paths:['snap.wav']},function(result){
