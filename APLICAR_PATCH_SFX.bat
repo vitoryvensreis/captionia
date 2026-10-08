@@ -4,7 +4,7 @@ chcp 65001 >nul 2>&1
 title Caption IA - Corrigir AutoSFX (Beta)
 set "SOURCE=%~dp0CaptionIA"
 set "DEST=%APPDATA%\Adobe\CEP\extensions\CaptionIA"
-set "BACKUP=%LOCALAPPDATA%\CaptionIA\SfxDualTracksBackup"
+set "BACKUP=%LOCALAPPDATA%\CaptionIA\SfxDiagnosticBackup"
 echo ==========================================
 echo      CAPTION IA - PATCH AUTOSFX
 echo ==========================================
