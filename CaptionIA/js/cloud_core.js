@@ -136,10 +136,8 @@
     script.onerror=function(){console.warn('[Caption IA] Módulo de prévia Cloud Core não carregou.');};
     (document.head||document.documentElement).appendChild(script);
   }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',attachCloudCaptionPanel);
-  else attachCloudCaptionPanel();
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',attachCloudAudioPanel);
-  else attachCloudAudioPanel();
+  // O cliente final usa os botões existentes de transcrição; os paineis de preview Cloud eram somente de homologação.
+  // O módulo final é carregado pelo index.html. Não injetar interfaces duplicadas.
   w.CaptionIACloudCore=Object.freeze({
     getConfig:getConfig,
     planCaptions:planCaptions,
