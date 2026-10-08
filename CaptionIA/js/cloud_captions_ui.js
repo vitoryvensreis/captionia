@@ -5,13 +5,13 @@ function label(msg){id('cia-cloud-status').textContent=msg;}
 function save(data){w.premiereSrtData=data;try{localStorage.setItem(typeof LS_KEYS!=='undefined'&&LS_KEYS.SRT_DATA?LS_KEYS.SRT_DATA:'framespeed_srt_data',JSON.stringify(data));}catch(e){}try{if(w.saveSrtToLocalCache)w.saveSrtToLocalCache(data);}catch(e){}try{if(w.updateSRTButtonVisualState)w.updateSRTButtonVisualState();}catch(e){}}
 function setup(){
 var modal=id('transcribe-modal');if(!modal||!w.CaptionIACloudCore)return;
-var panel=d.createElement('section');panel.style.cssText='margin:12px;padding:12px;border:1px solid #555;border-radius:7px;color:#ddd';
+var panel=d.createElement('section');panel.style.cssText='margin:12px 0;padding:14px;border:1px solid #464f5b;border-radius:8px;color:#e5e7eb;background:#181b20;font:12px/1.5 Segoe UI,Arial,sans-serif';
 var head=d.createElement('strong');head.textContent='Cloud Core · Legendas';panel.appendChild(head);
 var hint=d.createElement('p');hint.textContent='Prévia sem editar a timeline. Envia apenas palavras e tempos ao servidor.';panel.appendChild(hint);
-var b=d.createElement('button');b.type='button';b.textContent='Prévia na nuvem';b.onclick=preview;panel.appendChild(b);
-var a=d.createElement('button');a.type='button';a.textContent='Aplicar ao rascunho';a.disabled=true;a.id='cia-cloud-apply';a.onclick=apply;panel.appendChild(a);
-var r=d.createElement('button');r.type='button';r.textContent='Restaurar rascunho';r.disabled=true;r.id='cia-cloud-revert';r.onclick=revert;panel.appendChild(r);
-var out=d.createElement('pre');out.id='cia-cloud-status';out.style.cssText='white-space:pre-wrap;max-height:160px;overflow:auto';panel.appendChild(out);
+var b=d.createElement('button');b.type='button';b.textContent='Prévia na nuvem';b.onclick=preview;b.style.cssText='display:inline-block;margin:6px 8px 6px 0;padding:7px 10px;border:1px solid #59677a;border-radius:6px;background:#2b394e;color:#f4f6fb;cursor:pointer;';panel.appendChild(b);
+var a=d.createElement('button');a.type='button';a.textContent='Aplicar ao rascunho';a.disabled=true;a.id='cia-cloud-apply';a.onclick=apply;a.style.cssText='display:inline-block;margin:6px 8px 6px 0;padding:7px 10px;border:1px solid #59677a;border-radius:6px;background:#2b394e;color:#f4f6fb;cursor:pointer;';panel.appendChild(a);
+var r=d.createElement('button');r.type='button';r.textContent='Restaurar rascunho';r.disabled=true;r.id='cia-cloud-revert';r.onclick=revert;r.style.cssText='display:inline-block;margin:6px 8px 6px 0;padding:7px 10px;border:1px solid #59677a;border-radius:6px;background:#2b394e;color:#f4f6fb;cursor:pointer;';panel.appendChild(r);
+var out=d.createElement('pre');out.id='cia-cloud-status';out.style.cssText='white-space:pre-wrap;max-height:160px;overflow:auto;line-height:1.5;margin:10px 0 0;color:#cdd9e4;font-size:12px';panel.appendChild(out);
 (modal.querySelector('.modal-box')||modal).appendChild(panel);
 }
 function preview(){
@@ -27,7 +27,7 @@ w.CaptionIACloudCore.getConfig().then(function(config){if(!config.features||!con
 if(!data||data.schema_version!==2||!Array.isArray(data.segments)||!data.segments.length)throw Error('Resposta inesperada.');
 plan=data;id('cia-cloud-apply').disabled=false;
 label('Prévia: '+data.segments.length+' legendas. Nenhuma alteração na timeline.\n'+data.segments.slice(0,8).map(function(s){return s.text;}).join('\n'));
-}).catch(function(error){label('Falha na prévia: '+error.message);});
+}).catch(function(error){var detail=String((error&&error.message)||error||'Erro desconhecido');if((error&&error.status===404)||/endpoint n[aã]o encontrado/i.test(detail)){label('O servidor Caption IA ainda não tem o Cloud Core publicado. É necessário atualizar a API do site antes de usar a prévia. Nenhuma legenda foi alterada.');}else{label('Falha na prévia: '+detail);}});
 }catch(error){label(error.message);}
 });
 }
