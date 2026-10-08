@@ -117,5 +117,17 @@ const templates = all.filter(p => /\.(mogrt|fsm|aegraphic|fsa|aep)$/i.test(p)).l
 const audio = all.filter(p => /\.(wav|mp3|m4a|aac|ogg|flac)$/i.test(p)).length;
 console.log('INFO: templates=' + templates + ' audio=' + audio + ' arquivos=' + all.length);
 
+if (fs.existsSync(path.join(root, 'scripts', 'test-cloud-panel.js'))) {
+  try {
+    const cp = require('child_process');
+    const output = cp.execFileSync(process.execPath, [path.join(root, 'scripts', 'test-cloud-panel.js')], {
+      cwd: root, encoding: 'utf8', timeout: 8000
+    });
+    ok('Cloud captions UI smoke: ' + output.trim());
+  } catch (e) {
+    fail('Cloud captions UI smoke falhou: ' + String((e.stdout || '') + (e.stderr || '') + e.message).slice(0, 1200));
+  }
+}
+
 if (process.exitCode) process.exit(process.exitCode);
 console.log('VALIDAÇÃO CONCLUÍDA');
