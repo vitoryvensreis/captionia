@@ -55,7 +55,7 @@ var ak=a('autosfx-frame-offset'),al=ak?parseInt(ak['value'],0xa)||0x0:0x0,am=a('
       preferredTrack:an
     },function(response){
       if(response && !response.error)
-        response.detalhes=(response.detalhes||'')+' Calibração: '+adjusted.affected+' palavras ajustadas, '+adjusted.fps+' fps.';
+        response.detalhes=(response.detalhes||'')+' Calibração: '+adjusted.affected+' palavras ajustadas, '+adjusted.fps+' fps; '+(adjusted.conflicts||0)+' proximidades/inversões resolvidas pela distribuição em camadas.';
       av(JSON.stringify(response));
     });
   };
