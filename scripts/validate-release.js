@@ -141,5 +141,17 @@ if (fs.existsSync(path.join(root, 'scripts', 'test-autosfx-scheduler.js'))) {
   }
 }
 
+if (fs.existsSync(path.join(root, 'scripts', 'test-autosfx-dual-tracks.js'))) {
+  try {
+    const cp = require('child_process');
+    const output = cp.execFileSync(process.execPath, [path.join(root, 'scripts', 'test-autosfx-dual-tracks.js')], {
+      cwd: root, encoding: 'utf8', timeout: 8000
+    });
+    ok('AutoSFX two-layer words: ' + output.trim());
+  } catch (e) {
+    fail('Teste AutoSFX duas camadas falhou: ' + String((e.stdout || '') + (e.stderr || '') + e.message).slice(0, 1200));
+  }
+}
+
 if (process.exitCode) process.exit(process.exitCode);
 console.log('VALIDAÇÃO CONCLUÍDA');
