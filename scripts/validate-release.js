@@ -177,5 +177,17 @@ if (fs.existsSync(path.join(root, 'scripts', 'test-autosfx-timing.js'))) {
   }
 }
 
+if (fs.existsSync(path.join(root, 'scripts', 'test-cloud-release.js'))) {
+  try {
+    const cp=require('child_process');
+    const out=cp.execFileSync(process.execPath,[path.join(root,'scripts','test-cloud-release.js')],{
+      cwd:root,encoding:'utf8',timeout:8000
+    });
+    ok('Cloud release security smoke: '+out.trim());
+  }catch(e){
+    fail('Release cloud incompleto: '+String((e.stdout||'')+(e.stderr||'')+e.message).slice(0,1500));
+  }
+}
+
 if (process.exitCode) process.exit(process.exitCode);
 console.log('VALIDAÇÃO CONCLUÍDA');
