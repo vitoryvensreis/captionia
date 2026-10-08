@@ -51,3 +51,19 @@ jobs:
           path: CaptionIA-${{ steps.version.outputs.version }}.zip
           if-no-files-found: error
           retention-days: 30
+
+      - name: Build Cloud Beta ZIP for manual Windows validation
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          VERSION="$(node scripts/read-version.js)"
+          zip -q -r -9 "CaptionIA-${VERSION}-CLOUD-BETA.zip" CaptionIA TESTAR_CLOUD_BETA.bat RESTAURAR_CLOUD_BETA.bat
+
+      - name: Upload Cloud Beta ZIP
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: CaptionIA-Cloud-Beta-Windows
+          path: CaptionIA-*-CLOUD-BETA.zip
+          if-no-files-found: error
+          retention-days: 14
