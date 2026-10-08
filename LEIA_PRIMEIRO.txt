@@ -27,3 +27,18 @@ IMPORTANTE
 - Para distribuicao publica, providencie assinatura apropriada e homologacao Windows.
 
 SUPORTE: https://caption.escotilhaprodutora.com
+
+
+AUTO SFX - CORRECAO 3.4.3
+-------------------------
+- Os sons usados pelo AutoSFX agora sao copiados automaticamente para
+  %LOCALAPPDATA%\CaptionIA\Media\SFX
+  antes de serem inseridos no Premiere. Mantenha esta pasta: ela funciona
+  como biblioteca permanente para os projetos editados.
+- A atualizacao do plugin nao deve excluir a pasta Media.
+- O AutoEdit continua produzindo um disparo por palavra, em duas trilhas.
+- O plugin avisa se nao encontrar o SFX, em vez de inserir sons sem origem.
+- Se o projeto ja contem clipes offline criados numa instalacao antiga,
+  faca uma copia, religue a fonte pelo Premiere (Link Media) ou remova
+  somente os SFX offline e gere novamente usando a versao 3.4.3.
+- Nao remova videos, musica, voz ou trilhas pessoais do projeto.
