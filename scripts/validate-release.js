@@ -129,5 +129,17 @@ if (fs.existsSync(path.join(root, 'scripts', 'test-cloud-panel.js'))) {
   }
 }
 
+if (fs.existsSync(path.join(root, 'scripts', 'test-autosfx-scheduler.js'))) {
+  try {
+    const cp = require('child_process');
+    const output = cp.execFileSync(process.execPath, [path.join(root, 'scripts', 'test-autosfx-scheduler.js')], {
+      cwd: root, encoding: 'utf8', timeout: 8000
+    });
+    ok('AutoSFX safe scheduling: ' + output.trim());
+  } catch (e) {
+    fail('Regressão AutoSFX: ' + String((e.stdout || '') + (e.stderr || '') + e.message).slice(0, 1200));
+  }
+}
+
 if (process.exitCode) process.exit(process.exitCode);
 console.log('VALIDAÇÃO CONCLUÍDA');
