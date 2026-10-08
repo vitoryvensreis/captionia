@@ -122,6 +122,13 @@
       });
     });
   }
+  function attachCloudAudioPanel(){
+    if(document.getElementById('cia-cloud-audio-script')) return;
+    var script=document.createElement('script');script.id='cia-cloud-audio-script';
+    script.src='js/cloud_audio_panel.js';
+    script.onerror=function(){console.warn('[Caption IA] Transcrição Cloud indisponível.');};
+    (document.head||document.documentElement).appendChild(script);
+  }
   function attachCloudCaptionPanel(){
     if(document.getElementById('cia-cloud-captions-script')) return;
     var script=document.createElement('script');script.id='cia-cloud-captions-script';
@@ -131,6 +138,8 @@
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',attachCloudCaptionPanel);
   else attachCloudCaptionPanel();
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',attachCloudAudioPanel);
+  else attachCloudAudioPanel();
   w.CaptionIACloudCore=Object.freeze({
     getConfig:getConfig,
     planCaptions:planCaptions,
