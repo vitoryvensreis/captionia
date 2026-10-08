@@ -1,7 +1,7 @@
 /* Caption IA — two-layer SFX delivery for each recognized spoken word.
  * Uses the existing compiled Adobe host function on two DISTINCT empty audio
  * tracks, so short SFX tails don't collide on every adjacent word.
- * No QE/undocumented track creation; asks user to add two empty tracks instead.
+ * Cria trilhas com QE somente quando necessário; valida o resultado antes de editar.
  */
 (function(root){
 'use strict';
@@ -18,6 +18,20 @@ function probeScript(){
       'if(count===0&&!locked)free.push(i);' +
     '}return JSON.stringify({ok:true,free:free,all:all});' +
   '}catch(e){return JSON.stringify({error:String(e)});}})()';
+}
+function addTracksScript() {
+  // QE is not part of Adobe's public API. Invoke only when missing tracks and
+  // inspect the actual public sequence immediately afterwards.
+  return '(function(){try{' +
+    'var before=app.project.activeSequence;if(!before)return JSON.stringify({error:"Sem sequência ativa."});' +
+    'var old=before.audioTracks.numTracks,sequenceID=String(before.sequenceID||"");' +
+    'app.enableQE();var q=qe.project.getActiveSequence();' +
+    'if(!q||typeof q.addTracks!=="function")return JSON.stringify({error:"Este Premiere não oferece criação automática de trilhas."});' +
+    'q.addTracks(0,0,2,old);' +
+    'var now=app.project.activeSequence;' +
+    'if(String(now.sequenceID||"")!==sequenceID)return JSON.stringify({error:"Sequência mudou durante a criação das trilhas."});' +
+    'return JSON.stringify({ok:true,old:old,newCount:now.audioTracks.numTracks});' +
+  '}catch(e){return JSON.stringify({error:"Não foi possível criar trilhas de áudio: "+String(e)});}})()';
 }
 function countsScript(a,b){
   return '(function(){try{var s=app.project.activeSequence,offline=0,unknown=0,paths=[];' +
@@ -74,8 +88,9 @@ function run(options,finish){
     cs.evalScript(probeScript(),function(raw){
       var discovered=decode(raw);
       if(discovered.error){done({error:discovered.error});return;}
+      function proceed(snapshot){
       var targets;
-      try{targets=chooseTwo(discovered.free,preferred);}catch(e){done({error:e.message});return;}
+      try{targets=chooseTwo(snapshot.free,preferred);}catch(e){done({error:e.message});return;}
       var responses=[],firstLayerCount=layers[0].length;
       function dispatch(layer){
         if(layer>=2){validateFinal();return;}
@@ -140,10 +155,28 @@ function run(options,finish){
         });
       }
       dispatch(0);
+      }
+      // Build missing layers before the first SFX is inserted.
+      var need=discovered.free.length<2;
+      if(preferred>=0 && discovered.free.indexOf(preferred)<0){
+        done({error:'A trilha escolhida está ocupada ou bloqueada. Selecione uma trilha livre ou use Automático.'});return;
+      }
+      if(!need){proceed(discovered);return;}
+      cs.evalScript(addTracksScript(),function(createdRaw){
+        var created=decode(createdRaw);
+        if(created.error){done({error:created.error});return;}
+        cs.evalScript(probeScript(),function(recheckRaw){
+          var recheck=decode(recheckRaw);
+          if(recheck.error||recheck.free.length<2){
+            done({error:'A criação automática de trilhas não foi confirmada. Nenhum SFX novo foi inserido. '+(recheck.error||'Adicione duas trilhas vazias manualmente.')});return;
+          }
+          proceed(recheck);
+        });
+      });
     });
   }catch(e){done({error:e.message||String(e)});}
 }
-var api=Object.freeze({run:run,split:split,chooseTwo:chooseTwo,probeScript:probeScript});
+var api=Object.freeze({run:run,split:split,chooseTwo:chooseTwo,probeScript:probeScript,addTracksScript:addTracksScript});
 if(typeof module!=='undefined'&&module.exports)module.exports=api;
 if(root)root.CaptionIASfxDualTracks=api;
 })(typeof window!=='undefined'?window:null);
