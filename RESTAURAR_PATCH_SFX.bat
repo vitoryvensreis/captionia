@@ -3,7 +3,7 @@ setlocal EnableExtensions DisableDelayedExpansion
 chcp 65001 >nul 2>&1
 title Caption IA - Desfazer AutoSFX Patch
 set "DEST=%APPDATA%\Adobe\CEP\extensions\CaptionIA"
-set "BACKUP=%LOCALAPPDATA%\CaptionIA\SfxDiagnosticBackup"
+set "BACKUP=%LOCALAPPDATA%\CaptionIA\SfxTimingCalibrationBackup"
 echo ==========================================
 echo      CAPTION IA - RESTAURAR AUTOSFX
 echo ==========================================
@@ -19,6 +19,12 @@ copy /B /Y "%BACKUP%\autosfx.js" "%DEST%\js\autosfx.js" >nul
 if errorlevel 1 goto :failed
 copy /B /Y "%BACKUP%\index.html" "%DEST%\index.html" >nul
 if errorlevel 1 goto :failed
+if exist "%BACKUP%\sfx_timing_calibration.js" (
+ copy /B /Y "%BACKUP%\sfx_timing_calibration.js" "%DEST%\js\sfx_timing_calibration.js" >nul
+ if errorlevel 1 goto :failed
+) else (
+ if exist "%DEST%\js\sfx_timing_calibration.js" del /Q "%DEST%\js\sfx_timing_calibration.js"
+)
 if exist "%BACKUP%\sfx_track_diagnostics.js" (
  copy /B /Y "%BACKUP%\sfx_track_diagnostics.js" "%DEST%\js\sfx_track_diagnostics.js" >nul
  if errorlevel 1 goto :failed
