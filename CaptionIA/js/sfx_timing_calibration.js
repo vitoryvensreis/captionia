@@ -48,18 +48,19 @@ function apply(times){
   if(!number(times[i])||Math.abs(times[i]-list[i].start)>0.021)
    throw Error('A transcrição mudou; ajuste de SFX não aplicado.');
  var state=read(list);
- var out=[],affected=0;
+ var out=[],affected=0,conflicts=0;
  for(i=0;i<times.length;i++){
   var corr=state.global+Number(state.corrections[i]||0);
   var t=times[i]+corr/state.fps;
-  if(t<0)throw Error('O ajuste posicionaria a palavra '+(i+1)+' antes do início. Reduza a antecipação.');
-  if(i&&t<out[i-1]-0.0001)
-   throw Error('Ajustes fazem as palavras '+i+' e '+(i+1)+' inverterem a ordem. Corrija antes de gerar.');
+  // Os disparos SFX usam trilhas próprias; a distribuição ordena os eventos
+  // por tempo e alterna entre duas trilhas sem alterar as palavras originais.
+  if(t<0){t=0;conflicts++;}
+  if(i&&t<out[i-1]-0.0001)conflicts++;
   out.push(t);
   if(corr!==0)affected++;
  }
  return {times:out,affected:affected,fps:state.fps,global:state.global,
-  custom:Object.keys(state.corrections).length};
+  custom:Object.keys(state.corrections).length,conflicts:conflicts};
 }
 var ui={};
 function elem(tag,text){var e=d.createElement(tag);if(text!==undefined)e.textContent=text;return e;}
