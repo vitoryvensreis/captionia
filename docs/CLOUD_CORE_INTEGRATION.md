@@ -65,3 +65,7 @@ automáticos não substituem os testes dentro do Premiere/AE.
 **Instalação e lançamento:** não trocar o pacote atual de clientes por esta
 branch até o backend e o painel serem testados juntos. A API e a UI devem ser
 publicadas em ordem, servidor primeiro.
+
+## Smoke test local do painel (sem Premiere)
+
+Execute `node scripts/test-cloud-panel.js` na raiz do repositório. O teste simula a janela CEP, garante que a prévia não altera a timeline/rascunho antes da confirmação, verifica os metadados de palavras e restaura o SRT anterior. É um teste isolado; não valida a API Adobe real.
