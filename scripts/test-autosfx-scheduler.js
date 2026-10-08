@@ -3,8 +3,8 @@ const assert=require('assert/strict');
 const fs=require('fs');
 const scheduler=require('../CaptionIA/js/sfx_scheduler.js');
 const source=fs.readFileSync('CaptionIA/js/autosfx.js','utf8');
-assert.match(source,/R=!!\[\],S='capsync',q=ae,W\(\)/,'AutoEdit must select one trigger per caption block');
-assert.match(source,/CaptionIASfxScheduler\.plan\(a0,a3/,'SFX cooldown must be applied before JSX host call');
+assert.match(source,/R=!!\[\],S='word',q=ae,W\(\)/,'AutoEdit must select spoken-word trigger mode');
+assert.match(source,/CaptionIASfxDualTracks\.run\(/,'AutoEdit must use verified dual-track host calls');
 
 const crowded=Array.from({length:46},(_,i)=>i*0.24);
 const a=scheduler.plan(crowded,crowded.map(t=>t+0.20),{fps:30,minGapSeconds:0.85});
