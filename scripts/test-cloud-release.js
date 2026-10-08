@@ -22,11 +22,12 @@ assert(cloud.includes("w.fsAutoEditTranscrever=function(done)"),'Etapa transcrev
 assert(cloud.includes("fsExportAudioTrilha("),'Áudio da timeline não é exportado pelo novo fluxo');
 assert(cloud.includes("CaptionIACloudCore.planCaptions"),'Planejamento de legendas não usa API');
 assert(cloud.includes('w.CaptionIALicense.isAuthorized()'));
-assert(cloud.includes("mode='cloud'"),'Nuvem precisa ser o modo padrão');
+assert(cloud.includes("?'personal':'cloud'"),'Nuvem precisa ser o modo padrão');
 assert(cloud.includes("'api.groq.com'"),'Modo de chave Groq pessoal não aponta para a Groq');
-assert(cloud.includes("LEGACY_KEY='framespeed_groq_key'"),'Migração da chave Groq local foi perdida');
+assert(cloud.includes('w.fsSecureKeyStore.set(key)'),'Chave pessoal precisa usar armazenamento seguro');
 assert(cloud.includes('Minha chave Groq'),'Opção de chave Groq pessoal não está na interface');
-assert(!/consent|autorizo o envio|autorização de envio/i.test(cloud),'Transcrição ainda exige consentimento no modal');
+assert(!cloud.includes("localStorage.setItem('framespeed_groq_key'"),'Chave não deve ficar em texto puro');
+assert(!/consent\.checked|Autorizo o envio|Marque a autorização/i.test(cloud),'Transcrição ainda exige checkbox');
 assert(core.includes('caption.escotilhaprodutora.com'));
 assert(!core.includes("DOMContentLoaded',attachCloudCaptionPanel"),'Não injetar painéis beta');
 assert(installer.includes('INSTALAR_CAPTION_IA.ps1'),'Instalador BAT não chama o mecanismo seguro');
