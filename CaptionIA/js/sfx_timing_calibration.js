@@ -91,9 +91,9 @@ function refresh(){
 }
 function setup(){
  var panel=d.getElementById('autoedit-panel');if(!panel)return;
- var section=elem('section');section.style.cssText='margin:10px 0;padding:12px;border:1px solid #526478;border-radius:8px;background:#151b23;color:#dfe8f4;font:12px/1.5 Segoe UI,Arial,sans-serif';
- section.appendChild(elem('strong','Sincronia fina de SFX por palavra'));
- section.appendChild(elem('p','Ajusta só os sons, sem mover legendas. Use - para antecipar e + para atrasar. Ajustes separados por transcrição.'));
+ var section=elem('details');section.style.cssText='margin:8px 0;padding:9px 12px;border:1px solid #334154;border-radius:8px;background:#151b23;color:#dfe8f4;font:12px/1.5 Segoe UI,Arial,sans-serif';
+ var summary=elem('summary','Ajustes avançados de sincronia dos efeitos');summary.style.cssText='cursor:pointer;font-weight:600';section.appendChild(summary);
+ section.appendChild(elem('p','Opcional: ajuste em quadros somente os efeitos. Valores negativos antecipam o som, positivos atrasam.'));
  var controls=elem('div');controls.style.cssText='display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:8px';
  var gl=elem('label','Ajuste geral (quadros) ');ui.global=elem('input');ui.global.type='number';ui.global.min='-15';ui.global.max='15';ui.global.step='1';ui.global.value='0';ui.global.style.cssText='width:60px;margin-left:3px;padding:4px;color:#fff;background:#202b36;border:1px solid #5a6573';gl.appendChild(ui.global);controls.appendChild(gl);
  var fpsLabel=elem('label','FPS ');ui.fps=elem('select');
