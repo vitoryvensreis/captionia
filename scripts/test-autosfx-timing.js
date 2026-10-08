@@ -12,6 +12,15 @@ const source=fs.readFileSync('CaptionIA/js/autosfx.js','utf8');
 const html=fs.readFileSync('CaptionIA/index.html','utf8');
 assert(source.includes('window.CaptionIASfxTiming.apply(a0)'));
 assert(html.indexOf('js/sfx_timing_calibration.js')<html.indexOf('js/autosfx.js'));
+const guard=fs.readFileSync('CaptionIA/js/autocut_warp_guard.js','utf8');
+const dual=require('../CaptionIA/js/sfx_dual_tracks.js');
+assert(html.indexOf('js/autocut_warp_guard.js')>html.indexOf('js/autocut.js'));
+assert(html.indexOf('js/autocut_warp_guard.js')<html.indexOf('js/autoedit.js'));
+assert(guard.includes('Warp Stabilizer')&&guard.includes('fx.remove()'));
+assert(typeof dual.addTracksScript==='function');
+assert(dual.addTracksScript().includes('addTracks'));
+assert(!fs.readFileSync('CaptionIA/js/sfx_timing_calibration.js','utf8').includes("document.addEventListener('DOMContentLoaded',setup)"));
+
 
 assert.throws(()=>cal.apply([0.2]),/Transcrição/);
 
@@ -51,7 +60,6 @@ const resolved=cal.apply(times);
 assert.equal(resolved.times.length,times.length);
 assert(resolved.conflicts>=1,'Inversões precisam ser contabilizadas');
 assert(resolved.times[1]>resolved.times[2],'Conflito não deve forçar a fala a mudar de ordem');
-const dual=require('../CaptionIA/js/sfx_dual_tracks.js');
 const tracks=dual.split(resolved.times);
 assert.equal(tracks[0].length+tracks[1].length,times.length,'Todos os disparos válidos precisam permanecer');
 assert(tracks[0].every((v,i,a)=>i===0||v>=a[i-1]),'Eventos na camada A desordenados');
