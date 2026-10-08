@@ -70,6 +70,10 @@ function stageSource(source,options){
   original=validSource(match,d);
  }
  d.fs.mkdirSync(root,{recursive:true});
+ // Keep an already staged media path stable across repeated generations.
+ // Do not prepend another hash to cache files when the plugin reloads.
+ var rel=d.path.relative(root,original);
+ if(rel&&rel!=='..'&&!rel.startsWith('..'+d.path.sep)&&!d.path.isAbsolute(rel))return original;
  var checksum=d.crypto.createHash('sha256');
  var fd=d.fs.openSync(original,'r'),buffer=Buffer.allocUnsafe(1024*512);
  try{
