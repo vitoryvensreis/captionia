@@ -165,5 +165,17 @@ if (fs.existsSync(path.join(root,'scripts','test-sfx-diagnostics.js'))) {
   }
 }
 
+if (fs.existsSync(path.join(root, 'scripts', 'test-autosfx-timing.js'))) {
+  try {
+    const cp = require('child_process');
+    const output = cp.execFileSync(process.execPath, [path.join(root, 'scripts', 'test-autosfx-timing.js')], {
+      cwd: root, encoding: 'utf8', timeout: 8000
+    });
+    ok('AutoSFX timing calibration: ' + output.trim());
+  } catch (e) {
+    fail('AutoSFX timing regression: ' + String((e.stdout || '') + (e.stderr || '') + e.message).slice(0, 1300));
+  }
+}
+
 if (process.exitCode) process.exit(process.exitCode);
 console.log('VALIDAÇÃO CONCLUÍDA');
