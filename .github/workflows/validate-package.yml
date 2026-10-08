@@ -40,8 +40,7 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           CHANGELOG="ALTERACOES_${VERSION}.txt"
-          FILES=(CaptionIA INSTALAR_CAPTION_IA.bat INSTALAR_CAPTION_IA_MAC.command DESINSTALAR_CAPTION_IA.bat README.md)
-          if [ -f "$CHANGELOG" ]; then FILES+=("$CHANGELOG"); fi
+          FILES=(CaptionIA INSTALAR_CAPTION_IA.bat)
           zip -r -9 "CaptionIA-${VERSION}.zip" "${FILES[@]}"
 
       - name: Upload ZIP
