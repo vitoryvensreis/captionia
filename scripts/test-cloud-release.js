@@ -37,4 +37,4 @@ assert(html.includes('src="js/sfx_media_store.js"'),'Media SFX não carregada an
 assert(fs.readFileSync('CaptionIA/js/autosfx.js','utf8').includes('CaptionIASfxMedia.prepareMix(g)'),'AutoSFX sem verificação de mídias persistentes');
 assert(!fs.existsSync('CaptionIA/icons') && !fs.existsSync('CaptionIA/logo.png'),'Logo VF ainda empacotada');
 assert(installer.includes('fs\\cloud_audio_panel.js')===false);
-console.log('Release client smoke PASS: 3.4.4, Nuvem padrão + chave Groq pessoal, sem consentimento obrigatório, safe installer');
+console.log('Release client smoke PASS: 3.4.5, Nuvem padrão + chave Groq pessoal, sem consentimento obrigatório, safe installer');
