@@ -1,4 +1,4 @@
-CAPTION IA 3.4.2 - INSTALACAO WINDOWS (CORRECAO)
+CAPTION IA 3.4.3 - INSTALACAO WINDOWS (CORRECAO)
 ================================================
 
 1) BAIXE E EXTRAIA O ZIP INTEIRO para uma pasta comum, ex.: Area de Trabalho.
@@ -14,7 +14,7 @@ SE APARECER ERRO
 - O log fica em %LOCALAPPDATA%\CaptionIA\Logs (pasta do usuario).
 - Envie o texto da mensagem do terminal, sem enviar chaves ou senhas.
 
-ALTERACOES DA 3.4.2
+ALTERACOES DA 3.4.3
 - Removidas imagens da marca antiga VF/FrameSpeed e referencias a esses icones no manifesto Adobe.
 - Novo instalador com validacao de arquivo, backup com horario e rollback em erro.
 - Mantido o Cloud Core/Groq, AutoEdit, legendas e AutoSFX da 3.4.1.
