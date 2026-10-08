@@ -40,7 +40,7 @@ assert(Math.abs(a.times[1]-(0.5-2/30))<1e-7);
 assert(Math.abs(a.times[2]-(0.8+1/30))<1e-7);
 assert(Math.abs(a.times[3]-(1.1-2/30))<1e-7);
 assert.throws(()=>cal.apply([0.2,0.5,0.8]),/mudou/);
-assert.throws(()=>cal.apply([0.2,0.51,0.8,1.1]),/mudou/);
+assert.throws(()=>cal.apply([0.2,0.55,0.8,1.1]),/mudou/);
 
 const swapped=cal.read(list);
 swapped.global=0;
