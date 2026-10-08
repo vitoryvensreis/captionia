@@ -76,6 +76,7 @@ jobs:
             CaptionIA/index.html \
             CaptionIA/js/autosfx.js \
             CaptionIA/js/sfx_scheduler.js \
+            CaptionIA/js/sfx_dual_tracks.js \
             APLICAR_PATCH_SFX.bat RESTAURAR_PATCH_SFX.bat
 
       - name: Upload AutoSFX Hotfix ZIP
