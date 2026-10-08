@@ -20,7 +20,7 @@
       if (!finite(value) || value < 0 || value > 21600) { invalid++; continue; }
       var boundary = Array.isArray(ends) && ends.length === times.length ? ends[i] : null;
       if (finite(boundary) && boundary <= value + 1 / fps) { invalid++; continue; }
-      ordered.push({ frame: Math.round(value * fps), index: i });
+      ordered.push({ frame: Math.round(value * fps), at: value, index: i });
     }
     ordered.sort(function(a,b) { return a.frame-b.frame || a.index-b.index; });
     var result = [], last = -Infinity, spacing = 0, duplicate = 0;
@@ -29,7 +29,7 @@
       var frame = ordered[j].frame;
       if (frame === last) { duplicate++; continue; }
       if (frame - last < gapFrames || result.length >= limit) { spacing++; continue; }
-      result.push(frame/fps);
+      result.push(ordered[j].at);
       last = frame;
     }
     return {
