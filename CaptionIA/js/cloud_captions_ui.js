@@ -33,7 +33,7 @@ label('Prévia: '+data.segments.length+' legendas. Nenhuma alteração na timeli
 }
 function apply(){if(!plan)return;try{
 var last=-1;var cues=plan.segments.map(function(s){var t=Number(s.start_time),end=Number(s.end_time);if(!isFinite(t)||!isFinite(end)||end<=t||t<last-0.03)throw Error('Tempos inconsistentes.');last=t;return{text:Array.isArray(s.lines)?s.lines.join('\n'):String(s.text),startTime:t,endTime:end};});
-if(w.fsAttachWordTimings)cues=w.fsAttachWordTimings(cues,words)||cues;
+if(w.fsAttachWordTimings)cues=w.fsAttachWordTimings(cues,words.map(function(t){return{word:t.text,start:t.start,end:t.end};}))||cues;
 original=JSON.parse(JSON.stringify(w.premiereSrtData||[]));save(cues);applied=JSON.stringify(cues);plan=null;
 id('cia-cloud-apply').disabled=true;id('cia-cloud-revert').disabled=false;
 label('Rascunho atualizado. Revise na aba Legendas antes de aplicar no Premiere.');
