@@ -122,6 +122,15 @@
       });
     });
   }
+  function attachCloudCaptionPanel(){
+    if(document.getElementById('cia-cloud-captions-script')) return;
+    var script=document.createElement('script');script.id='cia-cloud-captions-script';
+    script.src='js/cloud_captions_ui.js';
+    script.onerror=function(){console.warn('[Caption IA] Módulo de prévia Cloud Core não carregou.');};
+    (document.head||document.documentElement).appendChild(script);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',attachCloudCaptionPanel);
+  else attachCloudCaptionPanel();
   w.CaptionIACloudCore=Object.freeze({
     getConfig:getConfig,
     planCaptions:planCaptions,
