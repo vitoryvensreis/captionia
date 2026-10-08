@@ -4,7 +4,7 @@ chcp 65001 >nul 2>&1
 title Caption IA - Corrigir AutoSFX (Beta)
 set "SOURCE=%~dp0CaptionIA"
 set "DEST=%APPDATA%\Adobe\CEP\extensions\CaptionIA"
-set "BACKUP=%LOCALAPPDATA%\CaptionIA\SfxDiagnosticBackup"
+set "BACKUP=%LOCALAPPDATA%\CaptionIA\SfxTimingCalibrationBackup"
 echo ==========================================
 echo      CAPTION IA - PATCH AUTOSFX
 echo ==========================================
@@ -13,6 +13,7 @@ if not exist "%SOURCE%\js\autosfx.js" goto :badpackage
 if not exist "%SOURCE%\js\sfx_scheduler.js" goto :badpackage
 if not exist "%SOURCE%\js\sfx_dual_tracks.js" goto :badpackage
 if not exist "%SOURCE%\js\sfx_track_diagnostics.js" goto :badpackage
+if not exist "%SOURCE%\js\sfx_timing_calibration.js" goto :badpackage
 if not exist "%SOURCE%\index.html" goto :badpackage
 if not exist "%DEST%\js\autosfx.js" goto :notinstalled
 if not exist "%DEST%\CSXS\manifest.xml" goto :notinstalled
@@ -29,6 +30,10 @@ copy /B /Y "%DEST%\js\autosfx.js" "%BACKUP%\autosfx.js" >nul
 if errorlevel 1 goto :failed
 copy /B /Y "%DEST%\index.html" "%BACKUP%\index.html" >nul
 if errorlevel 1 goto :failed
+if exist "%DEST%\js\sfx_timing_calibration.js" (
+ copy /B /Y "%DEST%\js\sfx_timing_calibration.js" "%BACKUP%\sfx_timing_calibration.js" >nul
+ if errorlevel 1 goto :failed
+)
 if exist "%DEST%\js\sfx_track_diagnostics.js" (
  copy /B /Y "%DEST%\js\sfx_track_diagnostics.js" "%BACKUP%\sfx_track_diagnostics.js" >nul
  if errorlevel 1 goto :failed
@@ -44,6 +49,8 @@ if exist "%DEST%\js\sfx_scheduler.js" (
 echo [2/3] Instalando o novo agendador de efeitos...
 copy /B /Y "%SOURCE%\js\sfx_scheduler.js" "%DEST%\js\sfx_scheduler.js" >nul
 if errorlevel 1 goto :rollback
+copy /B /Y "%SOURCE%\js\sfx_timing_calibration.js" "%DEST%\js\sfx_timing_calibration.js" >nul
+if errorlevel 1 goto :rollback
 copy /B /Y "%SOURCE%\js\sfx_track_diagnostics.js" "%DEST%\js\sfx_track_diagnostics.js" >nul
 if errorlevel 1 goto :rollback
 copy /B /Y "%SOURCE%\js\sfx_dual_tracks.js" "%DEST%\js\sfx_dual_tracks.js" >nul
@@ -56,8 +63,9 @@ echo [3/3] Conferindo a instalacao...
 if not exist "%DEST%\js\sfx_scheduler.js" goto :rollback
 if not exist "%DEST%\js\sfx_dual_tracks.js" goto :rollback
 if not exist "%DEST%\js\sfx_track_diagnostics.js" goto :rollback
+if not exist "%DEST%\js\sfx_timing_calibration.js" goto :rollback
 echo.
-echo PATCH AUTOSFX DUAS CAMADAS INSTALADO.
+echo PATCH AUTOSFX COM SINCRONIA FINA INSTALADO.
 echo Backup salvo em: "%BACKUP%"
 echo Para desfazer use RESTAURAR_PATCH_SFX.bat.
 pause
@@ -66,6 +74,11 @@ exit /b 0
 echo Falha na instalacao. Restaurando...
 if exist "%BACKUP%\autosfx.js" copy /B /Y "%BACKUP%\autosfx.js" "%DEST%\js\autosfx.js" >nul
 if exist "%BACKUP%\index.html" copy /B /Y "%BACKUP%\index.html" "%DEST%\index.html" >nul
+if exist "%BACKUP%\sfx_timing_calibration.js" (
+ copy /B /Y "%BACKUP%\sfx_timing_calibration.js" "%DEST%\js\sfx_timing_calibration.js" >nul
+) else (
+ if exist "%DEST%\js\sfx_timing_calibration.js" del /Q "%DEST%\js\sfx_timing_calibration.js"
+)
 if exist "%BACKUP%\sfx_track_diagnostics.js" (
  copy /B /Y "%BACKUP%\sfx_track_diagnostics.js" "%DEST%\js\sfx_track_diagnostics.js" >nul
 ) else (
