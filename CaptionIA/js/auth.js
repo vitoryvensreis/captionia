@@ -1,7 +1,7 @@
 (function(w,d){'use strict';
 var API='https://caption.escotilhaprodutora.com/api/v1';
 var SITE='https://caption.escotilhaprodutora.com';
-var VERSION='3.4.4';
+var VERSION='3.4.5';
 var DEVICE_KEY='framespeed_license_device_uuid';
 var EMAIL_KEY='framespeed_license_email';
 var accessToken='';
