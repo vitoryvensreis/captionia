@@ -69,7 +69,8 @@ function upload(file,token,lang,personalKey){
   try{
    var fs=require('fs'),https=require('https'),path=require('path'),crypto=require('crypto');
    var ext=path.extname(file).toLowerCase(),size=fs.statSync(file).size;
-   if(!/^\.(mp3|wav|m4a|ogg|flac|mp4|webm)$/.test(ext)||size<100||size>MAX)
+   var mime={'.wav':'audio/wav','.mp3':'audio/mpeg','.m4a':'audio/mp4','.mp4':'video/mp4','.ogg':'audio/ogg','.flac':'audio/flac','.webm':'audio/webm'};
+   if(!mime[ext]||size<100||size>MAX)
     throw Error('Áudio deve ter entre 100 bytes e 24 MB (MP3, WAV, M4A, OGG, FLAC, MP4 ou WEBM).');
    var boundary='cia'+crypto.randomBytes(12).toString('hex');
    function field(name,value){
@@ -77,7 +78,7 @@ function upload(file,token,lang,personalKey){
    }
    var chunks=personalKey?[field('model','whisper-large-v3'),field('response_format','verbose_json'),field('timestamp_granularities[]','word'),field('temperature','0')]:[];
    if(lang)chunks.push(field('language',lang));
-   chunks.push(Buffer.from('--'+boundary+'\r\nContent-Disposition: form-data; name="file"; filename="audio'+ext+'"\r\nContent-Type: application/octet-stream\r\n\r\n'));
+   chunks.push(Buffer.from('--'+boundary+'\r\nContent-Disposition: form-data; name="file"; filename="audio'+ext+'"\r\nContent-Type: '+mime[ext]+'\r\n\r\n'));
    chunks.push(fs.readFileSync(file));
    chunks.push(Buffer.from('\r\n--'+boundary+'--\r\n'));
    var body=Buffer.concat(chunks);
