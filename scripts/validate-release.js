@@ -178,6 +178,18 @@ if (fs.existsSync(path.join(root, 'scripts', 'test-autosfx-timing.js'))) {
   }
 }
 
+if (fs.existsSync(path.join(root,'scripts','test-groq-byok.js'))) {
+  try {
+    const cp=require('child_process');
+    const output=cp.execFileSync(process.execPath,[path.join(root,'scripts','test-groq-byok.js')],{
+      cwd:root,encoding:'utf8',timeout:8000
+    });
+    ok('Groq personal key smoke: '+output.trim());
+  } catch(e) {
+    fail('Regressão Groq: '+String((e.stdout||'')+(e.stderr||'')+e.message).slice(0,1500));
+  }
+}
+
 if (fs.existsSync(path.join(root, 'scripts', 'test-cloud-release.js'))) {
   try {
     const cp=require('child_process');
