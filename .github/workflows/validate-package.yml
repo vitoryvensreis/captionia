@@ -89,3 +89,26 @@ jobs:
           path: CaptionIA-AutoSFX-Hotfix.zip
           if-no-files-found: error
           retention-days: 14
+
+  windows-install-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate installer in temporary Windows profile
+        shell: powershell
+        run: |
+          $env:APPDATA = Join-Path $env:RUNNER_TEMP 'CaptionIATest\Roaming'
+          $env:LOCALAPPDATA = Join-Path $env:RUNNER_TEMP 'CaptionIATest\Local'
+          New-Item -ItemType Directory -Path $env:APPDATA, $env:LOCALAPPDATA -Force | Out-Null
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\INSTALAR_CAPTION_IA.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Primeira instalacao falhou' }
+          $folder = Join-Path $env:APPDATA 'Adobe\CEP\extensions\CaptionIA'
+          if (!(Test-Path (Join-Path $folder 'jsx\hostscript.jsxbin'))) { throw 'Executor Adobe ausente' }
+          if (Test-Path (Join-Path $folder 'icons')) { throw 'Icones VictorFrame ainda instalados' }
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\INSTALAR_CAPTION_IA.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Reinstalacao com backup falhou' }
+          $backups = @(Get-ChildItem -Path (Join-Path $env:LOCALAPPDATA 'CaptionIA\Backups') -Directory)
+          if ($backups.Count -lt 1) { throw 'Backup anterior nao gerado' }
+          Write-Host 'Smoke Windows PASS: instalar, reinstalar, backup, sem icon antigo.'
