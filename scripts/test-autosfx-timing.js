@@ -15,7 +15,7 @@ assert(html.indexOf('js/sfx_timing_calibration.js')<html.indexOf('js/autosfx.js'
 
 assert.throws(()=>cal.apply([0.2]),/Transcrição/);
 
-global.window={_fsLastResp:{
+global.window._fsLastResp={
   _fsSeq:'sequence-123',
   words:[
     {word:'eu',start:0.2,end:0.4},
@@ -23,7 +23,7 @@ global.window={_fsLastResp:{
     {word:'ir',start:0.8,end:1.0},
     {word:'embora',start:1.1,end:1.4}
   ]
-}};
+};
 const times=[0.2,0.5,0.8,1.1];
 let a=cal.apply(times);
 assert.deepEqual(a.times,times);
