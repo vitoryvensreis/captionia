@@ -117,5 +117,77 @@ const templates = all.filter(p => /\.(mogrt|fsm|aegraphic|fsa|aep)$/i.test(p)).l
 const audio = all.filter(p => /\.(wav|mp3|m4a|aac|ogg|flac)$/i.test(p)).length;
 console.log('INFO: templates=' + templates + ' audio=' + audio + ' arquivos=' + all.length);
 
+if (fs.existsSync(path.join(root, 'scripts', 'test-cloud-panel.js'))) {
+  try {
+    const cp = require('child_process');
+    const output = cp.execFileSync(process.execPath, [path.join(root, 'scripts', 'test-cloud-panel.js')], {
+      cwd: root, encoding: 'utf8', timeout: 8000
+    });
+    ok('Cloud captions UI smoke: ' + output.trim());
+  } catch (e) {
+    fail('Cloud captions UI smoke falhou: ' + String((e.stdout || '') + (e.stderr || '') + e.message).slice(0, 1200));
+  }
+}
+
+if (fs.existsSync(path.join(root, 'scripts', 'test-autosfx-scheduler.js'))) {
+  try {
+    const cp = require('child_process');
+    const output = cp.execFileSync(process.execPath, [path.join(root, 'scripts', 'test-autosfx-scheduler.js')], {
+      cwd: root, encoding: 'utf8', timeout: 8000
+    });
+    ok('AutoSFX safe scheduling: ' + output.trim());
+  } catch (e) {
+    fail('Regressão AutoSFX: ' + String((e.stdout || '') + (e.stderr || '') + e.message).slice(0, 1200));
+  }
+}
+
+if (fs.existsSync(path.join(root, 'scripts', 'test-autosfx-dual-tracks.js'))) {
+  try {
+    const cp = require('child_process');
+    const output = cp.execFileSync(process.execPath, [path.join(root, 'scripts', 'test-autosfx-dual-tracks.js')], {
+      cwd: root, encoding: 'utf8', timeout: 8000
+    });
+    ok('AutoSFX two-layer words: ' + output.trim());
+  } catch (e) {
+    fail('Teste AutoSFX duas camadas falhou: ' + String((e.stdout || '') + (e.stderr || '') + e.message).slice(0, 1200));
+  }
+}
+
+if (fs.existsSync(path.join(root,'scripts','test-sfx-diagnostics.js'))) {
+  try {
+    const cp=require('child_process');
+    const output=cp.execFileSync(process.execPath,[path.join(root,'scripts','test-sfx-diagnostics.js')],{
+      cwd:root,encoding:'utf8',timeout:8000
+    });
+    ok('AutoSFX read-only track diagnostic: '+output.trim());
+  }catch(e){
+    fail('Teste de diagnóstico AutoSFX falhou: '+String((e.stdout||'')+(e.stderr||'')+e.message).slice(0,1500));
+  }
+}
+
+if (fs.existsSync(path.join(root, 'scripts', 'test-autosfx-timing.js'))) {
+  try {
+    const cp = require('child_process');
+    const output = cp.execFileSync(process.execPath, [path.join(root, 'scripts', 'test-autosfx-timing.js')], {
+      cwd: root, encoding: 'utf8', timeout: 8000
+    });
+    ok('AutoSFX timing calibration: ' + output.trim());
+  } catch (e) {
+    fail('AutoSFX timing regression: ' + String((e.stdout || '') + (e.stderr || '') + e.message).slice(0, 1300));
+  }
+}
+
+if (fs.existsSync(path.join(root, 'scripts', 'test-cloud-release.js'))) {
+  try {
+    const cp=require('child_process');
+    const out=cp.execFileSync(process.execPath,[path.join(root,'scripts','test-cloud-release.js')],{
+      cwd:root,encoding:'utf8',timeout:8000
+    });
+    ok('Cloud release security smoke: '+out.trim());
+  }catch(e){
+    fail('Release cloud incompleto: '+String((e.stdout||'')+(e.stderr||'')+e.message).slice(0,1500));
+  }
+}
+
 if (process.exitCode) process.exit(process.exitCode);
 console.log('VALIDAÇÃO CONCLUÍDA');

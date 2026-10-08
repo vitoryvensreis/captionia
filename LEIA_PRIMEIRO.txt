@@ -1,0 +1,28 @@
+CAPTION IA 3.4.1 - INSTRUCOES DE INSTALACAO (WINDOWS)
+=====================================================
+
+1. Extraia todo o arquivo ZIP em uma pasta do computador.
+2. Salve os projetos e feche o Adobe Premiere Pro e o After Effects.
+3. Execute INSTALAR_CAPTION_IA.bat.
+4. Abra o Premiere Pro > Janela > Extensoes (Legacy) > Caption IA.
+5. Faca login com a conta cadastrada no site e uma licenca autorizada.
+6. Abra Transcricao, aceite o envio de audio ao Caption IA/GROQ e use
+   "Transcrever da timeline" ou "Selecionar audio".
+7. Use os modelos de legendas e o AutoEdit normalmente.
+
+ATENCAO
+- O plugin requer acesso ao servidor para validar licenca e transcrever.
+- A chave da GROQ fica no servidor; o cliente nao precisa comprar chave.
+- Esta distribuicao CEP usa modo desenvolvedor (nao assinada) e deve
+  ser homologada antes da comercializacao publica.
+- A biblioteca de modelos e o executor Adobe ainda sao instalados no
+  computador. Nao e uma migracao cloud-only integral.
+- O instalador cria backup de uma instalacao anterior em
+  %LOCALAPPDATA%\CaptionIA\Backups\CaptionIA_ANTES_3_4_1
+- Ele preserva suas preferencias em Documentos\editBest.
+- Para liberar espaco, nao exclua backups antigos sem testar a atualizacao.
+- Nunca envie senhas, tokens, chaves GROQ ou arquivos de clientes ao suporte
+  sem permissao adequada.
+
+SUPORTE
+https://caption.escotilhaprodutora.com

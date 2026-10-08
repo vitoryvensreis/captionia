@@ -40,7 +40,7 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           CHANGELOG="ALTERACOES_${VERSION}.txt"
-          FILES=(CaptionIA INSTALAR_CAPTION_IA.bat)
+          FILES=(CaptionIA INSTALAR_CAPTION_IA.bat LEIA_PRIMEIRO.txt)
           zip -r -9 "CaptionIA-${VERSION}.zip" "${FILES[@]}"
 
       - name: Upload ZIP
@@ -51,3 +51,41 @@ jobs:
           path: CaptionIA-${{ steps.version.outputs.version }}.zip
           if-no-files-found: error
           retention-days: 30
+
+      - name: Build Cloud Beta ZIP for manual Windows validation
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          VERSION="$(node scripts/read-version.js)"
+          zip -q -r -9 "CaptionIA-${VERSION}-CLOUD-BETA.zip" CaptionIA TESTAR_CLOUD_BETA.bat RESTAURAR_CLOUD_BETA.bat
+
+      - name: Upload Cloud Beta ZIP
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: CaptionIA-Cloud-Beta-Windows
+          path: CaptionIA-*-CLOUD-BETA.zip
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Build AutoSFX Hotfix ZIP
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          zip -q -9 CaptionIA-AutoSFX-Hotfix.zip \
+            CaptionIA/index.html \
+            CaptionIA/js/autosfx.js \
+            CaptionIA/js/sfx_scheduler.js \
+            CaptionIA/js/sfx_dual_tracks.js \
+            CaptionIA/js/sfx_track_diagnostics.js \
+            CaptionIA/js/sfx_timing_calibration.js \
+            APLICAR_PATCH_SFX.bat RESTAURAR_PATCH_SFX.bat
+
+      - name: Upload AutoSFX Hotfix ZIP
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: CaptionIA-AutoSFX-Hotfix-Windows
+          path: CaptionIA-AutoSFX-Hotfix.zip
+          if-no-files-found: error
+          retention-days: 14
