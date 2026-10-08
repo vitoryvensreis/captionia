@@ -26,7 +26,7 @@
   }
   function options(o) { return o && typeof o==='object' ? o : {}; }
   function currentVersion(){
-    return (license().getState()||{}).version || '3.4.0';
+    return (license().getState()||{}).version || '3.4.4';
   }
   function planCaptions(textOrWords,opts){
     opts=options(opts);
