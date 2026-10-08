@@ -1,0 +1,1 @@
+Caption IA 3.4.5: AutoSFX two-layer hotfix. Corrects inversion errors caused by word offset calibration. Keeps original speech and captions unchanged. Requires reinstall or automatic plugin update. Two empty and unlocked audio tracks remain required.
