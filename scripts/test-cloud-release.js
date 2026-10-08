@@ -1,0 +1,27 @@
+'use strict';
+const fs=require('node:fs');
+const assert=require('node:assert/strict');
+const html=fs.readFileSync('CaptionIA/index.html','utf8');
+const cloud=fs.readFileSync('CaptionIA/js/cloud_audio_panel.js','utf8');
+const core=fs.readFileSync('CaptionIA/js/cloud_core.js','utf8');
+const manifest=fs.readFileSync('CaptionIA/CSXS/manifest.xml','utf8');
+const release=fs.readFileSync('CaptionIA/js/main.js','utf8');
+const installer=fs.readFileSync('INSTALAR_CAPTION_IA.bat','utf8');
+assert.match(manifest,/ExtensionBundleVersion="3\.4\.1"/);
+assert.match(release,/CURRENT_VERSION='3\.4\.1'/);
+assert(!html.includes('id="cia-cloud-captions-script"'),'Preview Cloud de homologação exposta ao cliente');
+assert(!html.includes('<script src="js/sfx_track_diagnostics.js"></script>'),'Diagnóstico de trilhas exposto ao cliente');
+assert(html.includes('src="js/cloud_audio_panel.js"'));
+assert(cloud.includes("event.stopImmediatePropagation()"),'Botões locais legados não interceptados');
+assert(cloud.includes("w.fsAutoEditTranscrever=function(done)"),'Etapa transcrever do AutoEdit não usa Cloud');
+assert(cloud.includes("fsExportAudioTrilha("),'Áudio da timeline não é exportado pelo fluxo Cloud');
+assert(cloud.includes("CaptionIACloudCore.planCaptions"),'Planejamento de legendas não usa API');
+assert(cloud.includes('w.CaptionIALicense.isAuthorized()'));
+assert(!cloud.includes('api.groq.com'),'A chave Groq não deve ser usada pelo cliente');
+assert(!cloud.includes('GROQ_API_KEY'),'O nome da configuração de segredo não deve aparecer no cliente');
+assert(!cloud.includes('framespeed_groq_key'),'Fluxo Cloud não deve procurar chave local');
+assert(core.includes('caption.escotilhaprodutora.com'));
+assert(!core.includes('DOMContentLoaded\',attachCloudCaptionPanel'),'Não injetar painéis beta');
+assert(installer.includes('CaptionIA_TEMP_ANTERIOR') && installer.includes(':restore'),'Instalador sem retorno');
+assert(installer.includes('fs\\cloud_audio_panel.js')===false); // install path check is windows
+console.log('Release client smoke PASS: 3.4.1, Groq Cloud-only UI, no beta panels, safe installer');
