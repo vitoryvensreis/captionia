@@ -1,0 +1,22 @@
+CAPTION IA 3.4.4 — HOTFIX DE TRANSCRIÇÃO
+
+1. Transcrição sem quota diária do Caption IA
+- Removida a quota diária da transcrição em nuvem no backend.
+- Removido o bloqueio específico de 2 transcrições por minuto do fluxo de transcrição.
+- Permanecem apenas os limites técnicos do próprio provedor Groq e o limite de tamanho de arquivo (24 MB).
+
+2. Nuvem por padrão + chave Groq personalizada
+- O modo padrão continua sendo Nuvem, usando a chave configurada no servidor Caption IA.
+- Nova opção "Minha chave Groq" no modal de Transcrição.
+- A chave pessoal é armazenada no cofre local já existente e o áudio vai diretamente para api.groq.com.
+- A chave pessoal nunca é enviada ao servidor Caption IA.
+
+3. Consentimento removido do modal
+- Removida a caixa "Autorizo o envio do áudio...".
+- A transcrição pode começar diretamente pelo botão, sem autorização manual a cada uso.
+- O backend não exige mais o campo consent no multipart.
+
+4. Compatibilidade
+- AutoEdit respeita a fonte de transcrição escolhida.
+- Exportação de áudio da timeline, segmentação de legendas, chave segura e instaladores foram preservados.
+- Versão do cliente atualizada para 3.4.4.
