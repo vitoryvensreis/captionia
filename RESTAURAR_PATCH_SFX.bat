@@ -19,6 +19,12 @@ copy /B /Y "%BACKUP%\autosfx.js" "%DEST%\js\autosfx.js" >nul
 if errorlevel 1 goto :failed
 copy /B /Y "%BACKUP%\index.html" "%DEST%\index.html" >nul
 if errorlevel 1 goto :failed
+if exist "%BACKUP%\sfx_track_diagnostics.js" (
+ copy /B /Y "%BACKUP%\sfx_track_diagnostics.js" "%DEST%\js\sfx_track_diagnostics.js" >nul
+ if errorlevel 1 goto :failed
+) else (
+ if exist "%DEST%\js\sfx_track_diagnostics.js" del /Q "%DEST%\js\sfx_track_diagnostics.js"
+)
 if exist "%BACKUP%\sfx_dual_tracks.js" (
  copy /B /Y "%BACKUP%\sfx_dual_tracks.js" "%DEST%\js\sfx_dual_tracks.js" >nul
  if errorlevel 1 goto :failed
