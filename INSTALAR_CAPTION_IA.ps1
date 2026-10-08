@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-$Version = '3.4.5'
+$Version = '3.4.6'
 $Source = Join-Path $PSScriptRoot 'CaptionIA'
 $Extensions = Join-Path $env:APPDATA 'Adobe\CEP\extensions'
 $Destination = Join-Path $Extensions 'CaptionIA'
@@ -73,7 +73,7 @@ try {
     New-Item -ItemType Directory -Path $Extensions -Force | Out-Null
     New-Item -ItemType Directory -Path $BackupRoot -Force | Out-Null
 
-    Info 'Preparando uma copia da versao 3.4.5...'
+    Info 'Preparando uma copia da versao 3.4.6...'
     Copy-DirectoryContents $Source $Stage
     foreach ($Required in @('CSXS\manifest.xml', 'index.html', 'jsx\hostscript.jsxbin', 'js\cloud_audio_panel.js')) {
         $A = Join-Path $Source $Required
