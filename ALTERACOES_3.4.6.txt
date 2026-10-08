@@ -1,0 +1,6 @@
+Caption IA 3.4.6
+- AutoCut: verifica Warp Stabilizer na sequência e remove pelo método suportado quando disponível; interrompe com erro claro quando a remoção não é segura.
+- AutoSFX: tenta criar automaticamente trilhas vazias antes de inserir efeitos; confirma as trilhas criadas.
+- Painel de sincronização manual de SFX removido da interface; funções internas preservadas.
+- Mídias, legendas, cortes e opções existentes preservados.
+- Atualização do cliente requer reinstalação.
