@@ -1,28 +1,29 @@
-CAPTION IA 3.4.1 - INSTRUCOES DE INSTALACAO (WINDOWS)
-=====================================================
+CAPTION IA 3.4.2 - INSTALACAO WINDOWS (CORRECAO)
+================================================
 
-1. Extraia todo o arquivo ZIP em uma pasta do computador.
-2. Salve os projetos e feche o Adobe Premiere Pro e o After Effects.
-3. Execute INSTALAR_CAPTION_IA.bat.
-4. Abra o Premiere Pro > Janela > Extensoes (Legacy) > Caption IA.
-5. Faca login com a conta cadastrada no site e uma licenca autorizada.
-6. Abra Transcricao, aceite o envio de audio ao Caption IA/GROQ e use
-   "Transcrever da timeline" ou "Selecionar audio".
-7. Use os modelos de legendas e o AutoEdit normalmente.
+1) BAIXE E EXTRAIA O ZIP INTEIRO para uma pasta comum, ex.: Area de Trabalho.
+2) Abra essa pasta: voce deve ver INSTALAR_CAPTION_IA.bat, INSTALAR_CAPTION_IA.ps1 e a pasta CaptionIA.
+3) Feche Premiere, After Effects e Media Encoder.
+4) Clique duas vezes em INSTALAR_CAPTION_IA.bat NA PASTA PRINCIPAL.
+5) Aguarde a copia e a mensagem de sucesso. O instalador faz backup antes de substituir uma instalacao anterior.
+6) Abra Premiere > Janela > Extensoes (Legacy) > Caption IA e entre com sua conta/licenca.
 
-ATENCAO
-- O plugin requer acesso ao servidor para validar licenca e transcrever.
-- A chave da GROQ fica no servidor; o cliente nao precisa comprar chave.
-- Esta distribuicao CEP usa modo desenvolvedor (nao assinada) e deve
-  ser homologada antes da comercializacao publica.
-- A biblioteca de modelos e o executor Adobe ainda sao instalados no
-  computador. Nao e uma migracao cloud-only integral.
-- O instalador cria backup de uma instalacao anterior em
-  %LOCALAPPDATA%\CaptionIA\Backups\CaptionIA_ANTES_3_4_1
-- Ele preserva suas preferencias em Documentos\editBest.
-- Para liberar espaco, nao exclua backups antigos sem testar a atualizacao.
-- Nunca envie senhas, tokens, chaves GROQ ou arquivos de clientes ao suporte
-  sem permissao adequada.
+SE APARECER ERRO
+- Nao execute o BAT de dentro do ZIP nem de dentro da subpasta CaptionIA.
+- O terminal mostra o erro e fica aberto ate voce pressionar uma tecla.
+- O log fica em %LOCALAPPDATA%\CaptionIA\Logs (pasta do usuario).
+- Envie o texto da mensagem do terminal, sem enviar chaves ou senhas.
 
-SUPORTE
-https://caption.escotilhaprodutora.com
+ALTERACOES DA 3.4.2
+- Removidas imagens da marca antiga VF/FrameSpeed e referencias a esses icones no manifesto Adobe.
+- Novo instalador com validacao de arquivo, backup com horario e rollback em erro.
+- Mantido o Cloud Core/Groq, AutoEdit, legendas e AutoSFX da 3.4.1.
+
+IMPORTANTE
+- A chave Groq fica exclusivamente no servidor, nao no PC.
+- O plugin CEP nao esta assinado: o instalador ajusta PlayerDebugMode para o usuario atual.
+- Modelos, assets de audio e hostscript.jsxbin continuam parcialmente locais.
+- Nao remova a pasta de backup antes de confirmar o funcionamento.
+- Para distribuicao publica, providencie assinatura apropriada e homologacao Windows.
+
+SUPORTE: https://caption.escotilhaprodutora.com
