@@ -20,8 +20,17 @@ function probeScript(){
   '}catch(e){return JSON.stringify({error:String(e)});}})()';
 }
 function countsScript(a,b){
-  return '(function(){try{var s=app.project.activeSequence;' +
-    'return JSON.stringify({ok:true,a:s.audioTracks['+a+'].clips.numItems,b:s.audioTracks['+b+'].clips.numItems});' +
+  return '(function(){try{var s=app.project.activeSequence,offline=0,unknown=0,paths=[];' +
+    'var pair=['+a+','+b+'];for(var k=0;k<pair.length;k++){' +
+      'var tr=s.audioTracks[pair[k]];for(var i=0;i<tr.clips.numItems;i++){' +
+        'var clip=tr.clips[i],item=clip?clip.projectItem:null;' +
+        'if(!item){unknown++;continue;}' +
+        'try{if(typeof item.isOffline==="function"&&item.isOffline()){offline++;continue;}}catch(ex){}' +
+        'try{if(typeof item.getMediaPath==="function"){' +
+           'var p=item.getMediaPath();if(p&&typeof File!=="undefined"&&!File(p).exists){offline++;paths.push(String(p));}' +
+        '}}catch(ex2){unknown++;}' +
+      '}}' +
+    'return JSON.stringify({ok:true,a:s.audioTracks['+a+'].clips.numItems,b:s.audioTracks['+b+'].clips.numItems,offline:offline,unknown:unknown,paths:paths.slice(0,3)});' +
   '}catch(e){return JSON.stringify({error:String(e)});}})()';
 }
 function chooseTwo(free,preferred){
@@ -91,6 +100,9 @@ function run(options,finish){
             // Make sure the compiled host REALLY honored the selected target.
             cs.evalScript(countsScript(targets[0],targets[1]),function(x){
               var count=decode(x);
+              if(count.offline){
+                done({error:'O Premiere inseriu '+count.offline+' SFX com mídia offline. Verifique a origem do áudio (\u0022Link Media\u0022) antes de repetir.'});return;
+              }
               if(count.error||!count.a||count.b){
                 done({error:'Não consegui confirmar separação das duas camadas. Primeira chamada já pode ter inserido áudio; não execute novamente sem conferir a timeline.'});
                 return;
@@ -103,6 +115,9 @@ function run(options,finish){
       function validateFinal(){
         cs.evalScript(countsScript(targets[0],targets[1]),function(x){
           var check=decode(x);
+          if(check.offline){
+            done({error:'Detectei '+check.offline+' SFX sem arquivo conectado no Premiere. A distribuição foi interrompida: religue ou remova somente esses SFX antes de tentar novamente.'});return;
+          }
           if(check.error||!check.a||(layers[1].length&&!check.b)){
             done({error:'Não consegui validar a segunda trilha. Confira A'+(targets[0]+1)+' e A'+(targets[1]+1)+' antes de repetir.'});
             return;
@@ -117,6 +132,8 @@ function run(options,finish){
             sounds:paths.length,
             duasCamadas:true,
             previstos:layers[0].length+layers[1].length,
+            mediaOffline:0,
+            mediaUnchecked:check.unknown||0,
             detalhes:'Disparos alternados: '+layers[0].length+' em A'+(targets[0]+1)+
               ' e '+layers[1].length+' em A'+(targets[1]+1)+'. Sem limites por legenda.'
           });
