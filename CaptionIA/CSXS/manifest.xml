@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<ExtensionManifest Version="9.0" ExtensionBundleId="com.editbest" ExtensionBundleVersion="3.4.1"
+<ExtensionManifest Version="9.0" ExtensionBundleId="com.editbest" ExtensionBundleVersion="3.4.2"
     ExtensionBundleName="Caption IA" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <ExtensionList>
-        <Extension Id="com.editbest.panel" Version="3.4.1" />
+        <Extension Id="com.editbest.panel" Version="3.4.2" />
     </ExtensionList>
     <ExecutionEnvironment>
         <HostList>
@@ -34,12 +34,6 @@
                 <UI>
                     <Type>Panel</Type>
                     <Menu>Caption IA</Menu>
-                    <Icons>
-                        <Icon Type="Normal">./icons/logo.png</Icon>
-                        <Icon Type="RollOver">./icons/logo_rollover.png</Icon>
-                        <Icon Type="DarkNormal">./icons/logo.png</Icon>
-                        <Icon Type="DarkRollOver">./icons/logo_rollover.png</Icon>
-                    </Icons>
                     <Geometry>
                         <Size>
                             <Height>600</Height>
