@@ -1,0 +1,70 @@
+name: Arquivar instalador privado - Caption IA
+
+# Executa uma vez quando o registro da release 3.4.4 entra na main.
+# Pode ser repetido manualmente em Actions se o arquivamento falhar.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'releases/3.4.4/README.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  archive-private-release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Confirmar versao e validar codigo
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node scripts/read-version.js)" = "3.4.4"
+          node scripts/validate-release.js
+          test ! -e CaptionIA/icons
+          test ! -e CaptionIA/logo.png
+          test -f CaptionIA/js/sfx_media_store.js
+          test -f INSTALAR_CAPTION_IA.ps1
+
+      - name: Preparar ZIP completo do cliente e checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          zip -q -r -9 CaptionIA-3.4.4.zip CaptionIA INSTALAR_CAPTION_IA.bat INSTALAR_CAPTION_IA.ps1 LEIA_PRIMEIRO.txt
+          unzip -tqq CaptionIA-3.4.4.zip
+          sha256sum CaptionIA-3.4.4.zip > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Guardar em release RASCUNHO e PRIVADO
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ "$(gh api "repos/$GITHUB_REPOSITORY" --jq '.private')" != "true" ]; then
+            echo "BLOQUEADO: o repositório não está privado."
+            exit 1
+          fi
+          tag="v3.4.4"
+          if gh release view "$tag" --json isDraft --jq '.isDraft' >/tmp/release_is_draft.txt 2>/dev/null; then
+            test "$(cat /tmp/release_is_draft.txt)" = "true" || {
+              echo "A release existente não é rascunho; interrompendo para não expor assets."
+              exit 1
+            }
+            gh release upload "$tag" CaptionIA-3.4.4.zip SHA256SUMS.txt --clobber
+          else
+            gh release create "$tag" CaptionIA-3.4.4.zip SHA256SUMS.txt \
+              --draft --target "$GITHUB_SHA" \
+              --title "Caption IA 3.4.4 - backup privado" \
+              --notes "Instalador completo gerado do código da main. Release rascunho, sem distribuição pública; clientes continuam baixando pelo site autenticado. Inclui SHA256SUMS.txt."
+          fi
