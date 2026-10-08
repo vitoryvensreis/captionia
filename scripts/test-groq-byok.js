@@ -15,5 +15,5 @@ assert(!panel.includes("consent.checked"),'No consent checkbox');
 assert(!panel.includes("field('consent'"),'No consent payload');
 assert(panel.includes('o áudio é enviado à Groq'),'Data-flow notice');
 assert(secure.includes('windows-dpapi'),'Windows credential protected');
-assert(manifest.includes('ExtensionBundleVersion="3.4.4"'),'Release version');
+assert(manifest.includes('ExtensionBundleVersion="3.4.5"'),'Release version');
 console.log('Groq Cloud/Direct BYOK/Privacy: PASS');
