@@ -1,4 +1,4 @@
-CAPTION IA 3.4.3 - INSTALACAO WINDOWS (CORRECAO)
+CAPTION IA 3.4.4 - INSTALACAO WINDOWS (CORRECAO)
 ================================================
 
 1) BAIXE E EXTRAIA O ZIP INTEIRO para uma pasta comum, ex.: Area de Trabalho.
@@ -14,13 +14,13 @@ SE APARECER ERRO
 - O log fica em %LOCALAPPDATA%\CaptionIA\Logs (pasta do usuario).
 - Envie o texto da mensagem do terminal, sem enviar chaves ou senhas.
 
-ALTERACOES DA 3.4.3
+ALTERACOES DA 3.4.4
 - Removidas imagens da marca antiga VF/FrameSpeed e referencias a esses icones no manifesto Adobe.
 - Novo instalador com validacao de arquivo, backup com horario e rollback em erro.
 - Mantido o Cloud Core/Groq, AutoEdit, legendas e AutoSFX da 3.4.1.
 
 IMPORTANTE
-- A chave Groq fica exclusivamente no servidor, nao no PC.
+- Por padrao a chave Groq da plataforma fica exclusivamente no servidor. Opcionalmente, cada usuario pode salvar a propria chave Groq, protegida no Windows pelo armazenamento do usuario; ela e enviada somente para a transcricao por HTTPS e nao e salva no servidor.\n- Sem cota diaria imposta pelo Caption IA; limites antiabuso e da propria Groq continuam.
 - O plugin CEP nao esta assinado: o instalador ajusta PlayerDebugMode para o usuario atual.
 - Modelos, assets de audio e hostscript.jsxbin continuam parcialmente locais.
 - Nao remova a pasta de backup antes de confirmar o funcionamento.
@@ -29,7 +29,7 @@ IMPORTANTE
 SUPORTE: https://caption.escotilhaprodutora.com
 
 
-AUTO SFX - CORRECAO 3.4.3
+AUTO SFX - CORRECAO 3.4.4
 -------------------------
 - Os sons usados pelo AutoSFX agora sao copiados automaticamente para
   %LOCALAPPDATA%\CaptionIA\Media\SFX
@@ -40,5 +40,11 @@ AUTO SFX - CORRECAO 3.4.3
 - O plugin avisa se nao encontrar o SFX, em vez de inserir sons sem origem.
 - Se o projeto ja contem clipes offline criados numa instalacao antiga,
   faca uma copia, religue a fonte pelo Premiere (Link Media) ou remova
-  somente os SFX offline e gere novamente usando a versao 3.4.3.
+  somente os SFX offline e gere novamente usando a versao 3.4.4.
 - Nao remova videos, musica, voz ou trilhas pessoais do projeto.
+
+ALTERACOES DA 3.4.4
+- Opcao de chave Groq pessoal no modal de Transcricao; por padrao usa Groq da nuvem.
+- Removida a caixa de autorizacao por clique; aviso explicito de envio de audio para transcricao.
+- Removida cota diaria do servidor. Os limites de requisicoes/minuto e da Groq permanecem.
+- Chave pessoal no cofre do usuario; nao coloque a sua chave no ZIP para distribuicao.
