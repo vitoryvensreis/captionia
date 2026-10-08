@@ -48,8 +48,12 @@ dual.run({csInterface:cs,times:phrase,paths:['FS Crisp Snap.wav'],volumes:[-14],
  assert.deepEqual(Array.from(calls[1].ends),[]);
 });
 let blocked=false;
-dual.run({csInterface:{evalScript(cmd,done){if(!cmd.includes('var all=[],free=[]'))throw Error('audio changed without tracks');done(JSON.stringify({ok:true,free:[3]}));}},times:phrase,paths:['snap.wav']},function(result){
- blocked=true;assert.match(result.error,/duas trilhas/);
+dual.run({csInterface:{evalScript(cmd,done){
+ if(cmd.includes('var all=[],free=[]'))done(JSON.stringify({ok:true,free:[3]}));
+ else if(cmd.includes('q.addTracks('))done(JSON.stringify({error:'Criação de trilhas não suportada neste Premiere.'}));
+ else throw Error('Não pode inserir SFX antes de validar trilhas');
+}},times:phrase,paths:['snap.wav']},function(result){
+ blocked=true;assert.match(result.error,/Criação de trilhas não suportada/);
 });
 assert(blocked);
 console.log('AutoSFX dual track PASS: four words → four sounds, two verified layers, no forced caption trims');
