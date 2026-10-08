@@ -19,7 +19,9 @@ assert(cloud.includes("CaptionIACloudCore.planCaptions"),'Planejamento de legend
 assert(cloud.includes('w.CaptionIALicense.isAuthorized()'));
 assert(!cloud.includes('api.groq.com'),'A chave Groq não deve ser usada pelo cliente');
 assert(!cloud.includes('GROQ_API_KEY'),'O nome da configuração de segredo não deve aparecer no cliente');
-assert(!cloud.includes('framespeed_groq_key'),'Fluxo Cloud não deve procurar chave local');
+assert(!cloud.includes('framespeed_groq_key'),'Fluxo Cloud não deve procurar chave legada em texto puro');
+assert(cloud.includes('personal_groq_key'),'Chave pessoal ausente no upload autenticado');
+assert(!cloud.includes('consent.checked'),'Aviso informativo não deve exigir checkbox');
 assert(core.includes('caption.escotilhaprodutora.com'));
 assert(!core.includes('DOMContentLoaded\',attachCloudCaptionPanel'),'Não injetar painéis beta');
 const ps=fs.readFileSync('INSTALAR_CAPTION_IA.ps1','utf8');
@@ -30,4 +32,4 @@ assert(html.includes('src="js/sfx_media_store.js"'),'Media SFX não carregada an
 assert(fs.readFileSync('CaptionIA/js/autosfx.js','utf8').includes('CaptionIASfxMedia.prepareMix(g)'),'AutoSFX sem verificação de mídias persistentes');
 assert(!fs.existsSync('CaptionIA/icons') && !fs.existsSync('CaptionIA/logo.png'),'Logo VF ainda empacotada');
 assert(installer.includes('fs\\cloud_audio_panel.js')===false); // install path check is windows
-console.log('Release client smoke PASS: 3.4.3, Groq Cloud-only UI, no beta panels, safe installer');
+console.log('Release client smoke PASS: 3.4.4, Groq Cloud + personal key UI, no beta panels, safe installer');
