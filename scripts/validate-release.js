@@ -40,6 +40,7 @@ const required = [
   'CaptionIA/css/theme_site.css',
   'CaptionIA/jsx/hostscript.jsxbin',
   'INSTALAR_CAPTION_IA.bat',
+  'INSTALAR_CAPTION_IA.ps1',
   'INSTALAR_CAPTION_IA_MAC.command',
   'installer/CaptionIA.iss'
 ];
