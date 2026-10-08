@@ -120,5 +120,5 @@ function setup(){
 var api={apply:apply,words:words,identity:identity,read:read,write:write,refresh:refresh};
 if(typeof module!=='undefined'&&module.exports)module.exports=api;
 if(w)w.CaptionIASfxTiming=api;
-if(d){if(d.readyState==='loading')d.addEventListener('DOMContentLoaded',setup);else setup();}
+// Interface avançada retirada; o motor mantém os ajustes internos para compatibilidade.
 })(typeof window!=='undefined'?window:null,typeof document!=='undefined'?document:null);
