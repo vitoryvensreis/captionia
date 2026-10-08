@@ -36,6 +36,7 @@ const required = [
   'CaptionIA/js/secure_storage.js',
   'CaptionIA/js/license_storage.js',
   'CaptionIA/js/auth.js',
+  'CaptionIA/js/updater.js',
   'CaptionIA/css/theme_site.css',
   'CaptionIA/jsx/hostscript.jsxbin',
   'INSTALAR_CAPTION_IA.bat',

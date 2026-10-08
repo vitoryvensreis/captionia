@@ -1,4 +1,4 @@
-# Caption IA 3.2.3 — versão livre / sem login
+# Caption IA 3.4.0n
 
 Esta árvore foi criada a partir do pacote recuperado do FrameSpeed 2.2.
 
@@ -88,3 +88,23 @@ O usuário entra com a mesma conta do site. O `device_uuid` fica persistente no 
 O repositório possui `installer/CaptionIA.iss` e o workflow `Build Windows installer`. Após uma validação bem-sucedida da `main`, o GitHub Actions gera um instalador `.exe` com interface moderna, remoção automática de instalações antigas e configuração do CEP.
 
 O BAT antigo continua disponível como fallback técnico.
+
+
+## Atualização automática
+
+A partir da 3.4.0, o plugin consulta a API de releases após validar a licença.
+
+Fluxo:
+
+1. consulta `GET /api/v1/releases/latest`;
+2. verifica se a licença permite a versão;
+3. baixa o ZIP autenticado da plataforma;
+4. valida tamanho e SHA-256;
+5. extrai somente a pasta `CaptionIA/` com proteção contra path traversal;
+6. compara arquivos e substitui apenas os que mudaram;
+7. em caso de falha durante a cópia, restaura os arquivos alterados;
+8. informa que o Premiere deve ser fechado e aberto para carregar a nova versão.
+
+O usuário não precisa baixar o ZIP nem executar o instalador novamente. A versão 3.4.0 precisa ser instalada uma vez manualmente; as versões seguintes podem ser publicadas pelo painel Admin da plataforma em **Atualizações do plugin**.
+
+O atualizador nunca grava em `Documentos/editBest`, portanto preferências, chave GROQ, sessão e dados do usuário permanecem fora do pacote de atualização.

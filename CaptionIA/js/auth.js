@@ -1,7 +1,7 @@
 (function(w,d){'use strict';
 var API='https://caption.escotilhaprodutora.com/api/v1';
 var SITE='https://caption.escotilhaprodutora.com';
-var VERSION='3.3.0';
+var VERSION='3.4.0';
 var DEVICE_KEY='framespeed_license_device_uuid';
 var EMAIL_KEY='framespeed_license_email';
 var accessToken='';
@@ -150,6 +150,12 @@ function unlock(user,license){
   authorized=true;currentUser=user||currentUser;currentLicense=license||currentLicense;lastCheck=Date.now();
   removeClass(d.documentElement,'cia-auth-pending');addClass(d.documentElement,'cia-auth-authorized');
   if(gate)gate.style.display='none';userChip();
+  try{
+    var ev;
+    if(typeof CustomEvent==='function')ev=new CustomEvent('captionia:license-ready',{detail:{user:currentUser,license:currentLicense}});
+    else{ev=d.createEvent('CustomEvent');ev.initCustomEvent('captionia:license-ready',false,false,{user:currentUser,license:currentLicense});}
+    d.dispatchEvent(ev);
+  }catch(_e){}
 }
 function checkLicense(token,userHint){
   return request('GET','/license/check?version='+encodeURIComponent(VERSION),null,token).then(function(data){
@@ -211,6 +217,11 @@ w.CaptionIALicense={
   getState:function(){return{authorized:authorized,user:currentUser,license:currentLicense,lastCheck:lastCheck,version:VERSION};},
   assert:function(){if(!authorized)throw new Error('Licença do Caption IA necessária.');return true;},
   recheck:function(){return refreshAndCheck();},
+  apiRequest:function(method,path,body){
+    if(!authorized||!accessToken)return Promise.reject(new Error('Licença não validada.'));
+    return request(method,path,body,accessToken);
+  },
+  getAccessToken:function(){return authorized?accessToken:'';},
   logout:logout
 };
 
