@@ -1,12 +1,12 @@
 @echo off
 setlocal EnableExtensions DisableDelayedExpansion
 chcp 65001 >nul 2>&1
-title Caption IA 3.4.2 - Instalador
+title Caption IA 3.4.3 - Instalador
 cd /d "%~dp0"
 
 echo.
 echo =========================================================
-echo      CAPTION IA 3.4.2 - INSTALADOR CORRIGIDO
+echo      CAPTION IA 3.4.3 - INSTALADOR CORRIGIDO
 echo =========================================================
 echo.
 echo IMPORTANTE: feche Premiere, After Effects e Media Encoder.
