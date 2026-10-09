@@ -1,0 +1,12 @@
+CAPTION IA 3.4.8 — CORREÇÃO GROQ DA NUVEM NA MONTAGEM INTELIGENTE
+
+- Montagem Inteligente, revisão editorial e Retake semântico agora respeitam a escolha do provedor na janela Transcrição.
+- Groq da nuvem (padrão): usa autenticação da licença e endpoint /api/v1/core/narrative/analyze; não requer chave pessoal.
+- Minha chave Groq: conexão direta com api.groq.com usando somente o cofre seguro do usuário.
+- Quando a nuvem falhar, não troca silenciosamente para a chave pessoal.
+- Sessões de acesso expiradas podem ser renovadas uma vez antes da nova tentativa.
+- Mantidos os modos Montagem Livre e Por Roteiro, revisão, Retake, AutoCut e transições.
+- A plataforma captionia-platform recebeu um serviço proxy autenticado com quota e limite de payload. A rota deve estar implantada no servidor para o modo nuvem funcionar.
+- Validação automatizada da escolha do provedor e do instalador.
+
+INSTALAÇÃO: feche o Premiere, extraia o ZIP completo e execute INSTALAR_CAPTION_IA.bat.
