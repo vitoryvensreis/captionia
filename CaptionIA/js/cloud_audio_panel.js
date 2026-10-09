@@ -4,7 +4,6 @@
  */
 (function(w,d){'use strict';
 var busy=false,status=null,MAX=24000000;
-function ownKey(){var store=w.fsSecureKeyStore;if(!store||typeof store.get!=='function')throw Error('Armazenamento seguro da chave indisponível.');var key=String(store.get()||'').trim();if(!/^gsk_[A-Za-z0-9_-]{21,196}$/.test(key))throw Error('Configure uma chave Groq pessoal válida antes de transcrever.');return key;}
 function el(id){return d.getElementById(id);}
 function say(message,error){
  if(status){status.textContent=String(message||'');status.style.color=error?'#ffb5ad':'#cbd9ea';}
@@ -63,55 +62,38 @@ function exportTimeline(){
   return {file:result.path,temporary:true};
  });
 }
-function upload(file,token,lang,personalKey){
+function upload(file,token,lang){
  return new Promise(function(resolve,reject){
   try{
    var fs=require('fs'),https=require('https'),path=require('path'),crypto=require('crypto');
    var ext=path.extname(file).toLowerCase(),size=fs.statSync(file).size;
    var mime={'.wav':'audio/wav','.mp3':'audio/mpeg','.m4a':'audio/mp4','.mp4':'video/mp4','.ogg':'audio/ogg','.flac':'audio/flac','.webm':'audio/webm'};
-   if(!mime[ext]||size<100||size>MAX)
-    throw Error('Áudio deve ter entre 100 bytes e 24 MB (MP3, WAV, M4A, OGG, FLAC, MP4 ou WEBM).');
+   if(!mime[ext]||size<100||size>MAX)throw Error('Áudio deve ter entre 100 bytes e 24 MB (MP3, WAV, M4A, OGG, FLAC, MP4 ou WEBM).');
    var boundary='cia'+crypto.randomBytes(12).toString('hex');
-   function field(name,value){
-    return Buffer.from('--'+boundary+'\r\nContent-Disposition: form-data; name="'+name+'"\r\n\r\n'+value+'\r\n');
-   }
-   var chunks=[field('model','whisper-large-v3'),field('response_format','verbose_json'),field('timestamp_granularities[]','word'),field('temperature','0')];
-   if(lang)chunks.push(field('language',lang));
-   chunks.push(Buffer.from('--'+boundary+'\r\nContent-Disposition: form-data; name="file"; filename="audio'+ext+'"\r\nContent-Type: '+mime[ext]+'\r\n\r\n'));
-   chunks.push(fs.readFileSync(file));
-   chunks.push(Buffer.from('\r\n--'+boundary+'--\r\n'));
-   var body=Buffer.concat(chunks);
-   var settled=false;
-   function fail(err){if(!settled){settled=true;reject(err);}}
-   var destination='api.groq.com';
-   var req=https.request({
-    hostname:destination,port:443,
-    path:'/openai/v1/audio/transcriptions',
-    method:'POST',timeout:195000,
-    headers:{Authorization:'Bearer '+personalKey,'Content-Type':'multipart/form-data; boundary='+boundary,'Content-Length':body.length,'Accept':'application/json'}
-   },function(r){
-    var response=[],bytes=0;
-    r.on('data',function(chunk){bytes+=chunk.length;if(bytes>2*1024*1024){req.destroy(Error('Resposta do servidor excedeu o limite.'));return;}response.push(chunk);});
-    r.on('error',fail);
-    r.on('end',function(){
-     if(settled)return;
-     try{
-      var data=JSON.parse(Buffer.concat(response).toString('utf8'));
-      if(w.CaptionIAGroqAccess)w.CaptionIAGroqAccess.observe(r.headers,'whisper-large-v3',r.statusCode);
-      if(r.statusCode!==200){
-       if(personalKey&&(r.statusCode===401||r.statusCode===403))throw Error('Sua chave Groq pessoal foi recusada pelo provedor.');
-       if(personalKey&&r.statusCode===429)throw Error('Limite de requisições da própria Groq atingido. Aguarde ou use a nuvem.');
-       throw Error((typeof data.error==='string'?data.error:data.error&&data.error.message)||'Transcrição indisponível (HTTP '+r.statusCode+').');
+   function field(name,value){return Buffer.from('--'+boundary+'\r\nContent-Disposition: form-data; name="'+name+'"\r\n\r\n'+value+'\r\n');}
+   var parts=[];
+   if(lang)parts.push(field('language',lang));
+   parts.push(Buffer.from('--'+boundary+'\r\nContent-Disposition: form-data; name="file"; filename="audio'+ext+'"\r\nContent-Type: '+mime[ext]+'\r\n\r\n'));
+   parts.push(fs.readFileSync(file));parts.push(Buffer.from('\r\n--'+boundary+'--\r\n'));
+   var body=Buffer.concat(parts),finished=false;
+   function fail(err){if(!finished){finished=true;reject(err);}}
+   var req=https.request({hostname:'caption.escotilhaprodutora.com',port:443,path:'/api/v1/groq/transcription',method:'POST',timeout:195000,
+    headers:{Authorization:'Bearer '+token,'Content-Type':'multipart/form-data; boundary='+boundary,'Content-Length':body.length,Accept:'application/json'}},function(resp){
+    var blocks=[],bytes=0;resp.on('data',function(chunk){bytes+=chunk.length;if(bytes>2*1024*1024){req.destroy(Error('Resposta do servidor excedeu o limite.'));return;}blocks.push(chunk);});
+    resp.on('error',fail);
+    resp.on('end',function(){if(finished)return;try{
+      var data=JSON.parse(Buffer.concat(blocks).toString('utf8'));
+      if(w.CaptionIAGroqAccess)w.CaptionIAGroqAccess.observe(data,'whisper-large-v3',resp.statusCode);
+      if(resp.statusCode!==200){
+       if(resp.statusCode===403)throw Error('Sua chave Groq ou licença precisa de atenção. Confira Minha conta no site.');
+       if(resp.statusCode===429)throw Error('Limite da sua conta Groq atingido. Aguarde '+String(data.retry_after_seconds||30)+' segundo(s) e tente novamente.');
+       throw Error(String(data.error||'Transcrição indisponível (HTTP '+resp.statusCode+').'));
       }
-      if(data.ok===false||!Array.isArray(data.words)||!data.words.length)throw Error(data.error||'Provedor não retornou palavras temporizadas.');
-      if(personalKey)data.provider='groq-personal';
-      settled=true;resolve(data);
-     }catch(e){fail(e);}
-    });
+      if(!Array.isArray(data.words)||!data.words.length)throw Error(data.error||'A Groq não retornou palavras temporizadas.');
+      data.provider='groq-account';finished=true;resolve(data);
+    }catch(e){fail(e);}});
    });
-   req.on('error',fail);
-   req.on('timeout',function(){req.destroy(Error('Tempo esgotado durante a transcrição.'));});
-   req.end(body);
+   req.on('error',fail);req.on('timeout',function(){req.destroy(Error('Tempo esgotado durante a transcrição.'));});req.end(body);
   }catch(e){reject(e);}
  });
 }
@@ -161,9 +143,8 @@ function execute(mode){
   fileInfo=info;
   var token=w.CaptionIALicense.getAccessToken(),lang=(el('transcribe-lang')||{}).value||'';
   if(!token)throw Error('Licença sem sessão válida. Faça login novamente.');
-  var personalKey=ownKey();
-  say('Transcrevendo com sua chave Groq...');
-  return upload(info.file,token,String(lang).trim(),personalKey);
+  say('Transcrevendo com a Groq conectada à sua conta Caption IA...');
+  return upload(info.file,token,String(lang).trim());
  }).then(function(result){
   say('Preparando as legendas na nuvem...');
   return captions(result.words).then(function(cues){return{result:result,cues:cues};});
@@ -181,7 +162,7 @@ function execute(mode){
  });
 }
 function run(mode,callback){
- execute(mode).then(function(v){if(callback)callback({ok:true,resumo:v.words+' palavras, '+v.captions+' legendas (Groq pessoal)'});})
+ execute(mode).then(function(v){if(callback)callback({ok:true,resumo:v.words+' palavras, '+v.captions+' legendas (Groq por conta)'});})
  .catch(function(err){say('Erro: '+(err&&err.message||err),true);if(callback)callback({ok:false,erro:String(err&&err.message||err)});});
 }
 function init(){
@@ -197,7 +178,7 @@ function init(){
  var section=d.createElement('div');
  section.style.cssText='margin:12px 0;padding:12px;background:#171e29;border:1px solid #3f5167;border-radius:8px;color:#dce7f4;font:12px/1.5 Segoe UI,Arial,sans-serif';
  var title=d.createElement('strong');title.textContent='Groq individual';section.appendChild(title);
- var note=d.createElement('p');note.textContent='A transcrição usa apenas sua chave Groq, configurada na aba Minha conta. Os blocos de legenda continuam sendo planejados pelo Caption IA.';section.appendChild(note);
+ var note=d.createElement('p');note.textContent='A transcrição utiliza a integração Groq configurada na área Minha conta do site. Nenhuma chave precisa ser salva no computador.';section.appendChild(note);
  status=d.createElement('p');status.style.cssText='margin:9px 0 0;color:#cbd9ea;white-space:pre-wrap';section.appendChild(status);
  if(actions&&actions.parentNode)actions.parentNode.insertBefore(section,actions);
  else (modal.querySelector('.modal-box')||modal).appendChild(section);
@@ -205,7 +186,7 @@ function init(){
  var timeline=el('btn-transcribe-timeline'),file=el('btn-transcribe-file');
  if(timeline){timeline.textContent='Transcrever da timeline · Groq';}
  if(file){file.textContent='Selecionar áudio · Groq';}
- // Captura antes dos listeners legados (que exigem gsk_ local).
+ // Captura antes dos listeners antigos que não usam a integração Groq da conta.
  modal.addEventListener('click',function(event){
   var target=event.target,action=null;
   while(target&&target!==modal&&!action){
