@@ -4,7 +4,7 @@ $base = Join-Path $env:APPDATA 'Adobe\CEP\extensions'
 $src = Join-Path $root 'CaptionIA'
 $backup = Join-Path $env:LOCALAPPDATA ("CaptionIA\backups\montagem-beta-" + (Get-Date -Format 'yyyyMMdd-HHmmss'))
 $paths = @('js\autoedit.js','js\narrative-beta.js','jsx\narrative-beta.jsx','css\narrative-beta.css')
-Write-Host "=== CAPTION IA | MONTAGEM INTELIGENTE BETA ===" -ForegroundColor Yellow
+Write-Host "=== CAPTION IA | MONTAGEM INTELIGENTE BETA v0.5 ===" -ForegroundColor Yellow
 Write-Host "Nao apaga suas configuracoes ou substitui o hostscript compilado." -ForegroundColor Gray
 if (Get-Process -ErrorAction SilentlyContinue | Where-Object {$_.ProcessName -like 'Adobe Premiere*'}) { throw 'Feche o Premiere Pro antes de instalar.' }
 if (-not (Test-Path $src)) {throw 'Pacote sem pasta CaptionIA.'}
