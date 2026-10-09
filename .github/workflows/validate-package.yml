@@ -29,6 +29,9 @@ jobs:
       - name: Verify client narrative UX and privacy
         run: node scripts/test-montagem-cliente.js
 
+      - name: Validate narrative cloud and personal Groq routing
+        run: node scripts/test-narrative-provider.js
+
       - name: Read version
         if: github.event_name != 'pull_request'
         id: version
@@ -49,6 +52,8 @@ jobs:
       - name: Upload ZIP
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
+        # O GitHub pode negar artefatos quando a cota estoura; testes e instalador continuam obrigatórios.
+        continue-on-error: true
         with:
           name: CaptionIA-${{ steps.version.outputs.version }}
           path: CaptionIA-${{ steps.version.outputs.version }}.zip
@@ -65,6 +70,8 @@ jobs:
       - name: Upload Cloud Beta ZIP
         if: github.event_name == 'pull_request'
         uses: actions/upload-artifact@v4
+        # O GitHub pode negar artefatos quando a cota estoura; testes e instalador continuam obrigatórios.
+        continue-on-error: true
         with:
           name: CaptionIA-Cloud-Beta-Windows
           path: CaptionIA-*-CLOUD-BETA.zip
@@ -87,6 +94,8 @@ jobs:
       - name: Upload AutoSFX Hotfix ZIP
         if: github.event_name == 'pull_request'
         uses: actions/upload-artifact@v4
+        # O GitHub pode negar artefatos quando a cota estoura; testes e instalador continuam obrigatórios.
+        continue-on-error: true
         with:
           name: CaptionIA-AutoSFX-Hotfix-Windows
           path: CaptionIA-AutoSFX-Hotfix.zip

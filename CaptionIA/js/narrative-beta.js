@@ -7,7 +7,10 @@ function el(id){return document.getElementById(id);} function fail(s){throw new 
 function escapeHTML(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function save(o){try{var v=settings();Object.keys(o).forEach(function(k){v[k]=o[k];});localStorage.setItem(STATE,JSON.stringify(v));}catch(_){} }
 function settings(){try{return JSON.parse(localStorage.getItem(STATE)||'{}')||{};}catch(_){return {};}}
-function getKey(){var k='';try{k=root.fsSecureKeyStore&&root.fsSecureKeyStore.get()||'';}catch(_){}if(!k)try{k=localStorage.getItem('framespeed_groq_key')||'';}catch(_){}return String(k).trim();}
+var GROQ_PROVIDER_SETTING='captionia_groq_key_mode_v1';
+function groqProvider(){try{return localStorage.getItem(GROQ_PROVIDER_SETTING)==='personal'?'personal':'cloud';}catch(e){return 'cloud';}}
+function getKey(){var secure=root.fsSecureKeyStore;if(!secure||typeof secure.get!=='function')throw Error('Armazenamento seguro da chave Groq indisponível.');return String(secure.get()||'').trim();}
+
 function host(functionName,payload){return new Promise(function(resolve,reject){if(typeof csInterface==='undefined')return reject(Error('O Premiere não está conectado ao painel.'));var expr=functionName+'('+JSON.stringify(JSON.stringify(payload||{}))+')';csInterface.evalScript(expr,function(out){try{if(!out||out==='EvalScript error.')throw Error('Falha da ponte JSX: '+String(out));var v=JSON.parse(out);if(!v.ok)throw Error(v.error||'Erro no Premiere');resolve(v);}catch(e){reject(e);}});});}
 function loadHost(){return new Promise(function(resolve,reject){if(typeof csInterface==='undefined'||typeof CSInterface==='undefined')return reject(Error('Somente Premiere Pro'));var p='';try{p=csInterface.getSystemPath(SystemPath.EXTENSION);}catch(_){}if(!p)return reject(Error('Diretório da extensão indisponível'));p=p.replace(/\\/g,'/')+'/jsx/narrative-beta.jsx';var script='$.evalFile('+JSON.stringify(p)+'); typeof fsNarrativeBetaSnapshot === "function" ? "OK" : "NO"';csInterface.evalScript(script,function(x){if(x==='OK')resolve();else reject(Error('Não foi possível carregar a ponte de montagem ('+x+').'));});});}
 function groupWords(words,clips){var result=[], cur=[];
@@ -180,9 +183,61 @@ function validate(raw,segments,clips){if(!raw||!Array.isArray(raw.cuts))fail('A 
 var map={};segments.forEach(function(s){map[s.id]=s;});var out=[],seen={};raw.cuts.forEach(function(c,i){var s=map[c.id];if(!s)fail('Trecho desconhecido: '+c.id);if(s.blocked)fail('Trecho marcado como erro de gravação: '+s.id);if(seen[s.id])fail('Trecho duplicado: '+s.id);seen[s.id]=true;
 if(/^(?:duplicate|duplicado|duplicata|discard|descartar|rejected|rejeitado|filler|erro|ignore|ignorar|repeticao|repetição)$/i.test(String(c.role||'').trim())||/^\s*(?:informa[cç][aã]o repetida|repeti[cç][aã]o de|erro de grava[cç][aã]o|descartar)/i.test(String(c.reason||'')))fail('A IA tentou manter um descarte: '+s.id+' ('+String(c.role||'sem classificação')+').');var containing=clips.filter(function(v){return s.start>=v.start-.05 && s.end<=v.end+.05;});if(containing.length!==1)fail('Trecho cruza cortes existentes: '+s.id);if(s.end-s.start<.18)fail('Trecho curto demais: '+s.id);out.push({id:s.id,start:s.start,end:s.end,text:s.text,role:String(c.role||'conteúdo').slice(0,60),reason:String(c.reason||'').slice(0,400),clipIndex:containing[0].index});});
 if(!out.length)fail('Nenhum trecho aproveitável');return out;}
-function groq(messages,signal){return new Promise(function(resolve,reject){var key=getKey();if(!/^gsk_/.test(key))return reject(Error('Configure sua chave Groq nas Legendas antes de iniciar.'));var https;try{https=require('https');}catch(_){return reject(Error('HTTPS do CEP indisponível'));}
-var data=JSON.stringify({model:MODEL,temperature:0.1,max_completion_tokens:3500,response_format:{type:'json_object'},messages:messages});var req=https.request({hostname:'api.groq.com',path:'/openai/v1/chat/completions',method:'POST',timeout:65000,headers:{'Authorization':'Bearer '+key,'Content-Type':'application/json','Content-Length':Buffer.byteLength(data)}},function(resp){var str='';resp.on('data',function(ch){str+=ch;if(str.length>150000){req.destroy();reject(Error('Resposta Groq excessiva'));}});resp.on('end',function(){try{var j=JSON.parse(str);if(resp.statusCode<200||resp.statusCode>=300)fail(j.error&&j.error.message||'Groq HTTP '+resp.statusCode);var v=j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content;resolve(JSON.parse(v));}catch(e){reject(e);}});});req.on('error',reject);req.on('timeout',function(){req.destroy(Error('Tempo limite da Groq.'));});req.end(data);
-});}
+/** Send narrative, review and retake semantic requests using the SAME provider selected in Transcription. */
+function groq(messages,signal){
+ var personal=groqProvider()==='personal',token='',key='';
+ if(personal){
+  try{key=getKey();}catch(e){return Promise.reject(e);}
+  if(!/^gsk_[A-Za-z0-9_-]{21,196}$/.test(key))return Promise.reject(Error('Sua chave Groq pessoal não está configurada. Salve-a na janela Transcrição ou selecione Groq da nuvem.'));
+ }else{
+  var license=root.CaptionIALicense;
+  if(!license||!license.isAuthorized||!license.isAuthorized())return Promise.reject(Error('Faça login com uma licença ativa para usar a Montagem Inteligente na nuvem.'));
+  token=String(license.getAccessToken&&license.getAccessToken()||'');
+  if(!token)return Promise.reject(Error('Sessão da nuvem expirada. Faça login novamente.'));
+ }
+ var body=personal?{model:MODEL,temperature:0.1,max_completion_tokens:3500,response_format:{type:'json_object'},messages:messages}:{messages:messages};
+ function post(accessToken){return new Promise(function(resolve,reject){
+  var https;try{https=require('https');}catch(e){return reject(Error('HTTPS do CEP indisponível.'));}
+  var data=JSON.stringify(body),finished=false;
+  function settle(err,result){if(finished)return;finished=true;if(err)reject(err);else resolve(result);}
+  var req=https.request({
+   hostname:personal?'api.groq.com':'caption.escotilhaprodutora.com',port:443,
+   path:personal?'/openai/v1/chat/completions':'/api/v1/core/narrative/analyze',
+   method:'POST',timeout:100000,
+   headers:{'Authorization':'Bearer '+(personal?key:accessToken),'Content-Type':'application/json','Accept':'application/json','Content-Length':Buffer.byteLength(data)}
+  },function(resp){
+   var chunks=[],n=0;
+   resp.on('data',function(chunk){n+=chunk.length;if(n>300000){req.destroy(Error('Resposta da IA excedeu o limite seguro.'));return;}chunks.push(chunk);});
+   resp.on('error',function(err){settle(err);});
+   resp.on('end',function(){try{
+    var response=JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    if(resp.statusCode<200||resp.statusCode>=300){
+     var errMessage=typeof response.error==='string'?response.error:response.error&&response.error.message||response.message||'HTTP '+resp.statusCode;
+     var error=Error((personal?'Groq pessoal: ':'Groq da nuvem: ')+errMessage);error.status=resp.statusCode;throw error;
+    }
+    var answer=personal?JSON.parse(String(response.choices&&response.choices[0]&&response.choices[0].message&&response.choices[0].message.content||'')):response.result;
+    if(!answer||typeof answer!=='object'||Array.isArray(answer))throw Error('A análise da IA não retornou um objeto JSON válido.');
+    settle(null,answer);
+   }catch(e){settle(e);}});
+  });
+  req.on('error',function(err){settle(err);});
+  req.on('timeout',function(){req.destroy(Error('A IA demorou para responder. Tente novamente.'));});
+  if(signal&&signal.aborted){req.destroy();return settle(Error('Análise cancelada.'));}
+  req.end(data);
+ });}
+ if(personal)return post(key);
+ return post(token).catch(function(err){
+  if(err.status!==401)return Promise.reject(err);
+  var license=root.CaptionIALicense;
+  if(!license||typeof license.recheck!=='function')throw Error('Sessão da nuvem expirada. Faça login novamente.');
+  return license.recheck().then(function(){
+   var fresh=String(license.getAccessToken&&license.getAccessToken()||'');
+   if(!fresh)throw Error('Sessão da nuvem expirada. Faça login novamente.');
+   return post(fresh);
+  });
+ });
+}
+
 function normalizeIdea(text){return String(text||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();}
 var STOP={'a':1,'o':1,'e':1,'de':1,'da':1,'do':1,'um':1,'uma':1,'as':1,'os':1,'no':1,'na':1,'para':1,'pra':1,'eu':1,'que':1,'com':1,'é':1,'vou':1,'vai':1,'hoje':1,'meu':1,'minha':1,'se':1,'nos':1,'das':1,'dos':1};
 function ideaTokens(text){return normalizeIdea(text).split(' ').filter(function(w){return w.length>2&&!STOP[w];});}
