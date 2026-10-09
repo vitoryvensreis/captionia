@@ -1,0 +1,20 @@
+/* Groq user-key guard styled with Caption IA's dark UX. */
+.cia-groq-gate{position:fixed;inset:0;z-index:1000002;background:rgba(0,0,0,.81);align-items:center;justify-content:center;padding:14px;font:12px/1.5 'Segoe UI',Arial,sans-serif;color:#e9e9ee;box-sizing:border-box}
+.cia-groq-card{width:min(440px,100%);max-height:92vh;overflow:auto;box-sizing:border-box;background:#1c1c1f;border:1px solid #484348;border-radius:15px;padding:23px;box-shadow:0 16px 54px #0009}
+.cia-groq-kicker{font-weight:700;color:#efa52f;letter-spacing:.1em;font-size:10px}
+.cia-groq-card h2{font-size:21px;margin:8px 0}.cia-groq-desc{color:#b3b3bc;font-size:12px;line-height:1.65;margin:0 0 17px}
+.cia-groq-card label{font-size:11px;font-weight:650;display:block;margin-bottom:6px}
+.cia-groq-card input{width:100%;box-sizing:border-box;padding:12px;background:#111113;border:1px solid #5c5558;border-radius:9px;color:#fff;font:inherit;outline:0}
+.cia-groq-card input:focus{border-color:#f0a12c}.cia-groq-status{font-size:11px;color:#b9c0c9;margin:10px 0;min-height:16px;overflow-wrap:anywhere}.cia-groq-status.is-error{color:#ff8e8e}
+.cia-groq-actions,.cia-groq-links{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.cia-groq-card button{border:1px solid #45454b;background:#29292d;color:#e8e8ee;border-radius:8px;padding:10px;font:inherit;cursor:pointer;flex:1}
+.cia-groq-card button:disabled{opacity:.5;cursor:wait}.cia-groq-card button.cia-groq-primary{background:#efa329;color:#171717;border-color:#efa329;font-weight:700}
+.cia-groq-links{margin-top:12px;justify-content:space-between}.cia-groq-links a{color:#f6bc58;font-size:11px}.cia-groq-foot{font-size:10px;color:#92929a;margin:12px 0 0}
+.cia-groq-account{display:block;padding:10px 0;border-top:1px solid #424248;border-bottom:1px solid #424248;margin:8px 0;color:#ddd}
+.cia-groq-account-title{display:flex;justify-content:space-between;align-items:center;gap:5px;font-size:11px}.cia-groq-account-title strong{font-size:11px}.cia-groq-account-title span{font-size:10px;color:#e8a33d;text-align:right}
+.cia-groq-account-meter{padding:8px 0;display:flex;flex-direction:column;gap:6px;font-size:11px}
+.cia-groq-track{height:6px;border-radius:5px;background:#3b3b40;overflow:hidden}.cia-groq-track>div{background:#e89f27;height:100%;width:0%;border-radius:5px;transition:width .2s}
+.cia-groq-account-meter small{font-size:10px;color:#999aa5}
+.cia-groq-account-actions{display:flex;gap:5px}.cia-groq-account-actions button{flex:1;min-width:0;padding:6px 5px!important;font-size:10px!important}
+
+.cia-account-popover.cia-groq-has-quota{width:275px;max-width:calc(100vw - 22px)}

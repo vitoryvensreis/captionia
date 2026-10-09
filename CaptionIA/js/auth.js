@@ -1,7 +1,7 @@
 (function(w,d){'use strict';
 var API='https://caption.escotilhaprodutora.com/api/v1';
 var SITE='https://caption.escotilhaprodutora.com';
-var VERSION='3.4.8';
+var VERSION='3.4.9';
 var DEVICE_KEY='framespeed_license_device_uuid';
 var EMAIL_KEY='framespeed_license_email';
 var accessToken='';
@@ -193,6 +193,7 @@ function logout(){
   var rt=getRefresh();clearRefresh();accessToken='';authorized=false;currentUser=null;currentLicense=null;
   var chip=d.getElementById('cia-account-chip');if(chip&&chip.parentNode)chip.parentNode.removeChild(chip);
   var pop=d.getElementById('cia-account-popover');if(pop&&pop.parentNode)pop.parentNode.removeChild(pop);
+  try{if(w.CaptionIAGroqAccess)w.CaptionIAGroqAccess.onLogout();}catch(_gateErr){}
   if(rt)request('POST','/auth/logout',{refresh_token:rt},null)['catch'](function(){});
   showLogin();
 }

@@ -7,8 +7,6 @@ function el(id){return document.getElementById(id);} function fail(s){throw new 
 function escapeHTML(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function save(o){try{var v=settings();Object.keys(o).forEach(function(k){v[k]=o[k];});localStorage.setItem(STATE,JSON.stringify(v));}catch(_){} }
 function settings(){try{return JSON.parse(localStorage.getItem(STATE)||'{}')||{};}catch(_){return {};}}
-var GROQ_PROVIDER_SETTING='captionia_groq_key_mode_v1';
-function groqProvider(){try{return localStorage.getItem(GROQ_PROVIDER_SETTING)==='personal'?'personal':'cloud';}catch(e){return 'cloud';}}
 function getKey(){var secure=root.fsSecureKeyStore;if(!secure||typeof secure.get!=='function')throw Error('Armazenamento seguro da chave Groq indisponível.');return String(secure.get()||'').trim();}
 
 function host(functionName,payload){return new Promise(function(resolve,reject){if(typeof csInterface==='undefined')return reject(Error('O Premiere não está conectado ao painel.'));var expr=functionName+'('+JSON.stringify(JSON.stringify(payload||{}))+')';csInterface.evalScript(expr,function(out){try{if(!out||out==='EvalScript error.')throw Error('Falha da ponte JSX: '+String(out));var v=JSON.parse(out);if(!v.ok)throw Error(v.error||'Erro no Premiere');resolve(v);}catch(e){reject(e);}});});}
@@ -185,57 +183,42 @@ if(/^(?:duplicate|duplicado|duplicata|discard|descartar|rejected|rejeitado|fille
 if(!out.length)fail('Nenhum trecho aproveitável');return out;}
 /** Send narrative, review and retake semantic requests using the SAME provider selected in Transcription. */
 function groq(messages,signal){
- var personal=groqProvider()==='personal',token='',key='';
- if(personal){
-  try{key=getKey();}catch(e){return Promise.reject(e);}
-  if(!/^gsk_[A-Za-z0-9_-]{21,196}$/.test(key))return Promise.reject(Error('Sua chave Groq pessoal não está configurada. Salve-a na janela Transcrição ou selecione Groq da nuvem.'));
- }else{
-  var license=root.CaptionIALicense;
-  if(!license||!license.isAuthorized||!license.isAuthorized())return Promise.reject(Error('Faça login com uma licença ativa para usar a Montagem Inteligente na nuvem.'));
-  token=String(license.getAccessToken&&license.getAccessToken()||'');
-  if(!token)return Promise.reject(Error('Sessão da nuvem expirada. Faça login novamente.'));
- }
- var body=personal?{model:MODEL,temperature:0.1,max_completion_tokens:3500,response_format:{type:'json_object'},messages:messages}:{messages:messages};
- function post(accessToken){return new Promise(function(resolve,reject){
+ if(!root.CaptionIAGroqAccess||!root.CaptionIAGroqAccess.isReady())return Promise.reject(Error('Configure e valide sua chave Groq em Minha conta.'));
+ var key='';try{key=getKey();}catch(e){return Promise.reject(e);}
+ if(!/^gsk_[A-Za-z0-9_-]{21,196}$/.test(key))return Promise.reject(Error('Chave Groq do usuário não configurada.'));
+ var body={model:MODEL,temperature:0.1,max_completion_tokens:3500,response_format:{type:'json_object'},messages:messages};
+ function post(){return new Promise(function(resolve,reject){
   var https;try{https=require('https');}catch(e){return reject(Error('HTTPS do CEP indisponível.'));}
-  var data=JSON.stringify(body),finished=false;
-  function settle(err,result){if(finished)return;finished=true;if(err)reject(err);else resolve(result);}
-  var req=https.request({
-   hostname:personal?'api.groq.com':'caption.escotilhaprodutora.com',port:443,
-   path:personal?'/openai/v1/chat/completions':'/api/v1/core/narrative/analyze',
-   method:'POST',timeout:100000,
-   headers:{'Authorization':'Bearer '+(personal?key:accessToken),'Content-Type':'application/json','Accept':'application/json','Content-Length':Buffer.byteLength(data)}
-  },function(resp){
-   var chunks=[],n=0;
-   resp.on('data',function(chunk){n+=chunk.length;if(n>300000){req.destroy(Error('Resposta da IA excedeu o limite seguro.'));return;}chunks.push(chunk);});
-   resp.on('error',function(err){settle(err);});
-   resp.on('end',function(){try{
-    var response=JSON.parse(Buffer.concat(chunks).toString('utf8'));
-    if(resp.statusCode<200||resp.statusCode>=300){
-     var errMessage=typeof response.error==='string'?response.error:response.error&&response.error.message||response.message||'HTTP '+resp.statusCode;
-     var error=Error((personal?'Groq pessoal: ':'Groq da nuvem: ')+errMessage);error.status=resp.statusCode;throw error;
-    }
-    var answer=personal?JSON.parse(String(response.choices&&response.choices[0]&&response.choices[0].message&&response.choices[0].message.content||'')):response.result;
-    if(!answer||typeof answer!=='object'||Array.isArray(answer))throw Error('A análise da IA não retornou um objeto JSON válido.');
-    settle(null,answer);
-   }catch(e){settle(e);}});
-  });
-  req.on('error',function(err){settle(err);});
-  req.on('timeout',function(){req.destroy(Error('A IA demorou para responder. Tente novamente.'));});
-  if(signal&&signal.aborted){req.destroy();return settle(Error('Análise cancelada.'));}
-  req.end(data);
+  var data=JSON.stringify(body),settled=false;
+  function finish(err,result){if(settled)return;settled=true;if(err)reject(err);else resolve(result);}
+  var req=https.request({hostname:'api.groq.com',port:443,path:'/openai/v1/chat/completions',method:'POST',timeout:100000,
+   headers:{Authorization:'Bearer '+key,'Content-Type':'application/json',Accept:'application/json','Content-Length':Buffer.byteLength(data)}},function(resp){
+    var chunks=[],n=0;
+    if(root.CaptionIAGroqAccess)root.CaptionIAGroqAccess.observe(resp.headers,MODEL,resp.statusCode);
+    resp.on('data',function(c){n+=c.length;if(n>300000){req.destroy(Error('Resposta da IA excessiva.'));return;}chunks.push(c);});
+    resp.on('end',function(){try{
+      var parsed=JSON.parse(Buffer.concat(chunks).toString('utf8'));
+      if(resp.statusCode<200||resp.statusCode>=300){
+       var msg=typeof parsed.error==='string'?parsed.error:parsed.error&&parsed.error.message||'HTTP '+resp.statusCode;
+       var err=Error('Groq pessoal: '+msg);err.status=resp.statusCode;
+       err.retryAfter=Math.min(120,Math.max(0,Number(resp.headers['retry-after'])||0));throw err;
+      }
+      var answer=JSON.parse(String(parsed.choices&&parsed.choices[0]&&parsed.choices[0].message&&parsed.choices[0].message.content||''));
+      if(!answer||typeof answer!=='object'||Array.isArray(answer))throw Error('A IA não retornou JSON válido.');
+      finish(null,answer);
+    }catch(e){finish(e);}});
+   });
+   req.on('error',finish);req.on('timeout',function(){req.destroy(Error('A Groq demorou para responder.'));});
+   if(signal&&signal.aborted){req.destroy();return finish(Error('Cancelado.'));}
+   req.end(data);
  });}
- if(personal)return post(key);
- return post(token).catch(function(err){
-  if(err.status!==401)return Promise.reject(err);
-  var license=root.CaptionIALicense;
-  if(!license||typeof license.recheck!=='function')throw Error('Sessão da nuvem expirada. Faça login novamente.');
-  return license.recheck().then(function(){
-   var fresh=String(license.getAccessToken&&license.getAccessToken()||'');
-   if(!fresh)throw Error('Sessão da nuvem expirada. Faça login novamente.');
-   return post(fresh);
-  });
- });
+ // Retry at most twice, using upstream retry-after and no provider fallback.
+ function attempt(i){return post().catch(function(err){if(err.status!==429||i>=2)return Promise.reject(err);
+  var seconds=err.retryAfter||Math.min(50,8*Math.pow(2,i));
+  return new Promise(function(resolve,reject){if(signal&&signal.aborted)return reject(Error('Cancelado.'));
+   setTimeout(function(){if(signal&&signal.aborted)return reject(Error('Cancelado.'));resolve(attempt(i+1));},Math.ceil(seconds*1000));});
+ });}
+ return attempt(0);
 }
 
 function normalizeIdea(text){return String(text||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();}
