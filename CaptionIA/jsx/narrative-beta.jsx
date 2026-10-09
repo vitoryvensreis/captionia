@@ -8,7 +8,7 @@
     function active(){return app&&app.project&&app.project.activeSequence;}
     function secs(v){return Number(v&&v.seconds!==undefined?v.seconds:v);}
     function mediaItem(clip){return clip&&clip.projectItem;}
-    function frameEpsilon(seq){var t=Number(seq&&seq.timebase);return t>0?Math.max(.009,Math.min(.055,.65*t/TICKS)):.035;}
+    function frameEpsilon(seq){var t=Number(seq&&seq.timebase);return t>0?Math.max(.009,Math.min(.055,.65*t/TICKS)):.015;}
     function snapshot(){
         var seq=active();if(!seq)throw Error('Abra uma sequência no Premiere.');
         var video=[],audio=[];var tr,i,c;
