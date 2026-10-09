@@ -8,6 +8,7 @@
     function active(){return app&&app.project&&app.project.activeSequence;}
     function secs(v){return Number(v&&v.seconds!==undefined?v.seconds:v);}
     function mediaItem(clip){return clip&&clip.projectItem;}
+    function frameEpsilon(seq){var t=Number(seq&&seq.timebase);return t>0?Math.max(.009,Math.min(.055,.65*t/TICKS)):.035;}
     function snapshot(){
         var seq=active();if(!seq)throw Error('Abra uma sequência no Premiere.');
         var video=[],audio=[];var tr,i,c;
@@ -53,15 +54,45 @@
             while(atr.clips.numItems){if(++guard>3000)throw Error('Muitos clipes na A1.');var beforeA=atr.clips.numItems;atr.clips[beforeA-1].remove(0,0);if(atr.clips.numItems>=beforeA)throw Error('Não consegui remover um áudio do clone.');}
             var vtr=preview.videoTracks[0];guard=0;
             while(vtr.clips.numItems){if(++guard>3000)throw Error('Muitos clipes na V1.');var beforeV=vtr.clips.numItems;vtr.clips[beforeV-1].remove(0,0);if(vtr.clips.numItems>=beforeV)throw Error('Não consegui remover um vídeo do clone.');}
-            var cursor=0;for(i=0;i<subclips.length;i++){var t=new Time();t.seconds=cursor;
-                if(!preview.insertClip(subclips[i],t,0,0))throw Error('Falha ao inserir o trecho '+(i+1));
-                cursor+=cuts[i].outTime-cuts[i].inTime;
+            var cursor=0,layout=[],epsilon=frameEpsilon(preview);
+            for(i=0;i<subclips.length;i++){
+                // Usar o fim REAL do clipe anterior. Subclipes sofrem arredondamento de frames.
+                var t=new Time();t.seconds=cursor;
+                var beforeCount=vtr.clips.numItems;
+                preview.insertClip(subclips[i],t,0,0);
+                if(vtr.clips.numItems!==beforeCount+1)throw Error('Não consegui inserir o trecho '+(i+1)+'.');
+                var created=vtr.clips[vtr.clips.numItems-1];
+                var actualStart=secs(created.start),actualEnd=secs(created.end);
+                if(Math.abs(actualStart-cursor)>epsilon)throw Error('O Premiere deixou um espaço antes do trecho '+(i+1)+' ('+Math.abs(actualStart-cursor).toFixed(3)+'s).');
+                if(actualEnd<=actualStart)throw Error('O trecho '+(i+1)+' foi inserido sem duração.');
+                var aCreated=atr.clips[atr.clips.numItems-1];
+                if(!aCreated||Math.abs(secs(aCreated.start)-actualStart)>epsilon||Math.abs(secs(aCreated.end)-actualEnd)>epsilon)throw Error('Áudio e vídeo dessincronizados no trecho '+(i+1)+'.');
+                layout.push({id:args.cuts[i].id,sourceStart:Number(args.cuts[i].start),sourceEnd:Number(args.cuts[i].end),destStart:actualStart,destEnd:actualEnd});
+                cursor=actualEnd;
             }
             if(preview.videoTracks[0].clips.numItems!==subclips.length)throw Error('A quantidade de clipes gerados difere do plano.');
+            for(i=1;i<layout.length;i++)if(Math.abs(layout[i].destStart-layout[i-1].destEnd)>epsilon)throw Error('Detectado espaço entre os clipes '+i+' e '+(i+1));
             app.project.openSequence(preview.sequenceID);
-            return {previewId:String(preview.sequenceID),duration:cursor,created:true};
+            return {previewId:String(preview.sequenceID),duration:cursor,layout:layout,created:true};
         }catch(e){app.project.openSequence(original.sequenceID);throw Error('A prévia falhou e foi isolada. Original preservado. '+e.message);}
     }
+    function validatePreview(args){
+        var seq=byID(args.previewId);if(!seq)throw Error('Prévia não encontrada. Gere uma nova.');
+        if(!active()||String(active().sequenceID)!==String(args.previewId))throw Error('Abra a sequência de prévia antes de aprovar.');
+        if(!args.layout||seq.videoTracks[0].clips.numItems!==args.layout.length)throw Error('A quantidade de clipes da prévia foi alterada. Gere outra prévia.');
+        var audio=seq.audioTracks[0],video=seq.videoTracks[0],out=[],i,actualV,actualA,planned,begin,end,epsilon=frameEpsilon(seq);
+        if(audio.clips.numItems!==video.clips.numItems)throw Error('Faixa de áudio foi alterada.');
+        for(i=0;i<video.clips.numItems;i++){
+            actualV=video.clips[i];actualA=audio.clips[i];planned=args.layout[i];begin=secs(actualV.start);end=secs(actualV.end);
+            if(Math.abs(begin-Number(planned.destStart))>epsilon||Math.abs(end-Number(planned.destEnd))>epsilon)throw Error('A prévia foi alterada após a criação. Gere novamente.');
+            if(i===0&&Math.abs(begin)>epsilon)throw Error('A prévia começa com espaço vazio.');
+            if(i>0&&Math.abs(begin-out[i-1].destEnd)>epsilon)throw Error('Encontrado espaço na prévia entre os trechos '+i+' e '+(i+1));
+            if(Math.abs(secs(actualA.start)-begin)>epsilon||Math.abs(secs(actualA.end)-end)>epsilon)throw Error('A1 ficou dessincronizada no trecho '+(i+1));
+            out.push({id:planned.id,sourceStart:planned.sourceStart,sourceEnd:planned.sourceEnd,destStart:begin,destEnd:end});
+        }
+        return {layout:out};
+    }
+    $.global.fsNarrativeBetaValidatePreview=function(payload){try{return ok(validatePreview(JSON.parse(payload)));}catch(e){return error(e.message);}};
     $.global.fsNarrativeBetaSnapshot=function(){try{return ok(snapshot());}catch(e){return error(e.message);}};
     $.global.fsNarrativeBetaPreview=function(payload){try{if(typeof JSON==='undefined')throw Error('JSON indisponível no ExtendScript.');return ok(makePreview(JSON.parse(payload)));}catch(e){return error(e.message);}};
     $.global.fsNarrativeBetaRestore=function(payload){try{var d=JSON.parse(payload),seq=byID(d.sequenceID);if(!seq)throw Error('Sequência anterior não encontrada');app.project.openSequence(seq.sequenceID);return ok({restored:true});}catch(e){return error(e.message);}};
