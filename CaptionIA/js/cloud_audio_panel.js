@@ -3,8 +3,7 @@
  * O hostscript.jsxbin permanece intacto: exportação de áudio usa a ponte Adobe já homologada.
  */
 (function(w,d){'use strict';
-var busy=false,status=null,MAX=24000000,KEY_MODE='captionia_groq_key_mode_v1';
-function keyMode(){try{return localStorage.getItem(KEY_MODE)==='personal'?'personal':'cloud';}catch(e){return'cloud';}}
+var busy=false,status=null,MAX=24000000;
 function ownKey(){var store=w.fsSecureKeyStore;if(!store||typeof store.get!=='function')throw Error('Armazenamento seguro da chave indisponível.');var key=String(store.get()||'').trim();if(!/^gsk_[A-Za-z0-9_-]{21,196}$/.test(key))throw Error('Configure uma chave Groq pessoal válida antes de transcrever.');return key;}
 function el(id){return d.getElementById(id);}
 function say(message,error){
@@ -76,7 +75,7 @@ function upload(file,token,lang,personalKey){
    function field(name,value){
     return Buffer.from('--'+boundary+'\r\nContent-Disposition: form-data; name="'+name+'"\r\n\r\n'+value+'\r\n');
    }
-   var chunks=personalKey?[field('model','whisper-large-v3'),field('response_format','verbose_json'),field('timestamp_granularities[]','word'),field('temperature','0')]:[];
+   var chunks=[field('model','whisper-large-v3'),field('response_format','verbose_json'),field('timestamp_granularities[]','word'),field('temperature','0')];
    if(lang)chunks.push(field('language',lang));
    chunks.push(Buffer.from('--'+boundary+'\r\nContent-Disposition: form-data; name="file"; filename="audio'+ext+'"\r\nContent-Type: '+mime[ext]+'\r\n\r\n'));
    chunks.push(fs.readFileSync(file));
@@ -84,12 +83,12 @@ function upload(file,token,lang,personalKey){
    var body=Buffer.concat(chunks);
    var settled=false;
    function fail(err){if(!settled){settled=true;reject(err);}}
-   var destination=personalKey?'api.groq.com':'caption.escotilhaprodutora.com';
+   var destination='api.groq.com';
    var req=https.request({
     hostname:destination,port:443,
-    path:personalKey?'/openai/v1/audio/transcriptions':'/api/v1/core/transcription',
+    path:'/openai/v1/audio/transcriptions',
     method:'POST',timeout:195000,
-    headers:{Authorization:'Bearer '+(personalKey||token),'Content-Type':'multipart/form-data; boundary='+boundary,'Content-Length':body.length,'Accept':'application/json'}
+    headers:{Authorization:'Bearer '+personalKey,'Content-Type':'multipart/form-data; boundary='+boundary,'Content-Length':body.length,'Accept':'application/json'}
    },function(r){
     var response=[],bytes=0;
     r.on('data',function(chunk){bytes+=chunk.length;if(bytes>2*1024*1024){req.destroy(Error('Resposta do servidor excedeu o limite.'));return;}response.push(chunk);});
@@ -98,6 +97,7 @@ function upload(file,token,lang,personalKey){
      if(settled)return;
      try{
       var data=JSON.parse(Buffer.concat(response).toString('utf8'));
+      if(w.CaptionIAGroqAccess)w.CaptionIAGroqAccess.observe(r.headers,'whisper-large-v3',r.statusCode);
       if(r.statusCode!==200){
        if(personalKey&&(r.statusCode===401||r.statusCode===403))throw Error('Sua chave Groq pessoal foi recusada pelo provedor.');
        if(personalKey&&r.statusCode===429)throw Error('Limite de requisições da própria Groq atingido. Aguarde ou use a nuvem.');
@@ -148,6 +148,7 @@ function save(result,seq,cues){
  try{if(typeof w.updateSRTButtonVisualState==='function')w.updateSRTButtonVisualState();}catch(e){}
 }
 function execute(mode){
+ if(!w.CaptionIAGroqAccess||!w.CaptionIAGroqAccess.isReady())return Promise.reject(Error('Verifique sua chave Groq em Minha conta antes de transcrever.'));
  if(busy)return Promise.reject(Error('Já existe uma transcrição em andamento.'));
  if(!w.CaptionIACloudCore||!w.CaptionIALicense||!w.CaptionIALicense.isAuthorized())
   return Promise.reject(Error('Faça login com uma licença ativa para usar a transcrição.'));
@@ -155,15 +156,13 @@ function execute(mode){
  var seq,fileInfo;
  return owner().then(function(id){seq=id;return w.CaptionIACloudCore.getConfig();}).then(function(cfg){
   if(!cfg.features||!cfg.features.caption_plan)throw Error('A licença não permite planejamento de legendas em nuvem.');
-  if(keyMode()==='cloud'&&(!cfg.features.cloud_transcription||cfg.features.cloud_transcription_default_key===false))
-   throw Error('A transcrição Groq da nuvem não está disponível. Configure sua chave pessoal.');
   return mode==='timeline'?exportTimeline():pick();
  }).then(function(info){
   fileInfo=info;
   var token=w.CaptionIALicense.getAccessToken(),lang=(el('transcribe-lang')||{}).value||'';
   if(!token)throw Error('Licença sem sessão válida. Faça login novamente.');
-  var personalKey=keyMode()==='personal'?ownKey():'';
-  say(personalKey?'Transcrevendo diretamente com sua chave Groq...':'Transcrevendo com Groq da nuvem...');
+  var personalKey=ownKey();
+  say('Transcrevendo com sua chave Groq...');
   return upload(info.file,token,String(lang).trim(),personalKey);
  }).then(function(result){
   say('Preparando as legendas na nuvem...');
@@ -182,7 +181,7 @@ function execute(mode){
  });
 }
 function run(mode,callback){
- execute(mode).then(function(v){if(callback)callback({ok:true,resumo:v.words+' palavras, '+v.captions+' legendas (GROQ Cloud)'});})
+ execute(mode).then(function(v){if(callback)callback({ok:true,resumo:v.words+' palavras, '+v.captions+' legendas (Groq pessoal)'});})
  .catch(function(err){say('Erro: '+(err&&err.message||err),true);if(callback)callback({ok:false,erro:String(err&&err.message||err)});});
 }
 function init(){
@@ -197,57 +196,15 @@ function init(){
  var actions=modal.querySelector('.modal-actions');
  var section=d.createElement('div');
  section.style.cssText='margin:12px 0;padding:12px;background:#171e29;border:1px solid #3f5167;border-radius:8px;color:#dce7f4;font:12px/1.5 Segoe UI,Arial,sans-serif';
- var title=d.createElement('strong');title.textContent='Provedor de transcrição';section.appendChild(title);
- var modeRow=d.createElement('div');modeRow.style.cssText='display:flex;gap:16px;flex-wrap:wrap;margin:9px 0';
- function modeOption(value,label){
-  var item=d.createElement('label');item.style.cssText='display:flex;align-items:center;gap:5px;cursor:pointer';
-  var input=d.createElement('input');input.type='radio';input.name='captionia-groq-mode';input.value=value;input.checked=keyMode()===value;
-  var caption=d.createElement('span');caption.textContent=label;
-  item.appendChild(input);item.appendChild(caption);modeRow.appendChild(item);
-  input.addEventListener('change',function(){if(!input.checked)return;try{localStorage.setItem(KEY_MODE,value);}catch(e){}refresh();});
- }
- modeOption('cloud','Groq da nuvem (padrão)');
- modeOption('personal','Minha chave Groq');
- section.appendChild(modeRow);
- var keyPanel=d.createElement('div');keyPanel.style.cssText='margin-top:8px';
- var keyInput=d.createElement('input');keyInput.type='password';keyInput.placeholder='gsk_...';keyInput.autocomplete='off';
- keyInput.setAttribute('aria-label','Chave Groq pessoal');
- keyInput.style.cssText='box-sizing:border-box;width:100%;padding:8px;color:#f4f6fb;background:#10151f;border:1px solid #455165;border-radius:6px';
- var actionsRow=d.createElement('div');actionsRow.style.cssText='display:flex;gap:8px;margin-top:7px;align-items:center;flex-wrap:wrap';
- var saveKey=d.createElement('button');saveKey.type='button';saveKey.textContent='Salvar chave';
- var forgetKey=d.createElement('button');forgetKey.type='button';forgetKey.textContent='Apagar chave salva';
- [saveKey,forgetKey].forEach(function(button){button.style.cssText='padding:6px 9px;border:1px solid #516179;background:#232d40;color:#edf4ff;border-radius:6px;cursor:pointer';});
- var keyInfo=d.createElement('span');keyInfo.style.cssText='font-size:11px;color:#b9cbe4';
- actionsRow.appendChild(saveKey);actionsRow.appendChild(forgetKey);actionsRow.appendChild(keyInfo);
- keyPanel.appendChild(keyInput);keyPanel.appendChild(actionsRow);section.appendChild(keyPanel);
- function refresh(){
-  keyPanel.style.display=keyMode()==='personal'?'block':'none';
-  if(keyMode()==='personal'){
-   var saved=false;try{saved=!!w.fsSecureKeyStore&&!!w.fsSecureKeyStore.get();}catch(e){}
-   keyInfo.textContent=saved?'Chave salva com proteção do usuário neste computador.':'Nenhuma chave pessoal salva.';
-  }
- }
- saveKey.addEventListener('click',function(){
-  var key=keyInput.value.trim();
-  if(!/^gsk_[A-Za-z0-9_-]{21,196}$/.test(key)){say('Chave inválida. Use uma chave Groq iniciada por gsk_.',true);return;}
-  if(!w.fsSecureKeyStore||!w.fsSecureKeyStore.set(key)){say('Não foi possível armazenar a chave pessoal com segurança.',true);return;}
-  keyInput.value='';refresh();say('Chave Groq pessoal salva neste computador.');
- });
- forgetKey.addEventListener('click',function(){
-  if(!w.fsSecureKeyStore||!w.fsSecureKeyStore.remove()){say('Não foi possível apagar a chave salva.',true);return;}
-  keyInput.value='';refresh();say('Chave Groq pessoal removida.');
- });
- refresh();
- var note=d.createElement('p');note.style.cssText='margin:10px 0 0;color:#b9cbe4';
- note.textContent='Ao transcrever, o áudio é enviado à Groq. No modo Nuvem, passa pelo Caption IA com a chave do servidor; no modo pessoal, vai direto à Groq e sua chave fica protegida no computador. Sem cota diária do Caption IA; limites da própria Groq permanecem.';
- section.appendChild(note);
+ var title=d.createElement('strong');title.textContent='Groq individual';section.appendChild(title);
+ var note=d.createElement('p');note.textContent='A transcrição usa apenas sua chave Groq, configurada na aba Minha conta. Os blocos de legenda continuam sendo planejados pelo Caption IA.';section.appendChild(note);
  status=d.createElement('p');status.style.cssText='margin:9px 0 0;color:#cbd9ea;white-space:pre-wrap';section.appendChild(status);
  if(actions&&actions.parentNode)actions.parentNode.insertBefore(section,actions);
  else (modal.querySelector('.modal-box')||modal).appendChild(section);
  var oldStatus=el('transcribe-status');if(oldStatus)oldStatus.style.display='none';
  var timeline=el('btn-transcribe-timeline'),file=el('btn-transcribe-file');
- if(timeline){timeline.textContent='Transcrever da timeline · Nuvem';}
- if(file){file.textContent='Selecionar áudio · Nuvem';}
+ if(timeline){timeline.textContent='Transcrever da timeline · Groq';}
+ if(file){file.textContent='Selecionar áudio · Groq';}
  // Captura antes dos listeners legados (que exigem gsk_ local).
  modal.addEventListener('click',function(event){
   var target=event.target,action=null;
@@ -258,7 +215,7 @@ function init(){
   }
   if(action){event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();run(action);}
  },true);
- // O maestro AutoEdit usa esta API, então a mesma rota Cloud atende a etapa Transcrever.
+ // O AutoEdit utiliza a mesma chave Groq individual da conta ativa.
  w.fsAutoEditTranscrever=function(done){run('timeline',done);};
  var legacyLegendas=w.fsAutoEditLegendas;
  if(typeof legacyLegendas==='function'){
@@ -272,7 +229,7 @@ function init(){
     }
     run('timeline',function(value){
      if(value&&value.ok)legacyLegendas(done);
-     else done(value||{ok:false,erro:'Transcrição Cloud indisponível.'});
+     else done(value||{ok:false,erro:'Transcrição Groq indisponível.'});
     });
    });
   };
