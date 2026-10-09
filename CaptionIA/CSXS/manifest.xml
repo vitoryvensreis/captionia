@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<ExtensionManifest Version="9.0" ExtensionBundleId="com.editbest" ExtensionBundleVersion="3.4.7"
+<ExtensionManifest Version="9.0" ExtensionBundleId="com.editbest" ExtensionBundleVersion="3.4.8"
     ExtensionBundleName="Caption IA" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <ExtensionList>
-        <Extension Id="com.editbest.panel" Version="3.4.7" />
+        <Extension Id="com.editbest.panel" Version="3.4.8" />
     </ExtensionList>
     <ExecutionEnvironment>
         <HostList>
