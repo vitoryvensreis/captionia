@@ -1,24 +1,36 @@
-CAPTION IA 3.4.9 — INSTALAÇÃO E GROQ INDIVIDUAL
+CAPTION IA 3.5.0 — INSTALAÇÃO WINDOWS / MAC E GROQ NA CONTA
 
-1. Extraia todo o ZIP mantendo a pasta CaptionIA ao lado de INSTALAR_CAPTION_IA.bat.
-2. Salve seus projetos e feche o Premiere, After Effects e Media Encoder.
-3. Execute INSTALAR_CAPTION_IA.bat. O instalador atualiza e cria um backup.
-4. No Premiere: Janela > Extensões (legado) > Caption IA.
-5. Faça login com sua licença Caption IA.
-6. Cadastre sua chave pessoal Groq (gsk_...) e clique Salvar e verificar.
-7. A verificação confirma acesso a Whisper Large V3 e GPT-OSS 120B.
-8. O Caption IA só é liberado após validar a chave. O menu Licença mostra status e últimos tokens reportados pela Groq.
+WINDOWS
+1. Extraia o ZIP inteiro mantendo a pasta CaptionIA e os instaladores juntos.
+2. Feche o Premiere, After Effects e Media Encoder.
+3. Execute INSTALAR_CAPTION_IA.bat na pasta extraída.
+4. Abra Premiere > Janela > Extensões (legado) > Caption IA.
 
-Chave Groq: https://console.groq.com/keys
-A chave é guardada por conta Caption IA no cofre local (DPAPI Windows; Keychain macOS), não no servidor da licença.
-O contador mostra a ÚLTIMA leitura da API Groq, não um saldo instantâneo garantido.
-Os limites são do provedor e da organização Groq correspondente à chave cadastrada.
+MACOS — INSTALAÇÃO MANUAL RECOMENDADA (ZIP NÃO ASSINADO)
+1. Extraia o ZIP e localize a pasta CaptionIA.
+2. Feche o Premiere.
+3. No Finder: Command + Shift + G
+   ~/Library/Application Support/Adobe/CEP/extensions/
+4. Copie a pasta CaptionIA para extensions. A estrutura deve conter extensions/CaptionIA/CSXS/manifest.xml.
+5. Reabra o Premiere > Janela > Extensões (legado) > Caption IA.
+6. Extensões CEP não assinadas podem exigir habilitação do modo de desenvolvimento Adobe.
+Não desative globalmente a segurança do macOS.
 
-A transcrição, a detecção semântica de Retakes e a Montagem IA utilizam diretamente a Groq com essa chave individual.
-O servidor Caption IA continua responsável por autenticação, licenças, atualizações, recursos e planejamento de legendas.
-Não há opção Groq compartilhada na nuvem nesta versão.
+GROQ (UMA VEZ, NA CONTA)
+1. Faça login no site https://caption.escotilhaprodutora.com/minha-conta
+2. Em Minha chave Groq, crie/cadastre sua chave e clique Validar e salvar.
+3. No plugin, faça login na MESMA conta Caption IA e clique Verificar integração.
+4. O plugin NUNCA recebe ou salva a chave Groq em DPAPI/Keychain.
+5. A transcrição, Retake semântico e Montagem Inteligente passam pelo servidor Caption IA,
+   que encaminha as solicitações usando APENAS a chave Groq daquele usuário.
+6. O plugin mostra a última leitura dos limites informados pela Groq, sem prometer saldo ao vivo.
 
-Se a chave anteriormente usada no computador não aparecer, cadastre-a novamente: as credenciais antigas globais não foram importadas automaticamente para evitar compartilhamento entre contas.
-Na ocorrência de 429, a Montagem Inteligente faz tentativas limitadas com espera; transcrição pode precisar ser repetida após o tempo de liberação.
+GUIAS: https://caption.escotilhaprodutora.com/tutoriais
 
-Teste inicialmente em cópia do projeto antes de distribuir amplamente. O funcionamento com Premiere precisa ser homologado no computador Windows.
+SEGURANÇA
+- Nunca envie sua chave Groq ao suporte.
+- A chave fica armazenada criptografada na plataforma; o servidor não usa chave Groq compartilhada.
+- A plataforma mantém login, licença, dispositivos, atualização, bibliotecas e planejamento de legendas.
+- Se a chave for revogada, o próximo login/verificação no plugin pedirá a atualização no site.
+
+PRIMEIRO TESTE: use uma cópia do projeto Premiere.
