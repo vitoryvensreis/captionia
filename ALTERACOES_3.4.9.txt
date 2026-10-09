@@ -1,0 +1,12 @@
+CAPTION IA 3.4.9 — GROQ POR CLIENTE
+
+- Removida a rota de processamento da chave Groq compartilhada: sem nuvem no reconhecimento de fala, Retake semântico e Montagem Inteligente.
+- Mantidos serviços Caption IA: licenças, contas, dispositivos, atualizações, biblioteca de assets e planejamento de legendas.
+- Chave Groq individual obrigatória: validação dos modelos Whisper Large V3 e GPT-OSS 120B no login.
+- Tela de configuração com chave mascarada e link para obter a chave; bloqueio de uso enquanto não estiver validada.
+- Armazenamento local seguro isolado por conta do Caption IA, sem migração automática de segredo entre usuários.
+- Estado e tokens na aba de conta, a partir dos cabeçalhos de resposta Groq; tempo de renovação e limite temporário.
+- Retentativas limitadas ao receber 429 em análises narrativas.
+- Corrigida a validação no início do AutoEdit.
+- Não é uma medição instantânea: o estado de tokens é a última informação informada pela Groq.
+- Validação automatizada não substitui teste dentro do Premiere.
