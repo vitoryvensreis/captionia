@@ -1,50 +1,24 @@
-CAPTION IA 3.4.4 - INSTALACAO WINDOWS (CORRECAO)
-================================================
+CAPTION IA 3.4.9 — INSTALAÇÃO E GROQ INDIVIDUAL
 
-1) BAIXE E EXTRAIA O ZIP INTEIRO para uma pasta comum, ex.: Area de Trabalho.
-2) Abra essa pasta: voce deve ver INSTALAR_CAPTION_IA.bat, INSTALAR_CAPTION_IA.ps1 e a pasta CaptionIA.
-3) Feche Premiere, After Effects e Media Encoder.
-4) Clique duas vezes em INSTALAR_CAPTION_IA.bat NA PASTA PRINCIPAL.
-5) Aguarde a copia e a mensagem de sucesso. O instalador faz backup antes de substituir uma instalacao anterior.
-6) Abra Premiere > Janela > Extensoes (Legacy) > Caption IA e entre com sua conta/licenca.
+1. Extraia todo o ZIP mantendo a pasta CaptionIA ao lado de INSTALAR_CAPTION_IA.bat.
+2. Salve seus projetos e feche o Premiere, After Effects e Media Encoder.
+3. Execute INSTALAR_CAPTION_IA.bat. O instalador atualiza e cria um backup.
+4. No Premiere: Janela > Extensões (legado) > Caption IA.
+5. Faça login com sua licença Caption IA.
+6. Cadastre sua chave pessoal Groq (gsk_...) e clique Salvar e verificar.
+7. A verificação confirma acesso a Whisper Large V3 e GPT-OSS 120B.
+8. O Caption IA só é liberado após validar a chave. O menu Licença mostra status e últimos tokens reportados pela Groq.
 
-SE APARECER ERRO
-- Nao execute o BAT de dentro do ZIP nem de dentro da subpasta CaptionIA.
-- O terminal mostra o erro e fica aberto ate voce pressionar uma tecla.
-- O log fica em %LOCALAPPDATA%\CaptionIA\Logs (pasta do usuario).
-- Envie o texto da mensagem do terminal, sem enviar chaves ou senhas.
+Chave Groq: https://console.groq.com/keys
+A chave é guardada por conta Caption IA no cofre local (DPAPI Windows; Keychain macOS), não no servidor da licença.
+O contador mostra a ÚLTIMA leitura da API Groq, não um saldo instantâneo garantido.
+Os limites são do provedor e da organização Groq correspondente à chave cadastrada.
 
-ALTERACOES DA 3.4.4
-- Removidas imagens da marca antiga VF/FrameSpeed e referencias a esses icones no manifesto Adobe.
-- Novo instalador com validacao de arquivo, backup com horario e rollback em erro.
-- Mantido o Cloud Core/Groq, AutoEdit, legendas e AutoSFX da 3.4.1.
+A transcrição, a detecção semântica de Retakes e a Montagem IA utilizam diretamente a Groq com essa chave individual.
+O servidor Caption IA continua responsável por autenticação, licenças, atualizações, recursos e planejamento de legendas.
+Não há opção Groq compartilhada na nuvem nesta versão.
 
-IMPORTANTE
-- Por padrao a chave Groq da plataforma fica exclusivamente no servidor. Opcionalmente, cada usuario pode salvar a propria chave Groq, protegida no Windows pelo armazenamento do usuario; no modo pessoal a chave vai diretamente para a Groq por HTTPS, sem passar pelo servidor Caption IA.\n- Sem cota diaria imposta pelo Caption IA; limites antiabuso e da propria Groq continuam.
-- O plugin CEP nao esta assinado: o instalador ajusta PlayerDebugMode para o usuario atual.
-- Modelos, assets de audio e hostscript.jsxbin continuam parcialmente locais.
-- Nao remova a pasta de backup antes de confirmar o funcionamento.
-- Para distribuicao publica, providencie assinatura apropriada e homologacao Windows.
+Se a chave anteriormente usada no computador não aparecer, cadastre-a novamente: as credenciais antigas globais não foram importadas automaticamente para evitar compartilhamento entre contas.
+Na ocorrência de 429, a Montagem Inteligente faz tentativas limitadas com espera; transcrição pode precisar ser repetida após o tempo de liberação.
 
-SUPORTE: https://caption.escotilhaprodutora.com
-
-
-AUTO SFX - CORRECAO 3.4.4
--------------------------
-- Os sons usados pelo AutoSFX agora sao copiados automaticamente para
-  %LOCALAPPDATA%\CaptionIA\Media\SFX
-  antes de serem inseridos no Premiere. Mantenha esta pasta: ela funciona
-  como biblioteca permanente para os projetos editados.
-- A atualizacao do plugin nao deve excluir a pasta Media.
-- O AutoEdit continua produzindo um disparo por palavra, em duas trilhas.
-- O plugin avisa se nao encontrar o SFX, em vez de inserir sons sem origem.
-- Se o projeto ja contem clipes offline criados numa instalacao antiga,
-  faca uma copia, religue a fonte pelo Premiere (Link Media) ou remova
-  somente os SFX offline e gere novamente usando a versao 3.4.4.
-- Nao remova videos, musica, voz ou trilhas pessoais do projeto.
-
-ALTERACOES DA 3.4.4
-- Opcao de chave Groq pessoal no modal de Transcricao; por padrao usa Groq da nuvem.
-- Removida a caixa de autorizacao por clique; aviso explicito de envio de audio para transcricao.
-- Removida cota diaria do servidor. Os limites de requisicoes/minuto e da Groq permanecem.
-- Chave pessoal no cofre do usuario; nao coloque a sua chave no ZIP para distribuicao.
+Teste inicialmente em cópia do projeto antes de distribuir amplamente. O funcionamento com Premiere precisa ser homologado no computador Windows.
