@@ -1,0 +1,11 @@
+CAPTION IA 3.5.0 — CHAVE GROQ VINCULADA À CONTA
+
+- Novo fluxo: credencial Groq cadastrada e validada no site, protegida por criptografia no servidor.
+- O plugin não recebe a chave nem precisa de Keychain do Mac / DPAPI Windows.
+- Tela de ativação agora oferece Abrir minha conta e Verificar integração.
+- API do Caption IA utiliza a chave Groq do usuário autenticado em cada chamada.
+- Transcrição, Retake semântico e Montagem Inteligente migrados ao proxy BYOK com licença/dispositivo.
+- Monitor de tokens mostra a última leitura; rate limits 429 mantêm retentativas controladas na montagem.
+- Licenças, planos, dispositivos, atualizações, biblioteca e caption planning preservados.
+- Tutoriais web: instalação manual macOS, instalador Windows, Groq e primeiros passos.
+- A distribuição Mac continua sem assinatura/notarização Apple, e a extensão CEP deve ser testada no Premiere.
