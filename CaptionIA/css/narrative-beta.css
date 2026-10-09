@@ -1,0 +1,42 @@
+/* Caption IA — Montagem Inteligente. Segue a identidade nativa do Auto Edit. */
+.nb-panel{color:var(--text);border:1px solid var(--border);background:var(--bg-1);border-radius:var(--r-lg,12px);padding:14px;margin:12px 0;display:flex;flex-direction:column;gap:13px;box-shadow:0 4px 22px rgba(0,0,0,.06)}
+.nb-panel[hidden]{display:none!important}.nb-heading{display:flex;gap:10px;align-items:center}.nb-heading>div:nth-child(2){flex:1;min-width:0}.nb-heading strong{font-size:13px;font-weight:700;letter-spacing:-.2px}.nb-heading p{margin:3px 0 0;font-size:11px;color:var(--text-3);line-height:1.4}.nb-icon{width:36px;height:36px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:11px;color:var(--brand-warn);font-size:19px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.24)}.nb-pill{font-size:9px;font-weight:700;letter-spacing:.08em;padding:5px 7px;border:1px solid rgba(245,158,11,.4);border-radius:5px;color:var(--brand-warn)}
+.nb-config{display:grid;grid-template-columns:1fr;gap:10px}.nb-config label{font-size:11px;color:var(--text-2);display:flex;align-items:center;gap:10px;justify-content:space-between}.nb-config select{max-width:165px;min-width:120px;color:var(--text);background:var(--bg-2, #262626);border:1px solid var(--border);border-radius:8px;padding:7px;font:inherit}.nb-toggle{justify-content:flex-start!important;gap:8px!important}.nb-toggle input{accent-color:var(--brand-warn)}.nb-help{font-size:10.5px;line-height:1.5;color:var(--text-3);margin:0}
+.nb-progress{font-size:11px;color:var(--brand-warn);line-height:1.5;margin:0}.nb-summary{font-size:11px;font-weight:650;color:var(--text-2);padding:4px 0}.nb-list{max-height:290px;overflow:auto;display:flex;flex-direction:column;gap:7px;scrollbar-width:thin}.nb-segment{display:flex;align-items:flex-start;gap:9px;background:var(--bg-2,var(--bg-1));border:1px solid var(--border);border-radius:9px;padding:10px}.nb-num{font-size:10px;font-weight:800;color:var(--brand-warn);background:rgba(245,158,11,.12);border-radius:5px;padding:5px}.nb-copy{flex:1;min-width:0}.nb-segment-top{display:flex;justify-content:space-between;gap:8px}.nb-segment-top strong{font-size:11px}.nb-segment-top span{font-size:9px;white-space:nowrap;color:var(--text-3)}.nb-quote{font-size:11px;line-height:1.45;margin:6px 0;overflow-wrap:anywhere}.nb-copy small{font-size:10px;color:var(--text-3);line-height:1.35;display:block}.nb-actions{display:flex;flex-direction:column;gap:4px}.nb-actions button{border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text-2);cursor:pointer;min-width:26px;min-height:25px}.nb-actions button:hover{color:var(--brand-warn);border-color:var(--brand-warn)}
+.nb-buttons{display:flex;gap:7px;flex-wrap:wrap}.nb-buttons button{cursor:pointer;min-height:36px;padding:8px 11px;border-radius:8px;font-size:11px;font-weight:700;border:1px solid var(--border);flex:1;min-width:140px}.nb-buttons .nb-primary{background:var(--brand-warn);border-color:var(--brand-warn);color:#151515}.nb-buttons .nb-primary:disabled{opacity:.4;cursor:not-allowed}.nb-buttons .nb-secondary{background:transparent;color:var(--text-2)}.nb-review{border-color:rgba(245,158,11,.42)}
+/* Detalhes progressivos, paleta e densidade nativas do Auto Edit */
+.nb-mode-switch{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.nb-mode-switch label{cursor:pointer;min-width:0;position:relative}
+.nb-mode-switch input{position:absolute;width:1px;height:1px;opacity:0}
+.nb-mode-switch span{display:flex;align-items:center;justify-content:center;min-height:37px;padding:7px 8px;border:1px solid var(--border);border-radius:9px;background:var(--bg-2,var(--bg-1));font-weight:650;font-size:11px;color:var(--text-2);text-align:center;transition:background .15s ease,border-color .15s ease}
+.nb-mode-switch input:checked+span{color:var(--brand-warn);background:rgba(245,158,11,.10);border-color:rgba(245,158,11,.55)}
+.nb-mode-switch input:focus-visible+span{outline:2px solid var(--brand-warn);outline-offset:2px}
+.nb-script-fields{display:flex;flex-direction:column;gap:9px;border:1px solid var(--border);background:var(--bg-2,var(--bg-1));border-radius:10px;padding:12px}
+.nb-script-fields[hidden]{display:none!important}
+.nb-script-label{font-size:11px;font-weight:650;color:var(--text-2)}
+.nb-script-fields textarea{box-sizing:border-box;width:100%;min-height:130px;resize:vertical;background:var(--bg-1);border:1px solid var(--border-strong,var(--border));color:var(--text);border-radius:8px;padding:11px 12px;font-size:11.5px;line-height:1.55;font-family:inherit}
+.nb-script-fields textarea:focus,.nb-script-fields select:focus{outline:1px solid var(--brand-warn);border-color:var(--brand-warn)}
+.nb-script-fields textarea::placeholder{color:var(--text-3);opacity:.7}
+.nb-script-fields select{max-width:none;display:block;width:100%;background:var(--bg-1);border:1px solid var(--border-strong,var(--border));color:var(--text);border-radius:8px;padding:10px;font-size:11px}
+.nb-script-tools{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.nb-file{font-size:10.5px;font-weight:600;color:var(--brand-warn);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+#nb-script-count{font-size:10px;color:var(--text-3);font-variant-numeric:tabular-nums}
+.nb-inline-note{font-size:10.5px;line-height:1.55;color:var(--text-3);padding:9px 10px;border-radius:7px;border:1px solid var(--border)}
+.nb-coverage{display:flex;flex-direction:column;gap:6px;background:var(--bg-2,var(--bg-1));border-radius:9px;padding:10px;border:1px solid var(--border)}
+.nb-coverage[hidden],.nb-duplicates[hidden]{display:none!important}
+.nb-coverage h4{font-weight:700;font-size:10.5px;letter-spacing:.01em;margin:0 0 3px}
+.nb-coverage-row{display:flex;align-items:flex-start;gap:9px;border-top:1px solid var(--border);padding:7px 0 2px}
+.nb-coverage-row>span{font-weight:800;color:var(--brand-warn);width:15px;font-size:12px}
+.nb-coverage-row>div{min-width:0}
+.nb-coverage-row strong{font-size:10.5px;display:block}
+.nb-coverage-row small{color:var(--text-3);display:block;font-size:9.5px;margin-top:2px}
+.nb-duplicates{font-size:10.5px;color:var(--brand-warn);line-height:1.45;border-radius:8px;padding:9px 10px;background:rgba(245,158,11,.09)}
+
+/* Cartão recolhível: a barra sempre visível; os controles sob demanda. */
+.nb-collapse-trigger{display:flex;align-items:center;gap:10px;width:100%;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;font:inherit}
+.nb-collapse-trigger .nb-heading{flex:1;min-width:0;pointer-events:none}
+.nb-collapse-trigger:focus-visible{outline:2px solid var(--brand-warn);outline-offset:5px;border-radius:7px}
+.nb-chevron{flex:none;font-size:19px;color:var(--text-3);padding:0 2px;line-height:1}
+.nb-choice-body{display:flex;flex-direction:column;gap:13px}
+.nb-choice-body[hidden]{display:none!important}
+.nb-panel.nb-collapsed{gap:0;padding-top:12px;padding-bottom:12px}
