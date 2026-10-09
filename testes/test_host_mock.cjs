@@ -6,7 +6,7 @@ function item(name){return {nodeId:name,createSubClip(label,begin,end){return {n
 function clip(src,start,end){return {projectItem:src,name:src.nodeId,start:{seconds:start},end:{seconds:end},inPoint:{seconds:0},outPoint:{seconds:end-start},getSpeed(){return 1},isAdjustmentLayer(){return false},remove(){let i=this._parent.indexOf(this);this._parent.splice(i,1)}}}
 function track(clips){let c=collection(clips);clips.forEach(x=>x._parent=c);return {clips:c}}
 function tracks(x){x.numTracks=x.length;return x}
-function mkSeq(id,parts){const seq={sequenceID:id,name:id,videoTracks:tracks([track(parts.map(a=>clip(a.item,a.s,a.e)))]),audioTracks:tracks([track(parts.map(a=>clip(a.item,a.s,a.e)))]),clone(){const copy=mkSeq('clone'+(sequences.length+1),parts);sequences.push(copy);active=copy;return true},insertClip(src,t,v,a){for(const tr of [seq.videoTracks[v],seq.audioTracks[a]]){const c=clip(src,t.seconds,t.seconds+src.duration);c._parent=tr.clips;tr.clips.push(c)}return true}};return seq}
+function mkSeq(id,parts){const seq={sequenceID:id,name:id,timebase:254016000000/30,videoTracks:tracks([track(parts.map(a=>clip(a.item,a.s,a.e)))]),audioTracks:tracks([track(parts.map(a=>clip(a.item,a.s,a.e)))]),clone(){const copy=mkSeq('clone'+(sequences.length+1),parts);sequences.push(copy);active=copy;return true},insertClip(src,t,v,a){const start=Math.round(t.seconds*30)/30,dur=Math.ceil(src.duration*30)/30;for(const tr of [seq.videoTracks[v],seq.audioTracks[a]]){const c=clip(src,start,start+dur);c._parent=tr.clips;tr.clips.push(c)}return true}};return seq}
 const first=item('final'),second=item('intro'),third=item('content');
 const original=mkSeq('original',[{item:first,s:0,e:4},{item:second,s:4,e:8},{item:third,s:8,e:14}]);
 sequences.push(original);active=original;
@@ -16,4 +16,5 @@ const api=env.$.global;const snap=JSON.parse(api.fsNarrativeBetaSnapshot());asse
 const res=JSON.parse(api.fsNarrativeBetaPreview(JSON.stringify({sequenceID:'original',cuts:[{id:'intro',start:4.1,end:7.9},{id:'content',start:8.1,end:13.9},{id:'final',start:.1,end:3.9}]})));
 assert.equal(res.ok,true,res.error);assert.equal(original.videoTracks[0].clips.numItems,3);assert.equal(original.audioTracks[0].clips.numItems,3);assert.equal(active.videoTracks[0].clips.numItems,3);assert.equal(active.audioTracks[0].clips.numItems,3);assert.ok(active.videoTracks[0].clips[0].projectItem.nodeId.startsWith('intro'));
 assert.equal(JSON.parse(api.fsNarrativeBetaRestore(JSON.stringify({sequenceID:'original'}))).ok,true);assert.equal(active.sequenceID,'original');
+const x=JSON.parse(api.fsNarrativeBetaValidatePreview(JSON.stringify({previewId:res.previewId,layout:res.layout})));assert.equal(x.ok,false,'must open preview to validate');
 console.log('PASS mock Premiere: clone, insert video/audio, reordering, preserve original, restore');
