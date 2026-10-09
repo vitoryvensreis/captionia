@@ -1,0 +1,29 @@
+CAPTION IA 3.4.7 — LANÇAMENTO PARA CLIENTES
+
+NOVIDADE
+- Montagem Inteligente integrada ao Auto Edit.
+- Modos Montagem livre e Montagem por roteiro (texto TXT/MD).
+- A IA identifica repetições e compara versões sem excluir antecipadamente os takes.
+- É possível assistir à prévia da montagem no Premiere, ajustar a ordem e aprovar a continuação automática.
+- O painel de configurações foi integrado somente à aba Auto Edit, inicia recolhido e pode expandir ou recolher com um clique.
+- Removido o aviso BETA da interface.
+
+PRIVACIDADE E SIMPLICIDADE
+- Removidas as opções de salvar/enviar relatórios de diagnóstico da Montagem Inteligente.
+- Removido o salvamento automático de diagnósticos editoriais.
+- As transcrições necessárias à montagem continuam sendo encaminhadas à Groq conforme o recurso ativo.
+
+CORREÇÕES
+- Previsão de cortes sem lacunas e sincronização de transcrição após aprovação.
+- Retake detecta grupos de tentativas e usa análise semântica opcional.
+- Transições Auto Edit aguardam a liberação da análise anterior, sem colisão com AutoCut.
+- A cópia de prévia protege a sequência anterior à montagem.
+
+ATENÇÃO
+- Validação automatizada não substitui teste no Premiere Pro real com diferentes projetos.
+- O usuário deve manter cópia de segurança dos projetos antes de edições automáticas.
+- A Montagem Inteligente foi projetada para clipes de fala em faixa de vídeo e áudio vinculado compatíveis. Gravações multicâmera, faixas complexas ou velocidades alteradas podem exigir fluxo manual.
+
+INSTALAÇÃO
+Extraia o ZIP, feche o Premiere e execute INSTALAR_CAPTION_IA.bat (Windows).
+A extensão aparecerá em Janela > Extensões > Caption IA.
