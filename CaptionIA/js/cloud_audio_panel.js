@@ -186,7 +186,7 @@ function init(){
  var timeline=el('btn-transcribe-timeline'),file=el('btn-transcribe-file');
  if(timeline){timeline.textContent='Transcrever da timeline · Groq';}
  if(file){file.textContent='Selecionar áudio · Groq';}
- // Captura antes dos listeners legados (que exigem gsk_ local).
+ // Captura antes dos listeners antigos que não usam a integração Groq da conta.
  modal.addEventListener('click',function(event){
   var target=event.target,action=null;
   while(target&&target!==modal&&!action){
