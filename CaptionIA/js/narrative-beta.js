@@ -31,18 +31,85 @@ function addUI(){if(!el('autoedit-panel')||el('nb-review'))return;var panel=el('
 var card=document.createElement('section');card.className='nb-panel';card.id='nb-choice';card.innerHTML='<div class="nb-heading"><div class="nb-icon">✦</div><div><strong>Montagem Inteligente</strong><p>Organiza takes e escolhe as melhores falas</p></div><span class="nb-pill">BETA</span></div><div class="nb-config"><label>Estilo da montagem<select id="nb-mode"><option value="fiel">Fiel ao roteiro</option><option value="criativo">Criativo</option></select></label><label class="nb-toggle"><input id="nb-approval" type="checkbox" checked disabled> Revisar antes de continuar</label></div><div class="nb-help">A IA usa a transcrição atual. Durante a revisão, o Auto Edit aguarda sem aplicar legendas ou efeitos.</div>';
 var review=document.createElement('section');review.className='nb-panel nb-review';review.id='nb-review';review.hidden=true;review.innerHTML='<div class="nb-heading"><div class="nb-icon">✓</div><div><strong>Montagem pronta</strong><p id="nb-step-label">Aguardando sua aprovação</p></div><span class="nb-pill">GROQ</span></div><p class="nb-progress" id="nb-status" role="status">Analisando roteiro...</p><div class="nb-summary" id="nb-summary"></div><div class="nb-list" id="nb-segments"></div><div class="nb-buttons"><button id="nb-preview" type="button" class="nb-primary">▶ Ver prévia no Premiere</button><button id="nb-approve" type="button" class="nb-primary">✓ Aprovar e continuar</button><button id="nb-skip" type="button" class="nb-secondary">Pular esta etapa</button></div><p class="nb-help">O original permanece protegido. A prévia é uma sequência separada. Ajuste a ordem nas setas e gere a prévia de novo.</p>';
 target.parentNode.parentNode.insertAdjacentElement('afterend',card);card.insertAdjacentElement('afterend',review);var st=settings();el('nb-mode').value=st.mode==='criativo'?'criativo':'fiel';el('nb-mode').onchange=function(){save({mode:this.value});};el('nb-preview').onclick=preview;el('nb-approve').onclick=approve;el('nb-skip').onclick=skip;}
-function preview(){if(isBusy||!pending||!lastPlan||!lastPlan.length)return;isBusy=true;progress('Preparando sequência de prévia...');el('nb-preview').disabled=true;
-loadHost().then(function(){return host('fsNarrativeBetaPreview',{sequenceID:lastManifest.sequenceID,cuts:lastPlan});}).then(function(r){pending.previewId=r.previewId;pending.previewDuration=r.duration;pending.previewCuts=lastPlan.map(function(x){return Object.assign({},x);});progress('Prévia criada: assista no monitor do Premiere e aprove quando estiver pronto.');el('nb-approve').disabled=false;}).catch(function(e){progress('Não consegui criar a prévia: '+e.message);}).then(function(){isBusy=false;el('nb-preview').disabled=false;});}
-function remapTranscript(){var old=root._fsLastResp;if(!old||!Array.isArray(old.words))fail('Transcrição original não está mais disponível');var out=[],cursor=0;pending.previewCuts.forEach(function(c){old.words.forEach(function(w){if(w.start>=c.start-.055&&w.end<=c.end+.055){out.push({word:w.word,start:Math.max(0,cursor+w.start-c.start),end:cursor+w.end-c.start});}});cursor+=c.end-c.start;});if(!out.length)fail('Não consegui realinhar as palavras para a nova sequência.');return Object.assign({},old,{words:out,segments:[],text:out.map(function(w){return w.word;}).join(' '),_fsSeq:pending.previewId});}
-function approve(){if(isBusy||!pending||!pending.previewId){progress('Primeiro crie e assista à prévia no Premiere.');return;}if(JSON.stringify(lastPlan)!==JSON.stringify(pending.previewCuts)){progress('A ordem mudou: gere a prévia novamente antes de aprovar.');return;}
-try{var changed=remapTranscript();root._fsLastResp=changed;localStorage.setItem('framespeed_last_resp',JSON.stringify(changed));root._fsRespOriginal=null;root._fsCortesTotal=0;root._fsAudioRegions=null;localStorage.removeItem('framespeed_audio_regions');localStorage.removeItem('framespeed_resp_original');localStorage.removeItem('framespeed_cortes_total');var finished=pending;pending=null;view('ready');root.fsConferirDonoTranscricao(function(x){if(x&&x.descartou)return finished.done({ok:false,erro:'Falha ao associar transcrição à nova sequência.'});finished.done({ok:true,resumo:'montagem aprovada: '+lastPlan.length+' trechos'});});}catch(e){progress(e.message);}}
-function skip(){if(!pending)return;var p=pending;host('fsNarrativeBetaRestore',{sequenceID:lastManifest.sequenceID}).then(function(){pending=null;view('ready');p.done({ok:true,resumo:'montagem ignorada; sequência original mantida'});}).catch(function(e){progress('Não consegui voltar à sequência original: '+e.message);});}
+function preview(){if(isBusy||!pending||!lastPlan||!lastPlan.length)return;isBusy=true;progress('Preparando sequência de prévia...');el('nb-preview').disabled=true;el('nb-approve').disabled=true;pending.previewId=null;pending.previewCuts=null;pending.previewLayout=null;
+loadHost().then(function(){return host('fsNarrativeBetaPreview',{sequenceID:lastManifest.sequenceID,cuts:lastPlan});}).then(function(r){pending.previewId=String(r.previewId);pending.previewDuration=r.duration;pending.previewLayout=r.layout;pending.previewCuts=lastPlan.map(function(x){return Object.assign({},x);});progress('Prévia criada: assista no monitor do Premiere e aprove quando estiver pronto.');el('nb-approve').disabled=false;}).catch(function(e){progress('Não consegui criar a prévia: '+e.message);}).then(function(){isBusy=false;el('nb-preview').disabled=false;});}
+function deepCopy(o){return JSON.parse(JSON.stringify(o));}
+function restoreTranscript(resp,sequenceID){
+ if(!resp||!Array.isArray(resp.words)||!resp.words.length)fail('Snapshot da transcrição indisponível.');
+ var data=deepCopy(resp);data._fsSeq=String(sequenceID);data._fsQuando=Date.now();
+ root._fsLastResp=data;localStorage.setItem('framespeed_last_resp',JSON.stringify(data));
+ return data;
+}
+function remapTranscript(snapshot,cuts,layout,previewId){
+ if(!snapshot||!Array.isArray(snapshot.words)||!snapshot.words.length)fail('Backup da transcrição não está disponível.');
+ if(!Array.isArray(layout)||layout.length!==cuts.length)fail('O Premiere não confirmou os tempos reais de todos os clipes. Gere nova prévia.');
+ var out=[];
+ cuts.forEach(function(c,i){
+  var actual=layout[i];
+  if(actual.id!==c.id||Math.abs(Number(actual.sourceStart)-Number(c.start))>.06||Math.abs(Number(actual.sourceEnd)-Number(c.end))>.06)fail('O tempo do corte '+(i+1)+' mudou entre plano e prévia.');
+  var begin=Number(actual.destStart),end=Number(actual.destEnd);
+  if(!isFinite(begin)||!isFinite(end)||end<=begin)fail('O Premiere devolveu tempo inválido no trecho '+(i+1));
+  snapshot.words.forEach(function(w){
+   var a=Number(w.start),b=Number(w.end);
+   if(a>=c.start-.055&&b<=c.end+.055&&b>a){
+    var mappedStart=Math.max(begin,begin+a-c.start),mappedEnd=Math.min(end,begin+b-c.start);
+    if(mappedEnd-mappedStart>.01)out.push(Object.assign({},w,{start:mappedStart,end:mappedEnd}));
+   }
+  });
+ });
+ if(!out.length)fail('Não existem palavras válidas nos trechos da prévia.');
+ out.sort(function(a,b){return a.start-b.start;});
+ var cloned=deepCopy(snapshot);
+ cloned.words=out;cloned.segments=[];cloned.text=out.map(function(w){return w.word;}).join(' ');cloned._fsSeq=String(previewId);cloned._fsQuando=Date.now();
+ return cloned;
+}
+function verifySequence(expected){return new Promise(function(resolve,reject){
+ if(typeof root.fsConferirDonoTranscricao!=='function')return reject(Error('Validação da transcrição indisponível'));
+ root.fsConferirDonoTranscricao(function(result){
+  if(!result||!result.seq||String(result.seq)!==String(expected)||result.descartou||!root._fsLastResp||String(root._fsLastResp._fsSeq)!==String(expected))
+   return reject(Error('A sequência ativa mudou ou a transcrição não foi associada corretamente.'));resolve(result);
+ });
+});}
+function approve(){
+ if(isBusy||!pending||!pending.previewId){progress('Primeiro crie e assista à prévia no Premiere.');return;}
+ if(JSON.stringify(lastPlan)!==JSON.stringify(pending.previewCuts)){progress('A ordem mudou: gere a prévia novamente antes de aprovar.');return;}
+ var finished=pending;isBusy=true;el('nb-approve').disabled=true;progress('Sincronizando as palavras da transcrição com a prévia...');
+ loadHost().then(function(){
+  return host('fsNarrativeBetaValidatePreview',{previewId:finished.previewId,layout:finished.previewLayout});
+ }).then(function(checked){
+  var transcript=remapTranscript(finished.originalTranscript,finished.previewCuts,checked.layout,finished.previewId);
+  restoreTranscript(transcript,finished.previewId);
+  return verifySequence(finished.previewId);
+ }).then(function(){
+  if(!root._fsLastResp||!root._fsLastResp.words||!root._fsLastResp.words.length)fail('Transcrição da nova sequência não foi preservada.');
+  root._fsRespOriginal=null;root._fsCortesTotal=0;root._fsAudioRegions=null;
+  localStorage.removeItem('framespeed_audio_regions');localStorage.removeItem('framespeed_resp_original');localStorage.removeItem('framespeed_cortes_total');
+  root.premiereSrtData=[];
+  if(typeof root.fsResegment!=='function')fail('Motor de segmentação indisponível');var newCues=root.fsResegment(null);
+  if(!newCues||!newCues.length)fail('Não consegui recriar as legendas sincronizadas da prévia.');
+  progress('Aprovação concluída. Continuando o Auto Edit...');
+  pending=null;view('ready');finished.done({ok:true,resumo:'montagem aprovada: '+lastPlan.length+' trechos'});
+ }).catch(function(e){
+  progress('Aprovação não concluída: '+e.message+'. A revisão permanece aberta.');
+ }).then(function(){isBusy=false;if(pending)el('nb-approve').disabled=false;});
+}
+function skip(){
+ if(isBusy||!pending)return;
+ var current=pending;isBusy=true;progress('Voltando à sequência original...');
+ host('fsNarrativeBetaRestore',{sequenceID:lastManifest.sequenceID}).then(function(){
+  restoreTranscript(current.originalTranscript,lastManifest.sequenceID);
+  return verifySequence(lastManifest.sequenceID);
+ }).then(function(){
+  pending=null;view('ready');current.done({ok:true,resumo:'montagem ignorada; sequência original mantida'});
+ }).catch(function(e){progress('Não consegui voltar à sequência original com transcrição preservada: '+e.message);}).then(function(){isBusy=false;});
+}
+
 function run(done){addUI();if(pending)return done({ok:false,erro:'Já existe uma montagem aguardando revisão.'});progress('Conferindo a sequência...');view('working');var transcript=root._fsLastResp;
 if(!transcript||!transcript.words||!transcript.words.length){view('ready');return done({ok:false,erro:'Sem transcrição por palavras após o AutoCut. Ative Transcrever.'});}
 loadHost().then(function(){return host('fsNarrativeBetaSnapshot',{});}).then(function(snapshot){lastManifest=snapshot;var words=transcript.words;lastSegments=groupWords(words,snapshot.clips);var counted=lastSegments.reduce(function(n,x){return n+x.text.trim().split(/\s+/).length;},0);if(counted<words.length*.6)fail('Transcrição parece desatualizada após o AutoCut (mais de 40% das palavras fora dos clipes). Refaça a transcrição.');if(!lastSegments.length)fail('Nenhum trecho de fala coincide com os clipes atuais. Confira a sincronia após o AutoCut.');progress('Groq organizando '+lastSegments.length+' trechos...');var mode=el('nb-mode')?el('nb-mode').value:'fiel';var sys='Você é editor profissional de vídeo em português. O material está FORA DE ORDEM. Preserve o significado e só use IDs fornecidos. Nunca inclua trechos blocked=true. Responda EXCLUSIVAMENTE objeto JSON válido com cuts:[{id,role,reason}] e summary.';
 return groq([{role:'system',content:sys},{role:'user',content:buildPayload(lastSegments,mode)}]).then(function(first){validate(first,lastSegments,snapshot.clips);progress('Revisando repetições e continuidade...');return groq([{role:'system',content:sys+' Faça revisão independente e corrija falas incompletas, repetidas ou desconexas.'},{role:'user',content:JSON.stringify({segments:lastSegments,firstPlan:first.cuts,mode:mode})}]).then(function(final){return {snapshot:snapshot,cuts:validate(final,lastSegments,snapshot.clips),summary:final.summary||first.summary||''};});});
-}).then(function(v){lastPlan=v.cuts;lastManifest=v.snapshot;pending={done:done,previewId:null,previewCuts:null};cards();progress('Organização pronta. Clique em Ver prévia para assistir no Premiere.');el('nb-approve').disabled=true;view('pending');}).catch(function(e){view('ready');done({ok:false,erro:'Montagem Inteligente: '+e.message});});}
+}).then(function(v){lastPlan=v.cuts;lastManifest=v.snapshot;pending={done:done,previewId:null,previewCuts:null,previewLayout:null,originalTranscript:deepCopy(transcript)};cards();progress('Organização pronta. Clique em Ver prévia para assistir no Premiere.');el('nb-approve').disabled=true;view('pending');}).catch(function(e){view('ready');done({ok:false,erro:'Montagem Inteligente: '+e.message});});}
 root.fsAutoEditNarrativa=run;
-root.fsNarrativeBeta={groupWords:groupWords,validate:validate,settings:settings,get pending(){return !!pending;}};
+root.fsNarrativeBeta={groupWords:groupWords,validate:validate,settings:settings,remapTranscript:remapTranscript,createPreview:preview,approve:approve,skip:skip,get pending(){return !!pending;}};
 if(typeof document!=='undefined'){if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',addUI);else addUI();}
 })(typeof window!=='undefined'?window:this);
