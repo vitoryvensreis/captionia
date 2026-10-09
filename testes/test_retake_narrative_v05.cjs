@@ -1,0 +1,18 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
+const dir=path.join(__dirname,'../CaptionIA/js'),ctx={window:{},document:undefined,console,require,localStorage:{getItem(){return null},setItem(){},removeItem(){}}};
+vm.runInNewContext(fs.readFileSync(path.join(dir,'repeticoes.js'),'utf8'),ctx);
+vm.runInNewContext(fs.readFileSync(path.join(dir,'narrative-beta.js'),'utf8'),ctx);
+const api=ctx.window.fsNarrativeBeta;const add=(text,at)=>text.split(/\s+/).map((word,i)=>({word,start:at+i*.25,end:at+i*.25+.22}));
+const words=[...add('Hoje vamos falar de vendas.',0),...add('Hoje vamos falar de vendas.',5),...add('Primeiro conheça seu cliente.',10),...add('Depois organize seu funil.',14),...add('Coloque tudo em prática.',18)];
+const original={_fsSeq:'S1',words};ctx.window._fsLastResp=original;
+let result;ctx.window.fsAutoEditRetakeAnalise(x=>result=x);
+assert.equal(result.ok,true,result.erro);assert.equal(original.words.length,words.length);
+assert.ok(ctx.window._fsNarrativeRetakeHints.groups.length>=1);
+const clips=[{index:0,start:0,end:25}],segments=api.groupWords(words,clips);
+const hints=api.retakeContext(original,segments);assert.ok(hints.groups.length>=1);
+assert.ok(JSON.parse(api.buildPayload(segments,{mode:'livre',fidelity:'flexivel',sections:[]},hints)).retakeHints.groups.length>=1);
+assert.throws(()=>api.validate({cuts:[{id:segments[0].id,role:'duplicate',reason:'Informação repetida de outro'}]},segments,clips));
+const many=[{id:'A',text:'Vamos apresentar um projeto muito importante para nossa equipe'},{id:'B',text:'Precisamos conquistar novos clientes rapidamente durante este trimestre'},{id:'C',text:'Nossa equipe atende pequenas empresas locais em todo estado'},{id:'D',text:'O resultado esperado é aumentar as vendas com qualidade'}].map((v,i)=>({...v,start:i*2,end:i*2+2,blocked:false}));
+assert.throws(()=>api.narrativeGuard([many[0]],many),/cobertura insuficiente/i);
+assert.equal(api.narrativeGuard(many,many).coveredIdeaCandidates,4);
+console.log('PASS Retake+IA v0.5: detecção sem cortes, hints, bloqueio de descarte e cobertura');
