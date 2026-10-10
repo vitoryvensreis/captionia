@@ -1,0 +1,77 @@
+name: Publish Caption IA customer ZIP
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-client-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: captionia-customer-release
+  cancel-in-progress: false
+
+jobs:
+  package-and-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact customer source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Verify version and client regression suite
+        run: |
+          set -euo pipefail
+          node scripts/validate-release.js
+          node scripts/test-cloud-release.js
+          node scripts/test-groq-byok.js
+          node scripts/test-narrative-provider.js
+          node scripts/test-groq-individual.js
+          VERSION="$(node scripts/read-version.js)"
+          test "$VERSION" = "3.5.0"
+          test -f CaptionIA/CSXS/manifest.xml
+          test -f CaptionIA/js/groq_access.js
+          test -f CaptionIA/js/cloud_audio_panel.js
+          test -f CaptionIA/js/narrative-beta.js
+
+      - name: Build full client ZIP
+        id: build
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILENAME="CaptionIA-3.5.0-Cliente-COMPLETO.zip"
+          # The entire extension is included: binary JSX, media, presets, templates.
+          zip -q -r -9 "$FILENAME" \
+            CaptionIA \
+            INSTALAR_CAPTION_IA.bat \
+            INSTALAR_CAPTION_IA.ps1 \
+            INSTALAR_CAPTION_IA_MAC.command \
+            LEIA_PRIMEIRO.txt \
+            ALTERACOES_3.5.0.txt
+          unzip -tqq "$FILENAME"
+          sha256sum "$FILENAME" > SHA256SUMS.txt
+          echo "filename=$FILENAME" >> "$GITHUB_OUTPUT"
+          du -h "$FILENAME"
+          cat SHA256SUMS.txt
+
+      - name: Publish versioned GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="v3.5.0"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${{ steps.build.outputs.filename }}" SHA256SUMS.txt --clobber
+          else
+            gh release create "$TAG" "${{ steps.build.outputs.filename }}" SHA256SUMS.txt \
+              --title "Caption IA 3.5.0 — Cliente completo (Windows e Mac)" \
+              --notes "Instalador completo com todos os recursos. A chave Groq fica vinculada à conta em https://caption.escotilhaprodutora.com/minha-conta ; consulte os guias em https://caption.escotilhaprodutora.com/tutoriais . Mac: instalação CEP manual enquanto não houver pacote Apple assinado. Esta versão preserva licenças e recursos do Caption IA." \
+              --target "$GITHUB_SHA"
+          fi
