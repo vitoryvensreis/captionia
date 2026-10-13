@@ -1,6 +1,6 @@
 (function(w,d){'use strict';
 
-var CURRENT_VERSION='3.5.0';
+var CURRENT_VERSION='3.5.1';
 var SITE='https://caption.escotilhaprodutora.com';
 var CHECK_EVERY_MS=6*60*60*1000;
 var checking=false;
