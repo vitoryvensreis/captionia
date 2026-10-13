@@ -29,6 +29,9 @@ jobs:
       - name: Verify client narrative UX and privacy
         run: node scripts/test-montagem-cliente.js
 
+      - name: Verify cut precision and no duplicate spoken words (Premiere mock)
+        run: node scripts/test-narrative-cut-precision.js
+
       - name: Validate narrative cloud and personal Groq routing
         run: node scripts/test-narrative-provider.js
 

@@ -9,6 +9,45 @@
     function secs(v){return Number(v&&v.seconds!==undefined?v.seconds:v);}
     function mediaItem(clip){return clip&&clip.projectItem;}
     function frameEpsilon(seq){var t=Number(seq&&seq.timebase);return t>0?Math.max(.009,Math.min(.055,.65*t/TICKS)):.015;}
+    function frameDuration(seq){
+        var ticks=Number(seq&&seq.timebase),seconds=ticks/TICKS;
+        if(!isFinite(seconds)||seconds<.004||seconds>.1)throw Error('Não foi possível obter a duração real do frame da sequência.');
+        return seconds;
+    }
+    function snapFrame(seconds,frame){return Math.round(seconds/frame)*frame;}
+    function sameSource(a,b){
+        return a.source===b.source || (a.mediaId!==''&&a.mediaId===b.mediaId);
+    }
+    /* Adjacent edit segments may reference the same word. The OUT of the first MUST
+       never overlap the IN of the second in original source media time, after frame snapping.
+       Non-adjacent reuse of media is rejected rather than silently changing editorial intent. */
+    function assertUniqueSourceFrames(cuts,frame){
+        var i,j,a,b,overlap,tolerance=frame*.015,MAX_AUTO_TRIM=.45;
+        for(i=0;i<cuts.length;i++){
+            for(j=i+1;j<cuts.length;j++){
+                a=cuts[i];b=cuts[j];
+                if(!sameSource(a,b))continue;
+                overlap=Math.min(a.outTime,b.outTime)-Math.max(a.inTime,b.inTime);
+                if(overlap<=tolerance)continue;
+                if(j===i+1 && a.inTime<b.inTime && a.outTime>b.inTime && overlap<=MAX_AUTO_TRIM){
+                    // Ownership is given to the following segment: its first word is kept intact.
+                    a.outTime=b.inTime;
+                    a.sourceEnd=a.originStart+(a.outTime-a.originInPoint);
+                    if(a.outTime-a.inTime<.18-frame*.01)throw Error('Corte em cima de palavra: trecho anterior ficaria curto. Reveja a montagem.');
+                }else{
+                    throw Error('A montagem reutiliza '+overlap.toFixed(3)+'s da mesma fonte em dois trechos. Reveja a seleção: não vou repetir fala.');
+                }
+            }
+        }
+        // A trimmed interval must not collide with any other media selection.
+        for(i=0;i<cuts.length;i++)for(j=i+1;j<cuts.length;j++){
+            a=cuts[i];b=cuts[j];
+            if(sameSource(a,b) && Math.min(a.outTime,b.outTime)-Math.max(a.inTime,b.inTime)>tolerance)
+                throw Error('Cortes compartilhando frames da fonte: prévia cancelada para evitar fala repetida.');
+        }
+        for(i=0;i<cuts.length;i++)if(cuts[i].outTime-cuts[i].inTime<.18-frame*.01)
+            throw Error('Trecho curto demais depois de alinhar os cortes aos frames ('+(i+1)+').');
+    }
     function snapshot(){
         var seq=active();if(!seq)throw Error('Abra uma sequência no Premiere.');
         var video=[],audio=[];var tr,i,c;
@@ -21,7 +60,7 @@
         for(i=0;i<video.length;i++){if(Math.abs(audio[i].start-video[i].start)>.1||Math.abs(audio[i].end-video[i].end)>.1||audio[i].nodeId!==video[i].nodeId)throw Error('Áudio e vídeo não estão vinculados no take '+(i+1)+'.');}
         video.sort(function(a,b){return a.start-b.start;});
         for(i=1;i<video.length;i++)if(video[i].start<video[i-1].end-.02)throw Error('Clipes sobrepostos não são suportados nesta BETA.');
-        return {sequenceID:String(seq.sequenceID),sequenceName:String(seq.name),clips:video,clipCount:video.length};
+        return {sequenceID:String(seq.sequenceID),sequenceName:String(seq.name),clips:video,clipCount:video.length,frameDuration:frameDuration(seq)};
     }
     function hasExtraTracks(seq){var i;for(i=1;i<seq.videoTracks.numTracks;i++)if(seq.videoTracks[i].clips.numItems)return true;for(i=1;i<seq.audioTracks.numTracks;i++)if(seq.audioTracks[i].clips.numItems)return true;return false;}
     function makePreview(args){
@@ -29,7 +68,7 @@
         var previous=app.project.activeSequence;app.project.openSequence(original.sequenceID);
         var snap=snapshot();if(hasExtraTracks(original))throw Error('Existem faixas adicionais: não vou mexer nelas.');
         if(!args.cuts||!args.cuts.length||args.cuts.length>100)throw Error('Plano vazio ou grande demais.');
-        var cuts=[],i,j,c,ref,source,clip;var sourceTrack=original.videoTracks[0];
+        var cuts=[],i,j,c,ref,source,clip;var sourceTrack=original.videoTracks[0],frame=frameDuration(original);
         for(i=0;i<args.cuts.length;i++){
             c=args.cuts[i];var a=Number(c.start),b=Number(c.end);if(!isFinite(a)||!isFinite(b)||b-a<.18)throw Error('Intervalo inválido no trecho '+(i+1));
             ref=null;for(j=0;j<snap.clips.length;j++)if(a>=snap.clips[j].start-.035&&b<=snap.clips[j].end+.035){ref=snap.clips[j];break;}
@@ -37,8 +76,19 @@
             clip=sourceTrack.clips[ref.index];source=mediaItem(clip);if(!source||!source.createSubClip)throw Error('Fonte incompatível.');
             var offsetStart=ref.inPoint+(a-ref.start),offsetEnd=ref.inPoint+(b-ref.start);
             if(offsetStart<ref.inPoint-.035||offsetEnd>ref.outPoint+.035)throw Error('Intervalo fora da fonte.');
-            cuts.push({source:source,inTime:offsetStart,outTime:offsetEnd,description:String(c.id||'trecho')});
+            // Align SOURCE in/out once to the timeline frame grid, not independently
+            // after insertion. The resulting media intervals are the source of truth.
+            var minTime=Math.ceil((ref.inPoint-.000001)/frame)*frame;
+            var maxTime=Math.floor((ref.outPoint+.000001)/frame)*frame;
+            offsetStart=Math.max(minTime,Math.min(maxTime,snapFrame(offsetStart,frame)));
+            offsetEnd=Math.max(minTime,Math.min(maxTime,snapFrame(offsetEnd,frame)));
+            if(offsetEnd-offsetStart<.18-frame*.01)throw Error('Trecho '+(i+1)+' ficou curto após alinhar aos frames.');
+            cuts.push({source:source,mediaId:String(ref.nodeId||''),originStart:ref.start,originInPoint:ref.inPoint,
+                inTime:offsetStart,outTime:offsetEnd,
+                sourceStart:ref.start+(offsetStart-ref.inPoint),sourceEnd:ref.start+(offsetEnd-ref.inPoint),
+                description:String(c.id||'trecho')});
         }
+        assertUniqueSourceFrames(cuts,frame);
         var subclips=[];for(i=0;i<cuts.length;i++){
             c=cuts[i];var name='Caption IA · '+(i+1)+' · '+c.description;
             var sub=c.source.createSubClip(name,String(Math.round(c.inTime*TICKS)),String(Math.round(c.outTime*TICKS)),1,1,1);
@@ -68,7 +118,8 @@
                 if(actualEnd<=actualStart)throw Error('O trecho '+(i+1)+' foi inserido sem duração.');
                 var aCreated=atr.clips[atr.clips.numItems-1];
                 if(!aCreated||Math.abs(secs(aCreated.start)-actualStart)>epsilon||Math.abs(secs(aCreated.end)-actualEnd)>epsilon)throw Error('Áudio e vídeo dessincronizados no trecho '+(i+1)+'.');
-                layout.push({id:args.cuts[i].id,sourceStart:Number(args.cuts[i].start),sourceEnd:Number(args.cuts[i].end),destStart:actualStart,destEnd:actualEnd});
+                layout.push({id:args.cuts[i].id,sourceStart:cuts[i].sourceStart,sourceEnd:cuts[i].sourceEnd,
+                    destStart:actualStart,destEnd:actualEnd});
                 cursor=actualEnd;
             }
             if(preview.videoTracks[0].clips.numItems!==subclips.length)throw Error('A quantidade de clipes gerados difere do plano.');

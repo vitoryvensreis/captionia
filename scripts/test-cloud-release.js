@@ -3,10 +3,10 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),read=p=>fs.read
 const manifest=read('CaptionIA/CSXS/manifest.xml'),main=read('CaptionIA/js/main.js'),auth=read('CaptionIA/js/auth.js'),updater=read('CaptionIA/js/updater.js');
 const html=read('CaptionIA/index.html'),panel=read('CaptionIA/js/cloud_audio_panel.js'),core=read('CaptionIA/js/cloud_core.js');
 const bat=read('INSTALAR_CAPTION_IA.bat'),ps=read('INSTALAR_CAPTION_IA.ps1');
-assert.match(manifest,/ExtensionBundleVersion="3\.5\.0"/);
-assert.match(main,/CURRENT_VERSION='3\.5\.0'/);
-assert.match(auth,/VERSION='3\.5\.0'/);
-assert.match(updater,/CURRENT_VERSION='3\.5\.0'/);
+assert.match(manifest,/ExtensionBundleVersion="3\.5\.1"/);
+assert.match(main,/CURRENT_VERSION='3\.5\.1'/);
+assert.match(auth,/VERSION='3\.5\.1'/);
+assert.match(updater,/CURRENT_VERSION='3\.5\.1'/);
 assert(html.includes('src="js/groq_access.js"'));
 assert(html.includes('src="js/cloud_audio_panel.js"'));
 assert(panel.includes("w.fsAutoEditTranscrever=function(done)"));
@@ -17,4 +17,4 @@ assert(core.includes('caption.escotilhaprodutora.com'),'Platform services preser
 assert(bat.includes('INSTALAR_CAPTION_IA.ps1'));
 assert(ps.includes('Move-Item')&&ps.includes('BackupDir'));
 assert(!manifest.includes('<Icons>'));
-console.log('PASS 3.5.0 release smoke + server BYOK routing');
+console.log('PASS 3.5.1 release smoke + server BYOK routing');

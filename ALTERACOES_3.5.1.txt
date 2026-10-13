@@ -1,0 +1,12 @@
+CAPTION IA 3.5.1 — PRECISÃO DOS CORTES
+
+- Corrigida a possibilidade de sobreposição acidental do mesmo áudio entre clipes da Montagem Inteligente.
+- Times de entrada e saída dos subclipes são ajustados à grade real de frames do Premiere (inclusive 25 e 29,97 fps).
+- Dois cortes adjacentes sobrepostos e vindos da mesma fonte passam a compartilhar uma única fronteira de frame, mantendo intacto o começo da palavra no segundo trecho.
+- Sobreposições maiores que 450 ms, trechos invertidos ou reutilizações de mídia não adjacentes são bloqueados e pedem revisão em vez de criar repetições.
+- A transcrição final é reconstruída usando os limites efetivos da prévia, com cada ocorrência original de palavra atribuída a um só clipe.
+- Preservada a fala intencionalmente repetida em outros instantes da gravação.
+- Sequência original nunca é alterada durante a criação da prévia.
+- Adicionados testes de regressão usando simulador de objetos Premiere, 25/29,97 fps, repetição real e palavra "ir" na fronteira.
+
+Atenção: teste em uma cópia do projeto no Premiere antes de disponibilizar para todos os clientes. A validação automática não substitui a homologação em áudio real.
