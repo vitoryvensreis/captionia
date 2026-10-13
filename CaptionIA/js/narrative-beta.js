@@ -307,7 +307,7 @@ function remapTranscript(snapshot,cuts,layout,previewId){
    if(intersection<=.005)return;
    var covered=intersection/(end-start);
    if(covered<.57)return; // A word that was materially cut is not a valid caption.
-   var score=intersection+(mid>=r.sourceStart&&mid<r.sourceEnd?.001:0)+r.index*1e-7;
+   var score=intersection+(mid>=r.sourceStart && mid<r.sourceEnd ? 0.001 : 0)+r.index*1e-7;
    if(score>bestScore){best=r;bestScore=score;}
   });
   if(!best)return;
