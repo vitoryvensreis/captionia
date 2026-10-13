@@ -1,8 +1,8 @@
-# Caption IA 3.5.0
+# Caption IA 3.5.1
 
 Esta árvore foi criada a partir do pacote recuperado do FrameSpeed 2.2.
 
-## Integração Groq por conta (3.5.0)
+## Integração Groq por conta (3.5.1)
 
 O plugin consulta o status da integração Groq em sua conta na plataforma Caption IA.
 A chave fica criptografada no servidor e nunca é devolvida ao plugin; transcrição, Retake e Montagem Inteligente usam as rotas BYOK autenticadas.
@@ -12,7 +12,7 @@ Tutorial: https://caption.escotilhaprodutora.com/tutoriais
 - Nome público alterado para **Caption IA**.
 - Nome público e menu do CEP alterados para **Caption IA**.
 - IDs internos `com.editbest` / `com.editbest.panel` foram preservados por compatibilidade e para evitar duplicar a extensão em projetos/instalações existentes.
-- Versão atual: **3.5.0** (o restante deste arquivo registra a evolução histórica do plugin).
+- Versão atual: **3.5.1** (o restante deste arquivo registra a evolução histórica do plugin).
 - Tela de login removida.
 - Cliente de autenticação e chamadas `login.php`, `validate.php` e `logout.php` removidos do plugin.
 - Revalidação periódica de sessão removida.
