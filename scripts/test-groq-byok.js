@@ -3,7 +3,7 @@ const fs=require('node:fs'),assert=require('node:assert/strict');
 const get=p=>fs.readFileSync(p,'utf8');
 const gate=get('CaptionIA/js/groq_access.js'),transcript=get('CaptionIA/js/cloud_audio_panel.js'),narrative=get('CaptionIA/js/narrative-beta.js');
 const manifest=get('CaptionIA/CSXS/manifest.xml');
-assert.match(manifest,/ExtensionBundleVersion="3\.5\.0"/);
+assert.match(manifest,/ExtensionBundleVersion="3\.5\.1"/);
 assert(gate.includes("'/groq/status'"),'Plugin must query account-owned credential status');
 assert(gate.includes('Abrir minha conta'),'Web account setup button');
 assert(!gate.includes('fsSecureKeyStore'),'Groq gate must NOT use local key storage');
