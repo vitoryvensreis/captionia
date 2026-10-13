@@ -280,19 +280,43 @@ function restoreTranscript(resp,sequenceID){
 function remapTranscript(snapshot,cuts,layout,previewId){
  if(!snapshot||!Array.isArray(snapshot.words)||!snapshot.words.length)fail('Backup da transcrição não está disponível.');
  if(!Array.isArray(layout)||layout.length!==cuts.length)fail('O Premiere não confirmou os tempos reais de todos os clipes. Gere nova prévia.');
- var out=[];
- cuts.forEach(function(c,i){
+ var ranges=cuts.map(function(c,i){
   var actual=layout[i];
-  if(actual.id!==c.id||Math.abs(Number(actual.sourceStart)-Number(c.start))>.06||Math.abs(Number(actual.sourceEnd)-Number(c.end))>.06)fail('O tempo do corte '+(i+1)+' mudou entre plano e prévia.');
-  var begin=Number(actual.destStart),end=Number(actual.destEnd);
-  if(!isFinite(begin)||!isFinite(end)||end<=begin)fail('O Premiere devolveu tempo inválido no trecho '+(i+1));
-  snapshot.words.forEach(function(w){
-   var a=Number(w.start),b=Number(w.end);
-   if(a>=c.start-.055&&b<=c.end+.055&&b>a){
-    var mappedStart=Math.max(begin,begin+a-c.start),mappedEnd=Math.min(end,begin+b-c.start);
-    if(mappedEnd-mappedStart>.01)out.push(Object.assign({},w,{start:mappedStart,end:mappedEnd}));
-   }
+  if(!actual||String(actual.id)!==String(c.id))fail('O clipe '+(i+1)+' não corresponde ao plano editorial.');
+  var sourceStart=Number(actual.sourceStart),sourceEnd=Number(actual.sourceEnd);
+  var destStart=Number(actual.destStart),destEnd=Number(actual.destEnd);
+  if(!isFinite(sourceStart)||!isFinite(sourceEnd)||sourceEnd<=sourceStart||
+     !isFinite(destStart)||!isFinite(destEnd)||destEnd<=destStart)fail('Intervalo inválido confirmado pelo Premiere no clipe '+(i+1));
+  // The preview may shrink boundaries to suppress repeated media, but must not
+  // extend outside the approved source selection by more than frame tolerance.
+  if(sourceStart<Number(c.start)-.065 || sourceEnd>Number(c.end)+.065)
+     fail('A prévia utilizou mídia fora do trecho editorial '+(i+1)+'.');
+  if(Math.abs((sourceEnd-sourceStart)-(destEnd-destStart))>.11)
+     fail('Duração do trecho '+(i+1)+' incompatível com o tempo real do Premiere.');
+  return {index:i,sourceStart:sourceStart,sourceEnd:sourceEnd,destStart:destStart,destEnd:destEnd};
+ });
+ var out=[];
+ // Iterate ORIGINAL word indices only once. Never assign one spoken occurrence
+ // to two preview clips, even when Groq timestamps overlap at the seam.
+ snapshot.words.forEach(function(w,wordIndex){
+  var start=Number(w.start),end=Number(w.end);
+  if(!isFinite(start)||!isFinite(end)||end<=start||!String(w.word||'').trim())return;
+  var best=null,bestScore=-1,mid=(start+end)/2;
+  ranges.forEach(function(r){
+   var intersection=Math.min(end,r.sourceEnd)-Math.max(start,r.sourceStart);
+   if(intersection<=.005)return;
+   var covered=intersection/(end-start);
+   if(covered<.57)return; // A word that was materially cut is not a valid caption.
+   var score=intersection+(mid>=r.sourceStart&&mid<r.sourceEnd?.001:0)+r.index*1e-7;
+   if(score>bestScore){best=r;bestScore=score;}
   });
+  if(!best)return;
+  var mappedStart=Math.max(best.destStart,best.destStart+Math.max(start,best.sourceStart)-best.sourceStart);
+  var mappedEnd=Math.min(best.destEnd,best.destStart+Math.min(end,best.sourceEnd)-best.sourceStart);
+  if(mappedEnd-mappedStart>.01){
+   var clone=Object.assign({},w,{start:mappedStart,end:mappedEnd});
+   out.push(clone);
+  }
  });
  if(!out.length)fail('Não existem palavras válidas nos trechos da prévia.');
  out.sort(function(a,b){return a.start-b.start;});
