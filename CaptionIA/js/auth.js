@@ -16,6 +16,27 @@ function removeClass(el,name){if(!el)return;if(el.classList)el.classList.remove(
 addClass(d.documentElement,'cia-auth-pending');
 
 function safeJson(s){try{return JSON.parse(s||'{}');}catch(_e){return{};}}
+function safeStorageGet(key,defaultValue){
+  try{
+    if(!w || !w.localStorage) return defaultValue;
+    var value = w.localStorage.getItem(key);
+    return value === null ? defaultValue : value;
+  }catch(_e){return defaultValue;}
+}
+function safeStorageSet(key,value){
+  try{
+    if(!w || !w.localStorage) return false;
+    w.localStorage.setItem(key, String(value));
+    return true;
+  }catch(_e){return false;}
+}
+function safeStorageRemove(key){
+  try{
+    if(!w || !w.localStorage) return false;
+    w.localStorage.removeItem(key);
+    return true;
+  }catch(_e){return false;}
+}
 function request(method,path,body,token){
   return new Promise(function(resolve,reject){
     var x=new XMLHttpRequest();
@@ -51,10 +72,10 @@ function makeUuid(){
   return 'cia-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2);
 }
 function deviceUuid(){
-  var v='';try{v=localStorage.getItem(DEVICE_KEY)||'';}catch(_e){}
+  var v=safeStorageGet(DEVICE_KEY,'');
   if(v.length>=8)return v;
   v=makeUuid();
-  try{localStorage.setItem(DEVICE_KEY,v);if(w.fsCofreGravarAgora)w.fsCofreGravarAgora();}catch(_e2){}
+  if(safeStorageSet(DEVICE_KEY,v)&&w.fsCofreGravarAgora)w.fsCofreGravarAgora();
   return v;
 }
 function deviceInfo(){
@@ -100,7 +121,7 @@ function ensureGate(){
   if(form)form.addEventListener('submit',function(ev){ev.preventDefault();login((d.getElementById('cia-login-email')||{}).value||'',(d.getElementById('cia-login-password')||{}).value||'');});
   var c=d.getElementById('cia-create-account');if(c)c.addEventListener('click',function(){openSite('/criar-conta');});
   var b=d.getElementById('cia-buy-license');if(b)b.addEventListener('click',function(){openSite('/#planos');});
-  try{var saved=localStorage.getItem(EMAIL_KEY)||'';var email=d.getElementById('cia-login-email');if(email)email.value=saved;}catch(_e){}
+  try{var saved=safeStorageGet(EMAIL_KEY,'');var email=d.getElementById('cia-login-email');if(email)email.value=saved;}catch(_e){}
   return gate;
 }
 function showLogin(message,type){
@@ -185,7 +206,7 @@ function login(email,password){
   request('POST','/auth/login',{email:email,password:password,device_uuid:deviceUuid(),device_name:info.name,os:info.os},null).then(function(data){
     if(!data.refresh_token||!data.access_token)throw new Error('Resposta de login incompleta.');
     storeRefresh(data.refresh_token);accessToken=data.access_token;currentUser=data.user||null;currentLicense=data.license||null;
-    try{localStorage.setItem(EMAIL_KEY,email);if(w.fsCofreGravarAgora)w.fsCofreGravarAgora();}catch(_e){}
+    if(safeStorageSet(EMAIL_KEY,email)&&w.fsCofreGravarAgora)w.fsCofreGravarAgora();
     return checkLicense(accessToken,currentUser);
   }).catch(function(err){showLogin(err.message||'Não foi possível entrar.','error');}).then(function(){setBusy(false);},function(){setBusy(false);});
 }

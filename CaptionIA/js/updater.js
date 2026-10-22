@@ -276,6 +276,7 @@ function installRelease(release){
     });
 }
 function checkNow(){
+  if(w.CaptionIADevelopment&&w.CaptionIADevelopment.autoUpdates===false)return Promise.resolve(false);
   if(checking)return Promise.resolve(false);
   if(!w.CaptionIALicense||!w.CaptionIALicense.isAuthorized||!w.CaptionIALicense.isAuthorized())return Promise.resolve(false);
   checking=true;

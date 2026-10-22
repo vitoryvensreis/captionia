@@ -1,7 +1,7 @@
 /* Caption IA 3.5.0 — user-managed Groq: client NEVER handles the API secret. */
 (function(w,d){'use strict';
 var MODEL='openai/gpt-oss-120b',ready=false,checking=false,owner='',lastValidated=0,quota={},checkNonce=0;
-var root=null,panel=null;
+var root=null,panel=null,lastAttempt=0;
 function el(id){return d.getElementById(id);}
 function license(){return w.CaptionIALicense;}
 function licenseOk(){return !!(license()&&license().isAuthorized&&license().isAuthorized());}
@@ -39,7 +39,7 @@ function requestStatus(){
 function verify(reopen){
  if(!licenseOk()||!owner)return Promise.resolve(false);
  if(checking)return Promise.resolve(false);
- setChecking(true);if(reopen||!isReady())show('Consultando sua integração Groq na plataforma...',false);
+  lastAttempt=Date.now();setChecking(true);if(reopen||!isReady())show('Consultando sua integração Groq na plataforma...',false);
  var target=owner,nonce=++checkNonce;
  return requestStatus().then(function(data){
   if(target!==owner||nonce!==checkNonce)return false;
@@ -101,7 +101,7 @@ function guard(ev){if(!licenseOk()||isReady())return;if(root&&root.style.display
 d.addEventListener('click',guard,true);d.addEventListener('keydown',guard,true);
 d.addEventListener('captionia:license-ready',onLicense);
 if(d.readyState==='loading')d.addEventListener('DOMContentLoaded',ensureUI);else ensureUI();
-setInterval(function(){refreshPanel();if(licenseOk()&&owner&&Date.now()-lastValidated>11*60*60*1000&&!checking)verify(false);},1000);
-w.addEventListener('focus',function(){if(licenseOk()&&owner&&Date.now()-lastValidated>3*60*1000)verify(false);});
+setInterval(function(){refreshPanel();if(licenseOk()&&owner&&(!isReady()||Date.now()-lastValidated>11*60*60*1000)&&Date.now()-lastAttempt>=60000&&!checking)verify(false);},1000);
+w.addEventListener('focus',function(){if(licenseOk()&&owner&&Date.now()-lastValidated>3*60*1000&&Date.now()-lastAttempt>=60000)verify(false);});
 w.CaptionIAGroqAccess={isReady:isReady,ensureReady:ensureReady,onLicense:onLicense,onLogout:onLogout,verify:verify,observe:observe,quota:currentQuota,fmtWait:fmtWait};
 })(window,document);

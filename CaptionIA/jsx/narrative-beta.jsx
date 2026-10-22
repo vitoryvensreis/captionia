@@ -8,6 +8,62 @@
     function active(){return app&&app.project&&app.project.activeSequence;}
     function secs(v){return Number(v&&v.seconds!==undefined?v.seconds:v);}
     function mediaItem(clip){return clip&&clip.projectItem;}
+    function normalized(s){return String(s||'').toLowerCase().replace(/ç/g,'c').replace(/[ãáàâ]/g,'a').replace(/[éê]/g,'e').replace(/í/g,'i').replace(/[óôõ]/g,'o').replace(/ú/g,'u');}
+    function videoInfo(xml){
+        var value='';try{if(typeof ExternalObject!=='undefined'&&!ExternalObject.AdobeXMPScript)ExternalObject.AdobeXMPScript=new ExternalObject('lib:AdobeXMPScript');if(typeof XMPMeta!=='undefined'){var xmp=new XMPMeta(xml),p=xmp.getProperty('http://ns.adobe.com/premierePrivateProjectMetaData/1.0/','Column.Intrinsic.VideoInfo');if(p)value=String(p.value!==undefined?p.value:p);}}catch(e){}
+        if(!value){var element=/<(?:[\w]+:)?Column\.Intrinsic\.VideoInfo[^>]*>([\s\S]*?)<\//i.exec(xml),attribute=/(?:[\w]+:)?Column\.Intrinsic\.VideoInfo\s*=\s*["']([^"']+)["']/i.exec(xml);value=element?element[1]:attribute?attribute[1]:'';}return value;
+    }
+    function mediaState(item){
+        if(!item||!item.getMediaPath)throw Error('Use mídia local com áudio e vídeo; sequências aninhadas não são suportadas.');
+        if(item.isOffline&&item.isOffline())throw Error('Há mídia offline. Religue os arquivos antes da montagem.');
+        var path=String(item.getMediaPath()||''),file=new File(path);
+        if(!path||!file.exists)throw Error('Arquivo de mídia não encontrado: '+path);
+        var xml=String(item.getProjectMetadata?item.getProjectMetadata():''),size=/(\d{2,6})\s*[x×]\s*(\d{2,6})/.exec(videoInfo(xml));
+        if(!size)throw Error('Dimensões da mídia indisponíveis para validar o Movimento.');
+        return {path:file.fsName,size:Number(file.length),modified:file.modified?Number(file.modified.getTime()):0,width:Number(size[1]),height:Number(size[2])};
+    }
+    function plainClipState(clip,isAudio,media){
+        var result=[],i,j,component,p,label,name,v,allowed,center;
+        if(!clip.components)throw Error('Não foi possível verificar os efeitos do take.');
+        for(i=0;i<clip.components.numItems;i++){
+            component=clip.components[i];name=normalized(component.displayName);var match=String(component.matchName||'');
+            allowed=isAudio?/^(volume|channel volume|volume do canal|panner|panoramica|panoramico|panoramizador)$/.test(name):/^(motion|movimento|opacity|opacidade|time remapping|remapeamento de tempo)$/.test(name);
+            if(!allowed)throw Error('A montagem por subclipes não preserva o efeito "'+component.displayName+'". Use takes brutos ou faça uma cópia renderizada para esta etapa.');
+            var props=[];
+            for(j=0;j<component.properties.numItems;j++){
+                p=component.properties[j];label=normalized(p.displayName);
+                if(p.isTimeVarying&&p.isTimeVarying())throw Error('O take contém animação em '+component.displayName+'. A prévia não pode preservar esses keyframes.');
+                v=p.getValue();props.push({name:String(p.displayName),value:v});
+                if(name==='motion'||name==='movimento'){
+                    if(label==='position'||label==='posicao'||label==='anchor point'||label==='ponto de ancoragem'){
+                        center=v&&v.length===2&&((Math.abs(Number(v[0])-.5)<.001&&Math.abs(Number(v[1])-.5)<.001)||(Math.abs(Number(v[0])-media.width/2)<.1&&Math.abs(Number(v[1])-media.height/2)<.1));
+                        if(!center)throw Error('O take tem enquadramento alterado. A montagem por subclipes não preserva Movimento; use takes brutos.');
+                    }else if(/^(scale|escala|scale width|largura da escala|largura de escala)$/.test(label)){if(Math.abs(Number(v)-100)>.01)throw Error('O take contém escala alterada. Use takes brutos na Montagem.');}
+                    else if(/^(rotation|rotacao|anti-flicker filter|filtro anticintilacao|filtro anticintilante)$/.test(label)){if(Math.abs(Number(v))>.001)throw Error('O take contém rotação/filtro de Movimento alterado.');}
+                    else if(label==='uniform scale'||label==='escala uniforme'){if(!v)throw Error('Escala não uniforme não é preservada na montagem.');}
+                    else throw Error('Parâmetro de Movimento não reconhecido: '+p.displayName+'. Não consigo garantir a preservação.');
+                }else if(name==='opacity'||name==='opacidade'){
+                    if(label==='opacity'||label==='opacidade'){if(Math.abs(Number(v)-100)>.01)throw Error('Opacidade alterada não é preservada na montagem.');}
+                    else if(label==='blend mode'||label==='modo de mesclagem'){if(!(v===18||normalized(v)==='normal'))throw Error('Modo de mesclagem alterado ou não reconhecido.');}
+                    else throw Error('Máscaras/ajustes de Opacidade não são preservados na montagem.');
+                }else if(name==='time remapping'||name==='remapeamento de tempo'){
+                    if(!/^(speed|velocidade)$/.test(label)||Math.abs(Number(v)-100)>.01)throw Error('Remapeamento de tempo não é preservado na montagem.');
+                }else if(/^(volume|channel volume|volume do canal)$/.test(name)){
+                    if(/^(bypass|ignorar|desvio)$/.test(label)){if(v)throw Error('Bypass de áudio alterado.');}
+                    else if(/^(level|nivel|left|right|esquerda|direita|channel [0-9]+|canal [0-9]+)$/.test(label)){if(Math.abs(Number(v)-1)>.00001)throw Error('Volume do take alterado. Renderize uma cópia para preservar o tratamento.');}
+                    else throw Error('Ajuste de áudio não reconhecido: '+p.displayName+'. Não consigo preservá-lo por subclipe.');
+                }else if(/^(balance|balanco|pan|panoramica)$/.test(label)){if(Math.abs(Number(v))>.00001)throw Error('Panorama de áudio alterado não é preservado.');}
+                else throw Error('Panorama de áudio não reconhecido; a montagem foi bloqueada para preservar seu tratamento.');
+            }
+            result.push({matchName:match,name:String(component.displayName),properties:props});
+        }
+        return result;
+    }
+    function trackSafe(track){
+        if(track.isLocked&&track.isLocked())throw Error('Destrave as faixas de áudio e vídeo antes de gerar a prévia.');
+        if(!track.transitions||typeof track.transitions.numItems==='undefined')throw Error('Este Premiere não permite conferir transições. A montagem foi bloqueada para preservar os cortes.');
+        if(track.transitions.numItems)throw Error('A montagem por subclipes não preserva transições. Use uma sequência com takes brutos.');
+    }
     function frameEpsilon(seq){var t=Number(seq&&seq.timebase);return t>0?Math.max(.009,Math.min(.055,.65*t/TICKS)):.015;}
     function frameDuration(seq){
         var ticks=Number(seq&&seq.timebase),seconds=ticks/TICKS;
@@ -48,25 +104,28 @@
         for(i=0;i<cuts.length;i++)if(cuts[i].outTime-cuts[i].inTime<.18-frame*.01)
             throw Error('Trecho curto demais depois de alinhar os cortes aos frames ('+(i+1)+').');
     }
-    function snapshot(){
-        var seq=active();if(!seq)throw Error('Abra uma sequência no Premiere.');
+    function snapshot(target){
+        var seq=target||active();if(!seq)throw Error('Abra uma sequência no Premiere.');
+        if(hasExtraTracks(seq))throw Error('Use somente V1 e A1 com takes brutos. Faixas adicionais não são preservadas por esta montagem.');
         var video=[],audio=[];var tr,i,c;
-        for(i=0;i<seq.videoTracks.numTracks;i++){tr=seq.videoTracks[i];if(tr.clips.numItems){if(video.length)throw Error('BETA: use somente uma faixa de vídeo com falas; outras faixas devem estar vazias.');for(var j=0;j<tr.clips.numItems;j++){c=tr.clips[j];if(!mediaItem(c)||!mediaItem(c).createSubClip)throw Error('Item sem mídia editável na faixa de vídeo.');if(c.isAdjustmentLayer&&c.isAdjustmentLayer())throw Error('Faixa contém camada de ajuste.');if(c.getSpeed&&Math.abs(Number(c.getSpeed())-1)>.001)throw Error('Velocidade alterada não é suportada na BETA.');
-             var vs=secs(c.start),ve=secs(c.end),ins=secs(c.inPoint),outs=secs(c.outPoint);if(Math.abs((ve-vs)-(outs-ins))>.12)throw Error('Um clipe tem velocidade/remapeamento incompatível.');video.push({index:j,start:vs,end:ve,inPoint:ins,outPoint:outs,name:c.name,nodeId:String(mediaItem(c).nodeId||'')});}}
+        for(i=0;i<seq.videoTracks.numTracks;i++){tr=seq.videoTracks[i];if(tr.clips.numItems){trackSafe(tr);if(video.length)throw Error('BETA: use somente uma faixa de vídeo com falas; outras faixas devem estar vazias.');for(var j=0;j<tr.clips.numItems;j++){c=tr.clips[j];if(!mediaItem(c)||!mediaItem(c).createSubClip)throw Error('Item sem mídia editável na faixa de vídeo.');if(c.isAdjustmentLayer&&c.isAdjustmentLayer())throw Error('Faixa contém camada de ajuste.');if(c.getSpeed&&Math.abs(Number(c.getSpeed())-1)>.001)throw Error('Velocidade alterada não é suportada na BETA.');
+             var vs=secs(c.start),ve=secs(c.end),ins=secs(c.inPoint),outs=secs(c.outPoint),media=mediaState(mediaItem(c));if(Math.abs((ve-vs)-(outs-ins))>.12)throw Error('Um clipe tem velocidade/remapeamento incompatível.');video.push({index:j,start:vs,end:ve,inPoint:ins,outPoint:outs,name:String(c.name),nodeId:String(mediaItem(c).nodeId||''),media:media,effects:plainClipState(c,false,media)});}}
         }
         if(!video.length)throw Error('A sequência não tem vídeos na faixa V1.');
-        for(i=0;i<seq.audioTracks.numTracks;i++){tr=seq.audioTracks[i];if(tr.clips.numItems){if(audio.length)throw Error('BETA: múltiplas faixas de áudio não são suportadas nesta revisão.');for(var k=0;k<tr.clips.numItems;k++){c=tr.clips[k];audio.push({start:secs(c.start),end:secs(c.end),nodeId:String(mediaItem(c)&&mediaItem(c).nodeId||'')});}}}
+        for(i=0;i<seq.audioTracks.numTracks;i++){tr=seq.audioTracks[i];if(tr.clips.numItems){trackSafe(tr);if(audio.length)throw Error('BETA: múltiplas faixas de áudio não são suportadas nesta revisão.');for(var k=0;k<tr.clips.numItems;k++){c=tr.clips[k];var am=mediaState(mediaItem(c));audio.push({start:secs(c.start),end:secs(c.end),inPoint:secs(c.inPoint),outPoint:secs(c.outPoint),nodeId:String(mediaItem(c)&&mediaItem(c).nodeId||''),media:am,effects:plainClipState(c,true,am)});}}}
         if(audio.length!==video.length)throw Error('Áudio separado/não alinhado: use takes com áudio vinculado na A1.');
-        for(i=0;i<video.length;i++){if(Math.abs(audio[i].start-video[i].start)>.1||Math.abs(audio[i].end-video[i].end)>.1||audio[i].nodeId!==video[i].nodeId)throw Error('Áudio e vídeo não estão vinculados no take '+(i+1)+'.');}
+        for(i=0;i<video.length;i++){if(Math.abs(audio[i].start-video[i].start)>.01||Math.abs(audio[i].end-video[i].end)>.01||Math.abs(audio[i].inPoint-video[i].inPoint)>.01||Math.abs(audio[i].outPoint-video[i].outPoint)>.01||audio[i].nodeId!==video[i].nodeId)throw Error('Áudio e vídeo não estão alinhados à mesma mídia no take '+(i+1)+'.');}
         video.sort(function(a,b){return a.start-b.start;});
         for(i=1;i<video.length;i++)if(video[i].start<video[i-1].end-.02)throw Error('Clipes sobrepostos não são suportados nesta BETA.');
-        return {sequenceID:String(seq.sequenceID),sequenceName:String(seq.name),clips:video,clipCount:video.length,frameDuration:frameDuration(seq)};
+        var result={sequenceID:String(seq.sequenceID),clips:video,audio:audio,clipCount:video.length,frameDuration:frameDuration(seq),settings:seq.getSettings()};
+        result.signature=JSON.stringify(result);result.sequenceName=String(seq.name);return result;
     }
     function hasExtraTracks(seq){var i;for(i=1;i<seq.videoTracks.numTracks;i++)if(seq.videoTracks[i].clips.numItems)return true;for(i=1;i<seq.audioTracks.numTracks;i++)if(seq.audioTracks[i].clips.numItems)return true;return false;}
     function makePreview(args){
         var original=byID(args.sequenceID);if(!original)throw Error('Sequência original não encontrada: reabra o projeto.');
-        var previous=app.project.activeSequence;app.project.openSequence(original.sequenceID);
-        var snap=snapshot();if(hasExtraTracks(original))throw Error('Existem faixas adicionais: não vou mexer nelas.');
+        var previous=app.project.activeSequence;
+        if(!previous||(String(previous.sequenceID)!==String(original.sequenceID)&&String(previous.sequenceID)!==String(args.currentPreviewId||'')))throw Error('A sequência ativa mudou. Volte à original ou à prévia desta montagem.');
+        var snap=snapshot(original);if(!args.sourceSignature||args.sourceSignature!==snap.signature)throw Error('Mídia, efeitos ou cortes da original mudaram desde a análise. Refaça a montagem.');
         if(!args.cuts||!args.cuts.length||args.cuts.length>100)throw Error('Plano vazio ou grande demais.');
         var cuts=[],i,j,c,ref,source,clip;var sourceTrack=original.videoTracks[0],frame=frameDuration(original);
         for(i=0;i<args.cuts.length;i++){
@@ -89,17 +148,18 @@
                 description:String(c.id||'trecho')});
         }
         assertUniqueSourceFrames(cuts,frame);
-        var subclips=[];for(i=0;i<cuts.length;i++){
-            c=cuts[i];var name='Caption IA · '+(i+1)+' · '+c.description;
-            var sub=c.source.createSubClip(name,String(Math.round(c.inTime*TICKS)),String(Math.round(c.outTime*TICKS)),1,1,1);
-            if(!sub)throw Error('Premiere não conseguiu criar o subclipe '+(i+1));subclips.push(sub);
-        }
         var priorIds={};for(i=0;i<app.project.sequences.numSequences;i++)priorIds[String(app.project.sequences[i].sequenceID)]=true;
         if(!original.clone())throw Error('Não consegui duplicar a sequência. Nada foi alterado no original.');
         var preview=null;for(i=0;i<app.project.sequences.numSequences;i++){var s=app.project.sequences[i];if(!priorIds[String(s.sequenceID)]){preview=s;break;}}
         if(!preview)throw Error('Clone criado, mas não foi possível localizá-lo. O original permanece intacto.');
         preview.name='Caption IA • PRÉVIA IA • '+(new Date()).getTime();
         try{
+            // Preserve an untouched source sequence before any subclip/project mutation.
+            var subclips=[];for(i=0;i<cuts.length;i++){
+                c=cuts[i];var name='Caption IA · '+(i+1)+' · '+c.description;
+                var sub=c.source.createSubClip(name,String(Math.round(c.inTime*TICKS)),String(Math.round(c.outTime*TICKS)),1,1,1);
+                if(!sub)throw Error('Premiere não conseguiu criar o subclipe '+(i+1));subclips.push(sub);
+            }
             var atr=preview.audioTracks[0], guard=0;
             while(atr.clips.numItems){if(++guard>3000)throw Error('Muitos clipes na A1.');var beforeA=atr.clips.numItems;atr.clips[beforeA-1].remove(0,0);if(atr.clips.numItems>=beforeA)throw Error('Não consegui remover um áudio do clone.');}
             var vtr=preview.videoTracks[0];guard=0;
@@ -125,12 +185,14 @@
             if(preview.videoTracks[0].clips.numItems!==subclips.length)throw Error('A quantidade de clipes gerados difere do plano.');
             for(i=1;i<layout.length;i++)if(Math.abs(layout[i].destStart-layout[i-1].destEnd)>epsilon)throw Error('Detectado espaço entre os clipes '+i+' e '+(i+1));
             app.project.openSequence(preview.sequenceID);
-            return {previewId:String(preview.sequenceID),duration:cursor,layout:layout,created:true};
+            return {previewId:String(preview.sequenceID),duration:cursor,layout:layout,previewSignature:snapshot(preview).signature,created:true};
         }catch(e){app.project.openSequence(original.sequenceID);throw Error('A prévia falhou e foi isolada. Original preservado. '+e.message);}
     }
     function validatePreview(args){
         var seq=byID(args.previewId);if(!seq)throw Error('Prévia não encontrada. Gere uma nova.');
+        var original=byID(args.sequenceID);if(!original||snapshot(original).signature!==args.sourceSignature)throw Error('A sequência original ou sua mídia mudou desde a análise. Gere um novo plano.');
         if(!active()||String(active().sequenceID)!==String(args.previewId))throw Error('Abra a sequência de prévia antes de aprovar.');
+        if(!args.previewSignature||snapshot(seq).signature!==args.previewSignature)throw Error('Mídia, efeitos ou conteúdo da prévia foram alterados. Gere novamente antes de aprovar.');
         if(!args.layout||seq.videoTracks[0].clips.numItems!==args.layout.length)throw Error('A quantidade de clipes da prévia foi alterada. Gere outra prévia.');
         var audio=seq.audioTracks[0],video=seq.videoTracks[0],out=[],i,actualV,actualA,planned,begin,end,epsilon=frameEpsilon(seq);
         if(audio.clips.numItems!==video.clips.numItems)throw Error('Faixa de áudio foi alterada.');
@@ -147,5 +209,5 @@
     $.global.fsNarrativeBetaValidatePreview=function(payload){try{return ok(validatePreview(JSON.parse(payload)));}catch(e){return error(e.message);}};
     $.global.fsNarrativeBetaSnapshot=function(){try{return ok(snapshot());}catch(e){return error(e.message);}};
     $.global.fsNarrativeBetaPreview=function(payload){try{if(typeof JSON==='undefined')throw Error('JSON indisponível no ExtendScript.');return ok(makePreview(JSON.parse(payload)));}catch(e){return error(e.message);}};
-    $.global.fsNarrativeBetaRestore=function(payload){try{var d=JSON.parse(payload),seq=byID(d.sequenceID);if(!seq)throw Error('Sequência anterior não encontrada');app.project.openSequence(seq.sequenceID);return ok({restored:true});}catch(e){return error(e.message);}};
+    $.global.fsNarrativeBetaRestore=function(payload){try{var d=JSON.parse(payload),seq=byID(d.sequenceID);if(!seq)throw Error('Sequência anterior não encontrada');if(!d.sourceSignature||snapshot(seq).signature!==d.sourceSignature)throw Error('A original mudou desde a análise. Refaça a transcrição antes de continuar o Auto Edit.');app.project.openSequence(seq.sequenceID);return ok({restored:true});}catch(e){return error(e.message);}};
 })();
