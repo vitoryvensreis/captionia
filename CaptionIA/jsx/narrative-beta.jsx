@@ -61,7 +61,9 @@
     }
     function trackSafe(track){
         if(track.isLocked&&track.isLocked())throw Error('Destrave as faixas de áudio e vídeo antes de gerar a prévia.');
-        if(!track.transitions||typeof track.transitions.numItems==='undefined')throw Error('Este Premiere não permite conferir transições. A montagem foi bloqueada para preservar os cortes.');
+        // Track.transitions is not exposed by every Premiere version. A missing
+        // collection must not make an otherwise safe, cloned rough cut impossible.
+        if(!track.transitions||typeof track.transitions.numItems==='undefined')return;
         if(track.transitions.numItems)throw Error('A montagem por subclipes não preserva transições. Use uma sequência com takes brutos.');
     }
     function frameEpsilon(seq){var t=Number(seq&&seq.timebase);return t>0?Math.max(.009,Math.min(.055,.65*t/TICKS)):.015;}
@@ -206,6 +208,25 @@
         }
         return {layout:out};
     }
+    function cloneForRetake(args){
+        var original=byID(args.sequenceID),current=active();
+        if(!original||!current||String(original.sequenceID)!==String(current.sequenceID))
+            throw Error('Abra a sequência transcrita antes de iniciar o Retake.');
+        var ids={},i,copy=null;
+        for(i=0;i<app.project.sequences.numSequences;i++)ids[String(app.project.sequences[i].sequenceID)]=true;
+        if(!original.clone())throw Error('O Premiere não conseguiu duplicar a sequência. Original intacto.');
+        for(i=0;i<app.project.sequences.numSequences;i++){
+            var candidate=app.project.sequences[i];
+            if(!ids[String(candidate.sequenceID)]){copy=candidate;break;}
+        }
+        if(!copy)throw Error('A cópia do Retake não foi localizada. Original intacto.');
+        copy.name='Caption IA - RETAKE - '+(new Date()).getTime();
+        try{app.project.openSequence(copy.sequenceID);}catch(e){throw Error('O Premiere não abriu a cópia. Original intacto.');}
+        if(!active()||String(active().sequenceID)!==String(copy.sequenceID))
+            throw Error('A cópia do Retake não ficou ativa. Não foram aplicados cortes.');
+        return {sequenceID:String(original.sequenceID),previewId:String(copy.sequenceID)};
+    }
+    $.global.fsNarrativeBetaCloneForRetake=function(payload){try{return ok(cloneForRetake(JSON.parse(payload)));}catch(e){return error(e.message);}};
     $.global.fsNarrativeBetaValidatePreview=function(payload){try{return ok(validatePreview(JSON.parse(payload)));}catch(e){return error(e.message);}};
     $.global.fsNarrativeBetaSnapshot=function(){try{return ok(snapshot());}catch(e){return error(e.message);}};
     $.global.fsNarrativeBetaPreview=function(payload){try{if(typeof JSON==='undefined')throw Error('JSON indisponível no ExtendScript.');return ok(makePreview(JSON.parse(payload)));}catch(e){return error(e.message);}};

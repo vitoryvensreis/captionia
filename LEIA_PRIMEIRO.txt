@@ -1,4 +1,4 @@
-CAPTION IA 3.5.1 — INSTALAÇÃO WINDOWS / MAC E GROQ NA CONTA
+CAPTION IA 3.5.2 — INSTALAÇÃO WINDOWS / MAC E GROQ NA CONTA
 
 WINDOWS
 1. Extraia o ZIP inteiro mantendo a pasta CaptionIA e os instaladores juntos.

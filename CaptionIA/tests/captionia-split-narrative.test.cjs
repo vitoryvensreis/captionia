@@ -64,6 +64,19 @@ let approveArgs={sequenceID:'original',sourceSignature:snapshot.signature,previe
 assert.equal(f.call('fsNarrativeBetaValidatePreview',approveArgs).ok,true);
 f.project.activeSequence.videoTracks[0].clips[0].projectItem=f.media('changed');assert.match(f.call('fsNarrativeBetaValidatePreview',approveArgs).error,/alterados|não estão alinhados/);
 f.state.files['/take.mov'].size=2000;assert.match(f.call('fsNarrativeBetaValidatePreview',approveArgs).error,/original.*mudou/);
+// Older Premiere releases do not expose Track.transitions. Missing collection
+// is not a reason to reject a safe copied rough cut.
+f=fixture('jsx/narrative-beta.jsx');
+delete f.original.videoTracks[0].transitions;
+delete f.original.audioTracks[0].transitions;
+let baseSnapshot=f.call('fsNarrativeBetaSnapshot');
+assert.equal(baseSnapshot.ok,true,baseSnapshot.error);
+const safeClone=f.call('fsNarrativeBetaCloneForRetake',{sequenceID:'original'});
+assert.equal(safeClone.ok,true,safeClone.error);
+assert.notEqual(safeClone.previewId,'original');
+assert.equal(f.original.videoTracks[0].clips.length,1);
+assert.equal(f.original.audioTracks[0].clips.length,1);
+assert.equal(f.project.activeSequence.sequenceID,safeClone.previewId);
 f=fixture('jsx/narrative-beta.jsx');f.original.videoTracks[0].clips[0].components.push(component('Lumetri Color',[]));assert.match(f.call('fsNarrativeBetaSnapshot').error,/não preserva o efeito/);assert.equal(f.state.clones,0);
 f=fixture('jsx/narrative-beta.jsx');f.original.videoTracks[0].clips[0].components[0].properties[0].isTimeVarying=()=>true;assert.match(f.call('fsNarrativeBetaSnapshot').error,/keyframes/);
 f=fixture('jsx/narrative-beta.jsx');f.state.files['/take.mov'].exists=false;assert.match(f.call('fsNarrativeBetaSnapshot').error,/offline/);

@@ -1,0 +1,15 @@
+Caption IA 3.5.2 — Montagem Inteligente e Retake
+
+- As melhorias locais recebidas do usuário foram integradas no GitHub em commit independente.
+- Retake com Montagem ativada cria uma SEQUÊNCIA DUPLICADA no Premiere antes de executar o motor real de cortes. A original permanece preservada.
+- AutoEdit passa a executar o Retake em vez de apenas reportar análises sem remover trechos.
+- O motor de montagem suporta versões do Premiere cuja coleção Track.transitions não é exposta pela API ExtendScript.
+- Montagem Inteligente aceita imediatamente a primeira proposta editorial válida, reduzindo solicitações desnecessárias à Groq.
+- Se a proposta inicial não passar nas proteções de coerência, tenta uma revisão mais concisa e não altera a original se falhar.
+- Regressão adicionada para clone Retake e APIs sem propriedade transitions.
+
+Observações:
+- A ligação ao hostscript.jsxbin foi preservada, sem modificação do binário.
+- A IA na nuvem exige chave Groq válida cadastrada na conta Caption IA.
+- Prévia e execução reais precisam ser conferidas no Adobe Premiere Pro, pois os testes Node usam simulações da API.
+- O AutoEdit da nova versão continua em modo de desenvolvimento, com atualização automática desativada para não substituir correções locais.

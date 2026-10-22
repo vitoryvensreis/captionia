@@ -18,3 +18,7 @@ credentials.json
 
 # Pacotes gerados
 *.zip
+
+# Backups e cache da instalacao Adobe no computador
+CaptionIA/.captionia-backups/
+CaptionIA/Microsoft/

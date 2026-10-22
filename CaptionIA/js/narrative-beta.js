@@ -149,6 +149,40 @@ function analyzeOnly(done){
  }catch(e){failureDiagnostic(e,'retake');done({ok:false,erro:'Retake (análise): '+e.message});}
 }
 root.fsAutoEditRetakeAnalise=analyzeOnly;
+/* Retake executável: copia a sequência ANTES do corte, para não destruir
+   a timeline original. A análise semântica segue como dica para a Montagem. */
+function retakeOnClone(done){
+ if(typeof done!=='function')return;
+ if(isBusy||pending)return done({ok:false,erro:'Aguarde a operação de Montagem/Retake em andamento.'});
+ var transcript=root._fsLastResp;
+ if(!transcript||!Array.isArray(transcript.words)||!transcript.words.length||!transcript._fsSeq)
+  return done({ok:false,erro:'Transcreva a sequência atual antes de executar o Retake.'});
+ if(typeof root.fsAutoEditRetake!=='function')
+  return done({ok:false,erro:'Motor de Retake não carregado. Verifique js/autocut.js.'});
+ var originalId=String(transcript._fsSeq),finished=false;
+ function complete(result){if(finished)return;finished=true;isBusy=false;done(result);}
+ isBusy=true;
+ progress('Retake: criando uma cópia da sequência para preservar o original...');
+ loadHost().then(function(){
+  return host('fsNarrativeBetaCloneForRetake',{sequenceID:originalId});
+ }).then(function(copy){
+  if(!copy||!copy.previewId||String(copy.previewId)===originalId)
+   fail('O Premiere não confirmou uma sequência de Retake independente.');
+  restoreTranscript(transcript,String(copy.previewId));
+  progress('Retake: analisando e removendo apenas repetições seguras na cópia...');
+  try{
+   root.fsAutoEditRetake(function(result){
+    if(!result||!result.ok){
+     return complete({ok:false,erro:'Retake na cópia: '+String(result&&result.erro||'Falha na execução')+'. Original preservado.'});
+    }
+    // O motor legado realinha a transcrição depois dos cortes aplicados.
+    complete({ok:true,resumo:String(result.resumo||'Retake concluído')+' · feito em sequência duplicada, original preservado'});
+   });
+  }catch(e){complete({ok:false,erro:'Retake na cópia: '+String(e.message||e)+'. Original preservado.'});}
+ }).catch(function(e){complete({ok:false,erro:'Não foi possível preparar o Retake seguro: '+String(e.message||e)});});
+}
+root.fsAutoEditRetakeSeguro=retakeOnClone;
+
 function overlappingSegments(take,segments){if(!take||!isFinite(take.ini)||!isFinite(take.fim))return [];
  return segments.filter(function(s){var overlap=Math.max(0,Math.min(s.end,take.fim)-Math.max(s.start,take.ini));return overlap>=.12&&overlap/Math.max(.18,s.end-s.start)>=.42;}).map(function(s){return s.id;});}
 function retakeContext(resp,segments){
@@ -440,16 +474,16 @@ function inspectPlan(candidate,first){
  var coverage=coverageReport(normalized,config.sections,unique.cuts);
  return {snapshot:snapshot,cuts:unique.cuts,removed:normalized.discarded.concat(unique.removed),coverage:coverage,config:config,summary:normalized.summary||first&&first.summary||'',retake:hints,audit:audit,ideaAudit:ideaCoverage};
 }
-return invokeEditor([{role:'system',content:sys+' Estruture a resposta obrigatoriamente em selected, discarded, ideas, coverage, summary. NÃO use cuts. Nunca marque uma fala selecionada como duplicate.'},{role:'user',content:payload}],'editor').then(function(first){
- var firstPlan;try{firstPlan=editorialNormalize(first);}catch(e){eventLog('first-plan-invalid',e.message);firstPlan={cuts:[],discarded:[],ideas:[]};}
- progress('IA revisando cobertura, tentativas e continuidade...');
- var reviewRequest={requirements:JSON.parse(payload),firstPlan:firstPlan.cuts,firstDiscarded:firstPlan.discarded,firstIdeas:firstPlan.ideas,firstCoverage:first.coverage||[]};
- return invokeEditor([{role:'system',content:sys+' Você é o REVISOR INDEPENDENTE. Entregue selected, discarded, ideas, coverage, summary. Corrija classificação contraditória, ideias essenciais omitidas e repetições. selected não pode conter role duplicate.'},{role:'user',content:JSON.stringify(reviewRequest)}],'review').then(function(review){
-  try{return inspectPlan(review,first);}catch(editorialError){
-   eventLog('review-rejected',editorialError.message);progress('A proposta foi rejeitada. Tentando reconstruir a montagem...');
-   return invokeEditor([{role:'system',content:sys+' REPARO FINAL. A proposta anterior falhou. Separe selected e discarded; nunca use duplicate como role de selected. Identifique TODAS as ideias principais que possuem falas disponíveis e cubra-as sem repetir. Devolva JSON com selected,discarded,ideas,coverage,summary.'},{role:'user',content:JSON.stringify({requirements:JSON.parse(payload),rejected:review,error:String(editorialError.message||editorialError),first:firstPlan})}],'repair').then(function(repaired){return inspectPlan(repaired,first);});
-  }
- });
+return invokeEditor([{role:'system',content:sys+' Entregue JSON com selected, discarded, ideas, coverage, summary. IDs devem pertencer à transcrição. Não inclua duplicatas na seleção.'},{role:'user',content:payload}],'editor').then(function(first){
+ // Não bloquear uma montagem válida exigindo uma segunda análise de 90 segundos.
+ try{return inspectPlan(first,first);}catch(editorialError){
+  eventLog('editor-rejected',editorialError.message);
+  progress('IA ajustando a seleção que não passou na validação...');
+  var firstPlan;
+  try{firstPlan=editorialNormalize(first);}catch(_){firstPlan={cuts:[],discarded:[],ideas:[],coverage:[]};}
+  var reviewRequest={goal:config.goalText||'preservar conteúdo',mode:config.mode,segments:lastSegments.map(function(s){return {id:s.id,text:s.text,blocked:s.blocked};}),retakeGroups:hints.groups||[],candidate:firstPlan.cuts,discarded:firstPlan.discarded,problem:String(editorialError.message||editorialError)};
+  return invokeEditor([{role:'system',content:sys+' Corrija a proposta. JSON: selected,discarded,ideas,coverage,summary. Não invente IDs nem descarte informações necessárias.'},{role:'user',content:JSON.stringify(reviewRequest)}],'review').then(function(review){return inspectPlan(review,first);});
+ }
 });
 }).then(function(result){assertUnchangedTranscript(fingerprint);return host('fsNarrativeBetaSnapshot',{}).then(function(fresh){if(fresh.signature!==result.snapshot.signature)fail('A timeline ou a mídia mudou durante a análise. Refaça a montagem.');return result;});}).then(function(result){lastPlan=result.cuts;lastManifest=result.snapshot;lastCoverage=result.coverage;removedDuplicates=result.removed;lastRetake=result.retake;
  reportState.state='awaiting_approval';eventLog('ready','Plano validado para takes brutos, aguardando aprovação');pending={done:done,fingerprint:fingerprint,previewId:null,previewCuts:null,previewLayout:null,originalTranscript:deepCopy(transcript),config:result.config};cards();
