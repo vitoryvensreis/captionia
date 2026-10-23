@@ -61,13 +61,19 @@
     function neutralAudioSwitch(value){
         return value===false||value===0||value==='0'||normalized(value)==='false'||normalized(value)==='falso'||normalized(value)==='desativado';
     }
-    function neutralAudioLevel(value){
-        if(typeof value==='number')return isFinite(value)&&Math.abs(value-1)<.00001;
+    function neutralAudioLevel(value,label){
+        // CEP builds use either unit gain=1 or Premiere's observed 0 dB value
+        // (15 dB native offset) = 0.177827941. The latter is accepted ONLY for
+        // an explicit Level/Nivel control, not a generic Volume toggle.
+        if(typeof value==='boolean'||value===null||typeof value==='undefined')return false;
+        var level=Number(value),neutralLinear=isFinite(level)&&Math.abs(level-1)<.00001;
+        var offsetLevel=(label==='level'||label==='nivel')&&isFinite(level)&&Math.abs(level-0.1778279410038923)<.0001;
+        if(typeof value==='number')return neutralLinear||offsetLevel;
         if(typeof value!=='string')return false;
         var text=value.replace(/^\s+|\s+$/g,'').replace(',','.');
         if(/^[-+]?(?:0+(?:\.0+)?|\.0+)\s*dB$/i.test(text))return true;
         if(!/^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)$/.test(text))return false;
-        return Math.abs(Number(text)-1)<.00001;
+        return neutralLinear||offsetLevel;
     }
     function neutralAudioPan(value){
         if(typeof value==='number')return isFinite(value)&&Math.abs(value)<.00001;
@@ -88,7 +94,7 @@
             component=clip.components[i];name=normalized(component.displayName);var match=String(component.matchName||'');
             allowed=isAudio?/^(volume|channel volume|volume (?:do|de|dos) canais?|panner|panoramica|panoramico|panoramizador)$/.test(name):/^(motion|movimento|opacity|opacidade|time remapping|remapeamento de tempo)$/.test(name);
             if(!allowed)throw Error('A montagem por subclipes não preserva o efeito "'+component.displayName+'". Use takes brutos ou faça uma cópia renderizada para esta etapa.');
-            var props=[];
+            var props=[],volumeHeadingFlag=false,levelVerified=false;
             for(j=0;j<component.properties.numItems;j++){
                 p=component.properties[j];label=normalized(p.displayName);
                 if(p.isTimeVarying&&p.isTimeVarying())throw Error('O take contém animação em '+component.displayName+'. A prévia não pode preservar esses keyframes.');
@@ -130,8 +136,16 @@
                     hostNote('audio.property',name.slice(0,35)+' / '+label.slice(0,50)+' = '+debugValue(v).slice(0,32));
                     if(/^(bypass|ignorar|desvio|mute|mudo|silenciar|silenciado)$/.test(effectiveLabel)){
                         if(!neutralAudioSwitch(v))throw Error('O take contém bypass/silenciamento alterado ('+p.displayName+': '+debugValue(v)+').');
+                    }else if(name==='volume'&&effectiveLabel==='volume'&&typeof v==='boolean'){
+                        // Real Premiere PT-BR 23 Oct 2026: native Volume/Volume=false.
+                        // This is a boolean control state, NOT a gain of zero or -inf dB.
+                        // A separate numeric Level/Nivel must still be read and checked.
+                        if(v!==false)throw Error('Estado booleano de Volume alterado. Revise o áudio antes da montagem.');
+                        volumeHeadingFlag=true;
+                        hostNote('audio.volume-flag','native-volume=false; checking-level-separately');
                     }else if(audioLevelLabel(effectiveLabel)){
-                        if(!neutralAudioLevel(v))throw Error('Volume do take alterado ou sem leitura neutra ('+p.displayName+': '+debugValue(v)+'). Renderize uma cópia para preservar o tratamento.');
+                        if(!neutralAudioLevel(v,effectiveLabel))throw Error('Volume do take alterado ou sem leitura neutra ('+p.displayName+': '+debugValue(v)+'). Renderize uma cópia para preservar o tratamento.');
+                        if(effectiveLabel==='level'||effectiveLabel==='nivel')levelVerified=true;
                     }else if(audioPanLabel(effectiveLabel)){
                         if(!neutralAudioPan(v))throw Error('Panorama de áudio alterado ('+p.displayName+': '+debugValue(v)+').');
                     }else{
@@ -145,6 +159,10 @@
                     hostNote('audio.unknown','component='+name+' prop='+label.slice(0,65)+' type='+typeof v+' value='+debugValue(v));
                     throw Error('Panorama de áudio não reconhecido: '+p.displayName+' ('+debugValue(v)+'). A montagem foi bloqueada para preservar seu tratamento.');
                 }
+            }
+            if(isAudio&&name==='volume'&&volumeHeadingFlag&&!levelVerified){
+                hostNote('audio.level-unverified','Volume boolean was neutral but no explicit Level/Nivel was confirmed');
+                throw Error('O Premiere retornou Volume=false, mas não foi possível confirmar Nível/Level. A montagem foi bloqueada para proteger o áudio.');
             }
             result.push({matchName:match,name:String(component.displayName),properties:props});
         }
