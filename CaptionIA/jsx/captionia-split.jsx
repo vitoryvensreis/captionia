@@ -62,20 +62,38 @@ function crop(clip,track,index,values,expectedID){
  if(!qt)throw Error('Adaptador Crop não encontrou a faixa de vídeo V'+(track+1)+'. Use Ajustar.');
  var fpsFrame=Number(app.project.activeSequence.timebase)/TICKS;
  var maxDelta=isFinite(fpsFrame)&&fpsFrame>0?fpsFrame*.55:.020;
- var matching=[],qeItems=[];
- for(var i=0;i<qt.numItems;i++){
-  var item=qt.getItemAt(i);if(!item||typeof item.addVideoEffect!=='function')continue;
+ var matching=[],qeItems=[],rawCount=Number(qt.numItems)||0;
+ // In Premiere QE, numItems includes Empty gap placeholders. Those objects
+ // are not TrackItems; counting them causes false "QE: 2, correspondencias: 0".
+ function qeSeconds(value){
+  if(value===null||typeof value==='undefined')return NaN;
+  var t;
+  try{if(typeof value.seconds!=='undefined'){t=Number(value.seconds);if(isFinite(t))return t;}}catch(e){}
+  try{if(typeof value.ticks!=='undefined'){t=Number(value.ticks)/TICKS;if(isFinite(t))return t;}}catch(e){}
+  try{if(typeof value.getSeconds==='function'){t=Number(value.getSeconds());if(isFinite(t))return t;}}catch(e){}
+  if(typeof value==='number')return Math.abs(value)>1e9?value/TICKS:value;
+  return NaN; // QETime textual/timecode variants are not safely comparable.
+ }
+ for(var i=0;i<rawCount;i++){
+  var item=qt.getItemAt(i);if(!item)continue;
+  var type=String(item.type||'').toLowerCase();
+  if(type==='empty'||type==='gap'||type==='transition'||type==='none')continue;
+  if(type&&type!=='clip'&&type!=='video')continue;
+  if(typeof item.addVideoEffect!=='function')continue;
   qeItems.push(item);
-  var start=sec(item.start),end=sec(item.end),sourceStart=sec(clip.start),sourceEnd=sec(clip.end);
+  var start=qeSeconds(item.start),end=qeSeconds(item.end),sourceStart=sec(clip.start),sourceEnd=sec(clip.end);
   if(!isFinite(start)||!isFinite(sourceStart)||Math.abs(start-sourceStart)>maxDelta)continue;
   if(isFinite(end)&&isFinite(sourceEnd)&&Math.abs(end-sourceEnd)>maxDelta)continue;
   matching.push(item);
  }
  if(matching.length===1)target=matching[0];
- // Some QE builds do not expose numeric times at all. A single video clip on
- // the mapped track is unambiguous; otherwise do not guess.
- if(!target&&matching.length===0&&qeItems.length===1&&index===0&&app.project.activeSequence.videoTracks[track].clips.numItems===1)target=qeItems[0];
- if(!target)throw Error('Crop não identificou um clipe único na V'+(track+1)+' (QE: '+qeItems.length+', correspondências: '+matching.length+'). Use Ajustar.');
+ // QE builds which expose opaque QETime cannot be compared numerically. When
+ // both APIs expose exactly one real clip on the selected track, its identity
+ // is unambiguous. Never fall back when two or more real clips are present.
+ if(!target&&matching.length===0&&qeItems.length===1&&
+     app.project.activeSequence.videoTracks[track].clips.numItems===1&&index===0)target=qeItems[0];
+ if(!target)throw Error('Crop não identificou clipe único na V'+(track+1)+
+     ' (itens QE: '+rawCount+', clipes reais: '+qeItems.length+', correspondências: '+matching.length+'). Use Ajustar ou revise a seleção.');
  qeSequence(expectedID);target.addVideoEffect(effect);
  if(clip.components.numItems!==count+1)throw Error('Premiere não confirmou a adição do efeito Crop.');
  var component=clip.components[clip.components.numItems-1];

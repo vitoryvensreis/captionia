@@ -99,6 +99,15 @@
         var context = d.createElement('div'); context.id = 'captionia-context'; context.className = 'captionia-context';
         context.innerHTML = '<div><h1 id="captionia-view-title"></h1><p id="captionia-view-description"></p></div><button type="button" data-captionia-tutorial>Ajuda guiada</button>';
         main.parentNode.insertBefore(context, main);
+        // Favoritos: the Modelos / SFX / Minha subnav belongs BELOW the
+        // "Sua biblioteca" title, not above it. Move the EXISTING node to
+        // preserve legacy main.js listeners and its current filter state.
+        var favSubtabs=byId('fav-subtabs');
+        if(favSubtabs){
+            favSubtabs.classList.add('captionia-library-subtabs');
+            context.parentNode.insertBefore(favSubtabs, main);
+        }
+
         var labels = { all: 'Modelos', autoedit: 'Edição guiada', 'auto-aplicar': 'Legendas', autocut: 'Cortes', dinamica: 'Imagem', 'copiar-estilo': 'Estilos', 'sfx-auto': 'Sons' };
         // Favoritos becomes an in-page filter of Modelos (not a crowded top tab).
         var favoriteTab=nav.querySelector('.sidebar-tab[data-filter="favorites"]');

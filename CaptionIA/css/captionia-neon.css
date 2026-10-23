@@ -85,3 +85,13 @@ body.captionia-workspace,body.captionia-workspace .app-shell{background:#090d18;
 .captionia-model-filters button.active{border-color:rgba(101,255,209,.6);color:#a8ffe1;background:#14312e;box-shadow:0 0 12px rgba(101,255,209,.10)}
 .captionia-model-filters button:hover{border-color:rgba(101,255,209,.5)}
 @media(max-width:600px){.captionia-model-filters{width:100%;margin-left:0}.captionia-model-filters button{flex:1;padding:7px 8px}.captionia-workspace .captionia-context{flex-wrap:wrap}}
+
+/* Favorites subnav lives immediately BELOW the Sua biblioteca header. */
+.captionia-workspace #fav-subtabs.captionia-library-subtabs{
+  flex:0 0 auto;width:auto;margin:0;padding:8px 18px 9px;
+  background:linear-gradient(90deg,#0e1b2e,#111b31);
+  border-bottom:1px solid rgba(101,255,209,.16);border-radius:0;
+}
+.captionia-workspace #fav-subtabs.captionia-library-subtabs .dyn-subtab{
+  min-height:30px;padding:6px 12px;
+}

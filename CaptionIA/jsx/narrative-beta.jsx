@@ -22,6 +22,27 @@
         if(!size)throw Error('Dimensões da mídia indisponíveis para validar o Movimento.');
         return {path:file.fsName,size:Number(file.length),modified:file.modified?Number(file.modified.getTime()):0,width:Number(size[1]),height:Number(size[2])};
     }
+    // CEP returns Scale as 100, 1.0 (fraction), '100%' or a two-value array
+    // depending on the Premiere build / Scale Width mode. Only neutral scale
+    // passes; genuinely scaled clips remain blocked, as subclips drop Motion.
+    function neutralScale(value){
+        function neutralNumber(n){return isFinite(n)&&(Math.abs(n-100)<=.05||Math.abs(n-1)<=.0005);}
+        if(value instanceof Array||Object.prototype.toString.call(value)==='[object Array]'){
+            if(value.length<1||value.length>2)return false;
+            for(var i=0;i<value.length;i++)if(!neutralScale(value[i]))return false;
+            return true;
+        }
+        if(typeof value==='string'){
+            var txt=value.replace(/\s/g,'').replace(',','.');
+            if(!/^[-+]?[0-9]+(?:\.[0-9]+)?%?$/.test(txt))return false;
+            return txt.indexOf('%')!==-1?Math.abs(parseFloat(txt)-100)<=.05:neutralNumber(Number(txt));
+        }
+        return neutralNumber(Number(value));
+    }
+    function debugValue(value){
+        var text='';try{text=JSON.stringify(value);}catch(e){text=String(value);}
+        return String(text).slice(0,80);
+    }
     function plainClipState(clip,isAudio,media){
         var result=[],i,j,component,p,label,name,v,allowed,center;
         if(!clip.components)throw Error('Não foi possível verificar os efeitos do take.');
@@ -38,7 +59,7 @@
                     if(label==='position'||label==='posicao'||label==='anchor point'||label==='ponto de ancoragem'){
                         center=v&&v.length===2&&((Math.abs(Number(v[0])-.5)<.001&&Math.abs(Number(v[1])-.5)<.001)||(Math.abs(Number(v[0])-media.width/2)<.1&&Math.abs(Number(v[1])-media.height/2)<.1));
                         if(!center)throw Error('O take tem enquadramento alterado. A montagem por subclipes não preserva Movimento; use takes brutos.');
-                    }else if(/^(scale|escala|scale width|largura da escala|largura de escala)$/.test(label)){if(Math.abs(Number(v)-100)>.01)throw Error('O take contém escala alterada. Use takes brutos na Montagem.');}
+                    }else if(/^(scale|escala|scale width|largura da escala|largura de escala)$/.test(label)){if(!neutralScale(v))throw Error('O take contém escala alterada ou sem leitura segura ('+p.displayName+': '+debugValue(v)+'). Use takes brutos na Montagem.');}
                     else if(/^(rotation|rotacao|anti-flicker filter|filtro anticintilacao|filtro anticintilante)$/.test(label)){if(Math.abs(Number(v))>.001)throw Error('O take contém rotação/filtro de Movimento alterado.');}
                     else if(label==='uniform scale'||label==='escala uniforme'){if(!v)throw Error('Escala não uniforme não é preservada na montagem.');}
                     else throw Error('Parâmetro de Movimento não reconhecido: '+p.displayName+'. Não consigo garantir a preservação.');

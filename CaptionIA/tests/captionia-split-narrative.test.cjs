@@ -56,6 +56,44 @@ f=fixture('jsx/captionia-split.jsx');f.original.videoTracks.push(f.track([f.clip
 let cropCalls=0;f.context.qe={project:{getVideoEffectByName(){return {};},getActiveSequence(){return {sequenceID:'original',getVideoTrackAt(){cropCalls++;throw Error('Must not reach source QE track');}};}}};
 applied=f.call('captioniaSplitApply',prepared);assert.equal(applied.ok,false);assert.match(applied.error,/adaptador Crop está na cópia/);assert.equal(cropCalls,0);assert.equal(f.original.videoTracks[0].clips[0].components.length,2);
 
+// QE DOM includes Empty gaps in numItems. The real clip must receive Crop,
+// even if the gap itself exposes an addVideoEffect function.
+f=fixture('jsx/captionia-split.jsx');
+f.original.videoTracks.push(f.track([f.clip(f.media('m2'),'video')]));
+prepared=split.plan(f.call('captioniaSplitInspect'),{preset:'side-by-side',fit:'fill'});
+let installedEffects=0;
+f.context.qe={project:{getVideoEffectByName(){return {name:'Crop'};},getActiveSequence(){
+ const active=f.project.activeSequence;
+ return {sequenceID:active.sequenceID,getVideoTrackAt(index){
+  const trackClip=active.videoTracks[index].clips[0];
+  const item={type:'Clip',start:{ticks:'0'},end:{seconds:10},addVideoEffect(){
+   installedEffects++;
+   trackClip.components.push(component('Crop',[property('Left',0),property('Right',0),property('Top',0),property('Bottom',0)]));
+  }};
+  return {numItems:2,getItemAt(i){return i===0?{type:'Empty',addVideoEffect(){throw Error('Never use QE gap');}}:item;}};
+ }};
+}}};
+applied=f.call('captioniaSplitApply',prepared);
+assert.equal(applied.ok,true,applied.error);
+assert.equal(installedEffects,2,'one Crop effect must be added to each of two clips');
+assert.equal(f.original.videoTracks[0].clips[0].components.length,2,'original sequence untouched');
+assert.equal(f.project.activeSequence.videoTracks[0].clips[0].components.length,3);
+
+// Normal Scale is represented differently by CEP versions. Do not block
+// visually untouched takes; never accept a genuinely changed scale.
+for(const neutral of [1,'100%',[100,100],[1,1]]){
+ f=fixture('jsx/narrative-beta.jsx');
+ f.original.videoTracks[0].clips[0].components[0].properties[1].setValue(neutral);
+ assert.equal(f.call('fsNarrativeBetaSnapshot').ok,true,'neutral scale rejected: '+JSON.stringify(neutral));
+}
+f=fixture('jsx/narrative-beta.jsx');
+f.original.videoTracks[0].clips[0].components[0].properties[1].setValue(125);
+assert.match(f.call('fsNarrativeBetaSnapshot').error,/escala alterada.*125/);
+
+// The legacy Favorites sub-navigation must move below Sua biblioteca context.
+const workspaceSource=source('js/captionia-workspace.js');
+assert.match(workspaceSource,/context\.parentNode\.insertBefore\(favSubtabs, main\)/);
+
 f=fixture('jsx/narrative-beta.jsx');let snapshot=f.call('fsNarrativeBetaSnapshot');assert.equal(snapshot.ok,true,snapshot.error);
 let cuts=[{id:'S001',start:0,end:2},{id:'S002',start:3,end:5}];
 let preview=f.call('fsNarrativeBetaPreview',{sequenceID:'original',sourceSignature:'stale',cuts});assert.equal(preview.ok,false);assert.equal(f.state.clones,0);assert.equal(f.state.subclips,0);

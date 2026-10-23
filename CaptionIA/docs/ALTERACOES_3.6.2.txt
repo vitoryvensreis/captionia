@@ -1,0 +1,7 @@
+Caption IA 3.6.2 DEV — reparos dirigidos pelos erros em Premiere (23/10/2026)
+
+- Tela Dividida/Preencher: QE DOM inclui itens de lacuna (Empty) em numItems. O Crop agora filtra esses espaços e só aceita o único clipe real da trilha ou o clipe identificado por tempos; não escolhe arbitrariamente.
+- Montagem: Scale do Motion pode vir como porcentagem, fração ou vetor. Aceita 100%, 1.0 e valores equivalentes neutros, continua rejeitando escalas efetivamente modificadas e agora mostra nome/valor técnico do campo ao rejeitar.
+- Modelos: subabas Modelos / SFX / Minha aparecem abaixo do cabeçalho Sua biblioteca.
+- Sequência original preservada; hostscript.jsxbin inalterado.
+- Testes automatizados e simulados não substituem homologação no Adobe Premiere.
