@@ -50,46 +50,53 @@ function inspect(){var s=seq(),settings=s.getSettings(),frame=Number(s.timebase)
  result.signature=JSON.stringify(result);return result;
 }
 function propSet(p,v,label){var result=p.setValue(v,1);if(result===false)throw Error('Premiere recusou '+label+'.');var actual=p.getValue();if(v instanceof Array){if(!actual||actual.length!==v.length)throw Error('Não consegui conferir '+label+'.');for(var i=0;i<v.length;i++)if(Math.abs(Number(actual[i])-v[i])>.002)throw Error('Premiere não confirmou '+label+'.');}else if(Math.abs(Number(actual)-v)>.02)throw Error('Premiere não confirmou '+label+'.');}
-function apply(args){hostTrace=[];hostNote('split.start','checking selected tracks');var original=seq(),fresh=inspect();hostNote('split.selection','clips='+fresh.clips.length+' frameMs='+Math.round(fresh.frameDuration*1000));if(String(args.sequenceID)!==String(original.sequenceID)||args.signature!==fresh.signature)throw Error('A seleção ou sequência mudou. Prepare a tela dividida novamente.');
- var presets={'side-by-side':2,'top-bottom':2,'grid-2x2':4};if(!presets[args.preset]||!args.items||args.items.length!==presets[args.preset]||args.items.length!==fresh.clips.length||(args.fit!=='fit'&&args.fit!=='fill'))throw Error('Plano de layout inválido.');
- var columns=args.preset==='top-bottom'?1:2,rows=args.preset==='side-by-side'?1:2,tracks={},base=fresh.clips[0];
- for(i=0;i<fresh.clips.length;i++){var check=fresh.clips[i];if(tracks[check.track])throw Error('Cada vídeo precisa ocupar uma faixa diferente.');tracks[check.track]=true;if(Math.abs(check.start-base.start)>fresh.frameDuration*1.01||Math.abs(check.end-base.end)>fresh.frameDuration*1.01)throw Error('Alinhe início e fim dos vídeos no mesmo frame antes de dividir a tela.');}
- var ids={},i,c,target;for(i=0;i<app.project.sequences.numSequences;i++)ids[String(app.project.sequences[i].sequenceID)]=true;
- if(!original.clone())throw Error('Não consegui criar a cópia de segurança. Nenhum clipe foi ajustado.');
- for(i=0;i<app.project.sequences.numSequences;i++)if(!ids[String(app.project.sequences[i].sequenceID)]){target=app.project.sequences[i];break;}
- if(!target)throw Error('Não localizei o clone. A sequência original está preservada.');
- hostNote('split.clone','created=1 copyActive='+String(target.sequenceID!==original.sequenceID));
- target.name='Caption IA • Tela dividida • '+new Date().getTime();
- try{app.project.openSequence(target.sequenceID);requireActive(target.sequenceID);var effectiveFit=args.fit,warning='';for(i=0;i<args.items.length;i++){
-  var entry=args.items[i],ref=fresh.clips[i];if(entry.track!==ref.track||entry.index!==ref.index||entry.nodeId!==ref.nodeId)throw Error('Plano não corresponde à seleção.');
-  // Recompute geometry on the host from the current media; never trust client scale/crop values.
-  var slotW=fresh.width/columns,slotH=fresh.height/rows,sx=slotW*fresh.pixelAspect/(ref.width*ref.pixelAspect),sy=slotH/ref.height,scale=args.fit==='fill'?Math.max(sx,sy):Math.min(sx,sy);
-  // For fill, align the OUTSIDE edge of each scaled image to the INNER
-  // cell boundary. The Premiere program frame itself clips everything outside
-  // its canvas. This yields real two-up/four-up fill without QE or Crop.
-  // The edit is reversible and cannot spill into an adjacent pane.
-  var col=i%columns,row=Math.floor(i/columns);
-  var x=columns===1?fresh.width/2:(col===0?slotW-ref.width*scale/2*ref.pixelAspect/fresh.pixelAspect:slotW+ref.width*scale/2*ref.pixelAspect/fresh.pixelAspect);
-  var y=rows===1?fresh.height/2:(row===0?slotH-ref.height*scale/2:slotH+ref.height*scale/2);
-  if(effectiveFit==='fit'){
-   scale=Math.min(sx,sy);
-   x=(col+.5)*slotW;y=(row+.5)*slotH;
-  }
-  if(!isFinite(scale)||scale<=0||scale*100>10000||!isFinite(x)||!isFinite(y))throw Error('Enquadramento inválido.');
-  var m=motionState(target.videoTracks[entry.track].clips[entry.index]);
-  var position=m.normalized?[x/fresh.width,y/fresh.height]:[x,y];
-  requireActive(target.sequenceID);
-  hostNote('split.geometry','track='+entry.track+' col='+col+' row='+row+' mode='+effectiveFit+' scalePct='+Math.round(scale*10000)/100+' px='+Math.round(x)+','+Math.round(y));
-  propSet(m.scale,scale*100,'escala');propSet(m.position,position,'posição');
-  if(effectiveFit==='fill'){
-   warning='Preencher aplicado pelo recorte das bordas da sequência, sem efeito Crop/QE. Revise o enquadramento das pessoas: ajustes livres exigem Crop via UXP.';
-   hostNote('split.edge-clip','track='+entry.track+' successful=true noQE=true');
-  }
-
+function apply(args){
+ hostTrace=[];hostNote('split.start','validate native masks and selected tracks');
+ var original=seq(),fresh=inspect(),presets={'side-by-side':2,'top-bottom':2,'grid-2x2':4};
+ if(String(args.sequenceID)!==String(original.sequenceID)||args.signature!==fresh.signature)
+  throw Error('A seleção mudou. Analise novamente antes de criar a tela dividida.');
+ if(!presets[args.preset]||!args.items||args.items.length!==presets[args.preset]||args.items.length!==fresh.clips.length||(args.fit!=='fit'&&args.fit!=='fill'))
+  throw Error('Plano de tela dividida inválido.');
+ var columns=args.preset==='top-bottom'?1:2,rows=args.preset==='side-by-side'?1:2,used={},i,ref,clip,base=fresh.clips[0];
+ for(i=0;i<fresh.clips.length;i++){
+  ref=fresh.clips[i];clip=original.videoTracks[ref.track].clips[ref.index];
+  if(used[ref.track])throw Error('Cada vídeo deve ficar numa faixa diferente.');
+  used[ref.track]=true;
+  if(Math.abs(ref.start-base.start)>fresh.frameDuration*1.01||Math.abs(ref.end-base.end)>fresh.frameDuration*1.01)
+    throw Error('Os vídeos precisam começar e terminar no mesmo quadro.');
+  if(!nativeCrop(clip))throw Error('O Premiere não disponibiliza os quatro controles nativos de Corte/Crop no vídeo V'+(ref.track+1)+'. Não vou criar uma tela dividida sem máscara. Atualize o Premiere ou habilite Crop para esse clipe.');
  }
- hostNote('split.finished','clips='+args.items.length+' requested='+args.fit+' actual='+effectiveFit+' frameMs='+Math.round(fresh.frameDuration*1000));
- return {originalId:String(original.sequenceID),sequenceID:String(target.sequenceID),name:String(target.name),count:args.items.length,created:true,originalPreserved:true,fitApplied:effectiveFit,requestedFit:args.fit,degraded:effectiveFit!==args.fit,fillMethod:effectiveFit==='fill'?'canvas-edge':'native-motion-fit',panes:args.items.map(function(item){return {track:item.track,index:item.index};}),preset:args.preset,warning:warning};
- }catch(e){app.project.openSequence(original.sequenceID);throw Error('Tela dividida cancelada; original preservada. A cópia incompleta permanece no projeto para revisão. '+e.message);}
+ var before={};for(i=0;i<app.project.sequences.numSequences;i++)before[String(app.project.sequences[i].sequenceID)]=true;
+ if(!original.clone())throw Error('Não consegui duplicar a sequência. Original intacta.');
+ var target=null;for(i=0;i<app.project.sequences.numSequences;i++){
+  var candidate=app.project.sequences[i];
+  if(!before[String(candidate.sequenceID)]){target=candidate;break;}
+ }
+ if(!target)throw Error('A cópia da sequência não foi localizada. Original intacta.');
+ target.name='Caption IA • Tela dividida • '+new Date().getTime();
+ try{
+  app.project.openSequence(target.sequenceID);requireActive(target.sequenceID);
+  var panes=[],details,entry;
+  for(i=0;i<args.items.length;i++){
+   entry=args.items[i];ref=fresh.clips[i];
+   if(entry.track!==ref.track||entry.index!==ref.index||entry.nodeId!==ref.nodeId)
+    throw Error('Os clipes mudaram desde a análise.');
+   details=reframe({sequenceID:String(target.sequenceID),track:entry.track,index:entry.index,
+    focusX:50,focusY:50,zoom:1,columns:columns,rows:rows,
+    col:i%columns,row:Math.floor(i/columns),fit:args.fit});
+   panes.push({track:entry.track,index:entry.index,nativeCropAccessible:true,maskApplied:true,
+    mask:details.mask,crop:details.crop});
+  }
+  hostNote('split.mask.finished','panes='+panes.length+' grid='+columns+'x'+rows+' mode='+args.fit);
+  return {originalId:String(original.sequenceID),sequenceID:String(target.sequenceID),name:String(target.name),
+   count:panes.length,created:true,originalPreserved:true,preset:args.preset,panes:panes,
+   fitApplied:args.fit,requestedFit:args.fit,degraded:false,
+   fillMethod:'intrinsic-crop',maskMethod:'native-motion-crop',
+   warning:'Cada vídeo foi limitado à própria célula com Crop nativo. Use os controles de posição e ampliação para reenquadrar dentro dela.'};
+ }catch(e){
+  try{app.project.openSequence(original.sequenceID);}catch(restoreError){}
+  throw Error('Tela dividida cancelada. Original intacta; a cópia incompleta permanece para revisão. '+e.message);
+ }
 }
 // Reframing is performed on the COPY only. Native Crop is a Premiere
 // intrinsic Motion control in supported builds; CEP may not expose it.
@@ -119,18 +126,23 @@ function nativeCrop(clip){
  return null;
 }
 function selectPane(args){
- var target=byID(args.sequenceID);requireActive(target.sequenceID);if(String(target.name).indexOf('Caption IA • Tela dividida • ')!==0)throw Error('Selecione primeiro uma cópia criada pela Tela Dividida.');
+ var target=byID(args.sequenceID);requireActive(target.sequenceID);
+ if(String(target.name).indexOf('Caption IA • Tela dividida • ')!==0)throw Error('Abra a cópia criada pela Tela Dividida.');
  var t=Number(args.track),index=Number(args.index);
- if(!isFinite(t)||!isFinite(index)||t<0||index<0||t>=target.videoTracks.numTracks||index>=target.videoTracks[t].clips.numItems)throw Error('Vídeo não localizado na cópia.');
- var tr,i,j;for(i=0;i<target.videoTracks.numTracks;i++){tr=target.videoTracks[i];for(j=0;j<tr.clips.numItems;j++){if(tr.clips[j].setSelected)tr.clips[j].setSelected(0,0);}}
- var clip=target.videoTracks[t].clips[index];if(!clip.setSelected)throw Error('Esta versão do Premiere não permite selecionar o clipe pela extensão.');
- clip.setSelected(1,1);hostNote('split.reframe.select','track='+t+' index='+index);
- return {selected:true,track:t,index:index,nativeCropAccessible:!!nativeCrop(clip)};
+ if(!isFinite(t)||!isFinite(index)||t<0||index<0||t>=target.videoTracks.numTracks||index>=target.videoTracks[t].clips.numItems)
+  throw Error('Vídeo não localizado na cópia.');
+ var clip=target.videoTracks[t].clips[index],selected=false,i,j,tr;
+ if(clip.setSelected){
+  for(i=0;i<target.videoTracks.numTracks;i++){tr=target.videoTracks[i];for(j=0;j<tr.clips.numItems;j++)if(tr.clips[j].setSelected)tr.clips[j].setSelected(0,0);}
+  clip.setSelected(1,1);selected=true;
+ }
+ hostNote('split.select','track='+t+' index='+index+' selected='+selected);
+ return {selected:selected,track:t,index:index,nativeCropAccessible:!!nativeCrop(clip)};
 }
 // The crop sliders are enabled ONLY when all four native Crop parameters can
 // actually be read and written in the current Premiere build. No QE guesswork.
 function reframe(args){
- hostTrace=[];var target=byID(args.sequenceID);requireActive(target.sequenceID);if(String(target.name).indexOf('Caption IA • Tela dividida • ')!==0)throw Error('O reenquadramento só pode modificar uma cópia criada pelo Caption IA.');
+ hostNote('split.reframe.start','mask position and crop');var target=byID(args.sequenceID);requireActive(target.sequenceID);if(String(target.name).indexOf('Caption IA • Tela dividida • ')!==0)throw Error('O reenquadramento só pode modificar uma cópia criada pelo Caption IA.');
  var track=Number(args.track),index=Number(args.index),focusX=Number(args.focusX),focusY=Number(args.focusY),zoom=Number(args.zoom);
  if(!isFinite(track)||!isFinite(index)||track<0||index<0||track>=target.videoTracks.numTracks||index>=target.videoTracks[track].clips.numItems)throw Error('Faixa ou clipe inválido.');
  if(!isFinite(focusX)||!isFinite(focusY)||focusX<0||focusX>100||focusY<0||focusY>100||!isFinite(zoom)||zoom<1||zoom>3)throw Error('Enquadramento fora do intervalo permitido.');
@@ -139,13 +151,20 @@ function reframe(args){
  var columns=Number(args.columns),rows=Number(args.rows),col=Number(args.col),row=Number(args.row);
  if(!((columns===1||columns===2)&&(rows===1||rows===2)&&col>=0&&col<columns&&row>=0&&row<rows))throw Error('Célula inválida.');
  var dim=dimensions(clip.projectItem),par=Number(settings.videoPixelAspectRatio)||1,slotW=width/columns,slotH=height/rows;
- var sx=slotW*par/(dim.width*dim.pixelAspect),sy=slotH/dim.height,scale=Math.max(sx,sy)*zoom;
+ var sx=slotW*par/(dim.width*dim.pixelAspect),sy=slotH/dim.height;
+ var fitMode=args.fit==='fit';
+ var scale=(fitMode?Math.min(sx,sy):Math.max(sx,sy))*zoom;
  var spanX=dim.width*dim.pixelAspect*scale/par,spanY=dim.height*scale;
- if(scale*100>10000||spanX<slotW-.1||spanY<slotH-.1)throw Error('Zoom inválido para o quadro.');
- var totalX=Math.max(0,(1-slotW/spanX)*100),totalY=Math.max(0,(1-slotH/spanY)*100);
- var left=totalX*focusX/100,right=totalX-left,top=totalY*focusY/100,bottom=totalY-top;
- var dx=(left-right)/200*spanX,dy=(top-bottom)/200*spanY;
- var positionX=(col+.5)*slotW-dx,positionY=(row+.5)*slotH-dy;
+ if(!isFinite(scale)||scale<=0||scale*100>10000)throw Error('Escala fora dos limites.');
+ if(!fitMode&&(spanX<slotW-.1||spanY<slotH-.1))throw Error('A imagem não cobre totalmente a célula.');
+ var extraX=Math.max(0,spanX-slotW),extraY=Math.max(0,spanY-slotH);
+ var cropLeft=fitMode?0:extraX*focusX/100,cropTop=fitMode?0:extraY*focusY/100;
+ var left=fitMode?0:100*cropLeft/spanX,right=fitMode?0:100*(extraX-cropLeft)/spanX;
+ var top=fitMode?0:100*cropTop/spanY,bottom=fitMode?0:100*(extraY-cropTop)/spanY;
+ var slotX=col*slotW,slotY=row*slotH;
+ var positionX=slotX+slotW/2+(fitMode?0:(extraX/2-cropLeft));
+ var positionY=slotY+slotH/2+(fitMode?0:(extraY/2-cropTop));
+ var mask={x:slotX,y:slotY,width:slotW,height:slotH};
  var m=motionState(clip),position=m.normalized?[positionX/width,positionY/height]:[positionX,positionY];
  hostNote('split.reframe.plan','track='+track+' center='+positionX.toFixed(1)+','+positionY.toFixed(1)+' crop='+[left,right,top,bottom].map(function(v){return v.toFixed(2);}).join(',')+' scale='+scale.toFixed(4));
  // Preflight all parameters before writing. Premiere can reject even an advertised
@@ -174,7 +193,7 @@ function reframe(args){
   throw Error('Reenquadramento cancelado e estado anterior da cópia restaurado: '+failure.message);
  }
  hostNote('split.reframe.done','track='+track+' cropConfirmed=1');
- return {track:track,index:index,applied:true,cropMethod:'intrinsic',crop:{left:left,right:right,top:top,bottom:bottom},scale:scale*100};
+ return {track:track,index:index,applied:true,cropMethod:'intrinsic',mask:mask,position:position,crop:{left:left,right:right,top:top,bottom:bottom},scale:scale*100};
 }
 $.global.captioniaSplitSelectPane=function(payload){try{hostTrace=[];return response(selectPane(JSON.parse(payload)));}catch(e){return error(e);}};
 $.global.captioniaSplitReframe=function(payload){try{hostTrace=[];return response(reframe(JSON.parse(payload)));}catch(e){return error(e);}};
