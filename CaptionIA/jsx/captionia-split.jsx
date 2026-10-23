@@ -94,19 +94,29 @@ function apply(args){hostTrace=[];hostNote('split.start','checking selected trac
 // Reframing is performed on the COPY only. Native Crop is a Premiere
 // intrinsic Motion control in supported builds; CEP may not expose it.
 function nativeCrop(clip){
- var comps=clip.components,found={left:null,right:null,top:null,bottom:null},i,j,component,prop,group,label,side;
+ // Never combine unrelated effect controls to invent a Crop implementation.
+ // A valid set must come from ONE Crop or Motion component and be readable/writable.
+ var comps=clip&&clip.components,i,j,component,prop,group,label,side,found,existing;
+ if(!comps||typeof comps.numItems!=='number')return null;
  for(i=0;i<comps.numItems;i++){
   component=comps[i];group=normalize(component.displayName||'');
+  if(!/^(motion|movimento|crop|cortar|recorte|recortar)$/.test(group))continue;
+  if(!component.properties||typeof component.properties.numItems!=='number')continue;
+  found={left:null,right:null,top:null,bottom:null};
   for(j=0;j<component.properties.numItems;j++){
    prop=component.properties[j];label=normalize(prop.displayName||'');side='';
    if(/(^|[ ._-])(esquerda|left)([ ._-]|$)/.test(label))side='left';
    if(/(^|[ ._-])(direita|right)([ ._-]|$)/.test(label))side='right';
    if(/(^|[ ._-])(superior|cima|top)([ ._-]|$)/.test(label))side='top';
    if(/(^|[ ._-])(inferior|baixo|bottom)([ ._-]|$)/.test(label))side='bottom';
-   if(side&&(group==='crop'||group==='recortar'||group==='cortar'||/crop|recort|cort/.test(label)||((group==='motion'||group==='movimento')&&/^(left|right|top|bottom|esquerda|direita|superior|inferior|cima|baixo)$/.test(label))))found[side]=prop;
+   if(!side||!(group==='crop'||group==='recorte'||group==='recortar'||group==='cortar'||/crop|recort|cort/.test(label)||/^(left|right|top|bottom|esquerda|direita|superior|inferior|cima|baixo)$/.test(label)))continue;
+   if(typeof prop.getValue!=='function'||typeof prop.setValue!=='function')continue;
+   try{if(prop.isTimeVarying&&prop.isTimeVarying())continue;existing=Number(prop.getValue());if(!isFinite(existing)||existing<0||existing>100)continue;}catch(e){continue;}
+   found[side]=prop;
   }
+  if(found.left&&found.right&&found.top&&found.bottom)return found;
  }
- return found.left&&found.right&&found.top&&found.bottom?found:null;
+ return null;
 }
 function selectPane(args){
  var target=byID(args.sequenceID);requireActive(target.sequenceID);if(String(target.name).indexOf('Caption IA • Tela dividida • ')!==0)throw Error('Selecione primeiro uma cópia criada pela Tela Dividida.');
@@ -138,10 +148,31 @@ function reframe(args){
  var positionX=(col+.5)*slotW-dx,positionY=(row+.5)*slotH-dy;
  var m=motionState(clip),position=m.normalized?[positionX/width,positionY/height]:[positionX,positionY];
  hostNote('split.reframe.plan','track='+track+' center='+positionX.toFixed(1)+','+positionY.toFixed(1)+' crop='+[left,right,top,bottom].map(function(v){return v.toFixed(2);}).join(',')+' scale='+scale.toFixed(4));
- // Apply crop BEFORE releasing the old boundary-clipped positioning. On a crop
- // setValue error, leave Motion unchanged and report it rather than claiming success.
- propSet(crop.left,left,'Crop esquerdo');propSet(crop.right,right,'Crop direito');propSet(crop.top,top,'Crop superior');propSet(crop.bottom,bottom,'Crop inferior');
- propSet(m.scale,scale*100,'Escala');propSet(m.position,position,'Posição');
+ // Preflight all parameters before writing. Premiere can reject even an advertised
+ // setValue; restore every touched value on error so the COPY is not half-cropped.
+ var edits=[
+  {p:crop.left,value:left,name:'Crop esquerdo'},
+  {p:crop.right,value:right,name:'Crop direito'},
+  {p:crop.top,value:top,name:'Crop superior'},
+  {p:crop.bottom,value:bottom,name:'Crop inferior'},
+  {p:m.scale,value:scale*100,name:'Escala'},
+  {p:m.position,value:position,name:'Posição'}
+ ],previous=[],k,touched=-1,rollbackProblems=[];
+ for(k=0;k<edits.length;k++){
+  if(animated(edits[k].p))throw Error('O parâmetro '+edits[k].name+' tem keyframes e não pode ser reenquadrado em segurança.');
+  previous.push(edits[k].p.getValue());
+ }
+ try{
+  for(k=0;k<edits.length;k++){touched=k;propSet(edits[k].p,edits[k].value,edits[k].name);}
+ }catch(failure){
+  for(k=touched;k>=0;k--){
+   try{propSet(edits[k].p,previous[k],edits[k].name+' original');}
+   catch(restoreError){rollbackProblems.push(edits[k].name);}
+  }
+  hostNote('split.reframe.rollback','restored='+String(!rollbackProblems.length)+' touched='+String(touched+1));
+  if(rollbackProblems.length)throw Error('Reenquadramento falhou ('+failure.message+'). Não foi possível restaurar completamente a cópia ('+rollbackProblems.join(', ')+'). Revise-a antes de continuar.');
+  throw Error('Reenquadramento cancelado e estado anterior da cópia restaurado: '+failure.message);
+ }
  hostNote('split.reframe.done','track='+track+' cropConfirmed=1');
  return {track:track,index:index,applied:true,cropMethod:'intrinsic',crop:{left:left,right:right,top:top,bottom:bottom},scale:scale*100};
 }
