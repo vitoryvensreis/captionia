@@ -204,7 +204,7 @@
         startTour(true); return true;
     }
     function scheduleWelcome() {
-        if (welcomeTimer) w.clearInterval(welcomeTimer);
+        if (welcomeTimer) return;
         var tries = 0;
         welcomeTimer = w.setInterval(function () { if (tryWelcome() || ++tries >= 120) { w.clearInterval(welcomeTimer); welcomeTimer = null; } }, 1500);
     }
@@ -221,16 +221,30 @@
         }
         w.CaptionIABranding.sanitizeVisible(d.body);
         tooltips(d.body);
-        var observer = new MutationObserver(function (records) {
-            for (var i = 0; i < records.length; i++) {
-                if (records[i].type === 'characterData') w.CaptionIABranding.sanitizeVisible(records[i].target);
-                if (records[i].type === 'attributes') tooltips(records[i].target);
-                for (var j = 0; j < records[i].addedNodes.length; j++) {
-                    w.CaptionIABranding.sanitizeVisible(records[i].addedNodes[j]); tooltips(records[i].addedNodes[j]);
-                }
+        var queued=[],scheduled=false;
+        function flush(){
+            scheduled=false;
+            var nodes=queued;queued=[];
+            // One full sweep is cheaper than thousands of isolated passes when changing pages.
+            if(nodes.length>100){w.CaptionIABranding.sanitizeVisible(d.body);tooltips(d.body);return;}
+            var seen=[];
+            for(var i=0;i<nodes.length;i++){
+                var node=nodes[i];if(!node||seen.indexOf(node)>=0)continue;
+                seen.push(node);
+                w.CaptionIABranding.sanitizeVisible(node);
+                if(node.nodeType===1)tooltips(node);
+            }
+        }
+        function queue(node){if(!node)return;queued.push(node);if(!scheduled){scheduled=true;if(w.requestAnimationFrame)w.requestAnimationFrame(flush);else w.setTimeout(flush,16);}}
+        var observer=new MutationObserver(function(records){
+            for(var i=0;i<records.length;i++){
+                var record=records[i];
+                if(record.type==='characterData')queue(record.target.parentNode);
+                if(record.type==='attributes')queue(record.target);
+                for(var j=0;j<record.addedNodes.length;j++)queue(record.addedNodes[j]);
             }
         });
-        observer.observe(d.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['title', 'aria-label'] });
+        observer.observe(d.body, {childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['title','aria-label']});
     }
     function boot() {
         mount(); scheduleWelcome();

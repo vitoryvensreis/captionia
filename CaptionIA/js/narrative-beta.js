@@ -8,13 +8,13 @@ function escapeHTML(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c
 function save(o){try{var v=settings();Object.keys(o).forEach(function(k){v[k]=o[k];});localStorage.setItem(STATE,JSON.stringify(v));}catch(_){} }
 function settings(){try{return JSON.parse(localStorage.getItem(STATE)||'{}')||{};}catch(_){return {};}}
 
-function host(functionName,payload){return new Promise(function(resolve,reject){if(typeof csInterface==='undefined')return reject(Error('O Premiere não está conectado ao painel.'));var expr=functionName+'('+JSON.stringify(JSON.stringify(payload||{}))+')';csInterface.evalScript(expr,function(out){try{if(!out||out==='EvalScript error.')throw Error('Falha da ponte JSX: '+String(out));var v=JSON.parse(out);if(!v.ok)throw Error(v.error||'Erro no Premiere');resolve(v);}catch(e){reject(e);}});});}
+function host(functionName,payload){if(root.CaptionIABridge)return root.CaptionIABridge.call(functionName,payload,{timeoutMs:90000});return new Promise(function(resolve,reject){if(typeof csInterface==='undefined')return reject(Error('O Premiere não está conectado ao painel.'));var expr=functionName+'('+JSON.stringify(JSON.stringify(payload||{}))+')';csInterface.evalScript(expr,function(out){try{if(!out||out==='EvalScript error.')throw Error('Falha da ponte JSX: '+String(out));var v=JSON.parse(out);if(!v.ok)throw Error(v.error||'Erro no Premiere');resolve(v);}catch(e){reject(e);}});});}
 function loadHost(){return new Promise(function(resolve,reject){if(typeof csInterface==='undefined'||typeof CSInterface==='undefined')return reject(Error('Somente Premiere Pro'));var p='';try{p=csInterface.getSystemPath(SystemPath.EXTENSION);}catch(_){}if(!p)return reject(Error('Diretório da extensão indisponível'));p=p.replace(/\\/g,'/')+'/jsx/narrative-beta.jsx';var script='$.evalFile('+JSON.stringify(p)+'); typeof fsNarrativeBetaSnapshot === "function" ? "OK" : "NO"';csInterface.evalScript(script,function(x){if(x==='OK')resolve();else reject(Error('Não foi possível carregar a ponte de montagem ('+x+').'));});});}
-function groupWords(words,clips){var result=[], cur=[];
+function groupWords(words,clips,frameDuration){var result=[], cur=[],tol=Math.min(.09,Math.max(.015,Number(frameDuration||1/30)*1.1));
 function emit(){if(!cur.length)return;var text=cur.map(function(x){return x.word;}).join(' ').replace(/\s+([,.!?;:])/g,'$1');var flag=/\b(n[aã]o[,.]?\s*calma|errei|de novo|pera a[ií]|come[cç]a de novo)\b/i.test(text);result.push({id:'S'+String(result.length+1).padStart(3,'0'),start:cur[0].start,end:cur[cur.length-1].end,text:text,blocked:flag});cur=[];}
 (words||[]).forEach(function(w){var a=Number(w.start),b=Number(w.end);if(!isFinite(a)||!isFinite(b)||b<=a||!String(w.word||'').trim())return;
-var inside=clips.some(function(c){return a>=c.start-.05&&b<=c.end+.05;});if(!inside)return;
-if(cur.length){var prev=cur[cur.length-1], gap=a-prev.end;var sameClip=clips.some(function(c){return prev.start>=c.start-.05&&b<=c.end+.05;});if(gap>=.65||gap<-.2||!sameClip||gap>=.15&&/[.!?]$/.test(prev.word))emit();}
+var inside=clips.some(function(c){return a>=c.start-tol&&b<=c.end+tol;});if(!inside)return;
+if(cur.length){var prev=cur[cur.length-1], gap=a-prev.end;var sameClip=clips.some(function(c){return prev.start>=c.start-tol&&b<=c.end+tol;});if(gap>=.65||gap<-.2||!sameClip||gap>=.15&&/[.!?]$/.test(prev.word))emit();}
 cur.push({start:a,end:b,word:String(w.word).trim()});});emit();return result.filter(function(s){return s.end-s.start>=.18;});}
 /* Retake em modo análise: não remover takes antes da decisão editorial. */
 /* Pauses extracted from the word timeline: hints only; no destructive cut. */
@@ -43,9 +43,9 @@ function transcriptFingerprint(resp){
 function assertTranscriptIdentity(resp,snapshot){
  if(!resp||!Array.isArray(resp.words)||!resp.words.length)fail('Transcrição por palavra indisponível.');
  if(!snapshot||!snapshot.signature||!resp._fsSeq||String(resp._fsSeq)!==String(snapshot.sequenceID))fail('A transcrição pertence a outra sequência ou não tem identificação. Transcreva a sequência ativa.');
- var previous=-Infinity,inside=0;
+ var previous=-Infinity,inside=0,tolerance=Math.min(.09,Math.max(.015,Number(snapshot.frameDuration||1/30)*1.1));
  resp.words.forEach(function(w){var a=Number(w.start),b=Number(w.end);if(!String(w.word||w.text||'').trim()||!isFinite(a)||!isFinite(b)||a<0||b<=a||a<previous-.2)fail('A transcrição contém tempos inválidos ou fora de ordem. Refaça a transcrição.');previous=a;
-  if(snapshot.clips.some(function(c){return a>=c.start-.05&&b<=c.end+.05;}))inside++;
+  if(snapshot.clips.some(function(c){return a>=c.start-tolerance&&b<=c.end+tolerance;}))inside++;
  });
  if(inside<resp.words.length*.98)fail('Há palavras fora dos takes atuais. A timeline pode ter sido editada depois da transcrição; transcreva novamente.');
  return transcriptFingerprint(resp);
@@ -82,6 +82,9 @@ function verifySemanticGroups(response,segments){
   // Contradictory groups must not discard anything on their own.
   if(idList.some(function(id){return used[id];}))return;
   idList.forEach(function(id){used[id]=true;});
+  // Retakes with opposing numbers/negations cannot be substituted automatically.
+  var facts=idList.map(function(id){return factualTokens(map[id].text);});
+  if(facts.some(function(v){return v!==facts[0];}))return;
   var best=idList.indexOf(g.recommendedId)>=0?g.recommendedId:null;
   groups.push({group:'SEM'+String(groups.length+1).padStart(3,'0'),ids:idList,confidence:confidence,recommendedId:best,reason:String(g.reason||'Mesma informação narrada de formas diferentes').slice(0,350),origin:'groq-semantic'});
  });return groups;
@@ -226,9 +229,9 @@ function ideaAudit(editorial,selected,allSegments){var ids={};selected.forEach(f
  if(required>=2&&covered/required<.65)fail('Cobertura insuficiente por ideias: '+covered+'/'+required+' ideias essenciais com falas identificadas foram aproveitadas.');
  return {requiredIdeas:required,coveredIdeas:covered};
 }
-function validate(raw,segments,clips){if(!raw||!Array.isArray(raw.cuts))fail('A IA não retornou uma lista de cortes.');if(raw.cuts.length<1||raw.cuts.length>100)fail('Quantidade de cortes fora do limite de segurança.');
+function validate(raw,segments,clips,frameDuration){var tol=Math.min(.09,Math.max(.015,Number(frameDuration||1/30)*1.1));if(!raw||!Array.isArray(raw.cuts))fail('A IA não retornou uma lista de cortes.');if(raw.cuts.length<1||raw.cuts.length>100)fail('Quantidade de cortes fora do limite de segurança.');
 var map={};segments.forEach(function(s){map[s.id]=s;});var out=[],seen={};raw.cuts.forEach(function(c,i){var s=map[c.id];if(!s)fail('Trecho desconhecido: '+c.id);if(s.blocked)fail('Trecho marcado como erro de gravação: '+s.id);if(seen[s.id])fail('Trecho duplicado: '+s.id);seen[s.id]=true;
-if(/^(?:duplicate|duplicado|duplicata|discard|descartar|rejected|rejeitado|filler|erro|ignore|ignorar|repeticao|repetição)$/i.test(String(c.role||'').trim())||/^\s*(?:informa[cç][aã]o repetida|repeti[cç][aã]o de|erro de grava[cç][aã]o|descartar)/i.test(String(c.reason||'')))fail('A IA tentou manter um descarte: '+s.id+' ('+String(c.role||'sem classificação')+').');var containing=clips.filter(function(v){return s.start>=v.start-.05 && s.end<=v.end+.05;});if(containing.length!==1)fail('Trecho cruza cortes existentes: '+s.id);if(s.end-s.start<.18)fail('Trecho curto demais: '+s.id);out.push({id:s.id,start:s.start,end:s.end,text:s.text,role:String(c.role||'conteúdo').slice(0,60),reason:String(c.reason||'').slice(0,400),clipIndex:containing[0].index});});
+if(/^(?:duplicate|duplicado|duplicata|discard|descartar|rejected|rejeitado|filler|erro|ignore|ignorar|repeticao|repetição)$/i.test(String(c.role||'').trim())||/^\s*(?:informa[cç][aã]o repetida|repeti[cç][aã]o de|erro de grava[cç][aã]o|descartar)/i.test(String(c.reason||'')))fail('A IA tentou manter um descarte: '+s.id+' ('+String(c.role||'sem classificação')+').');var containing=clips.filter(function(v){return s.start>=v.start-tol && s.end<=v.end+tol;});if(containing.length!==1)fail('Trecho cruza cortes existentes: '+s.id);if(s.end-s.start<.18)fail('Trecho curto demais: '+s.id);out.push({id:s.id,start:s.start,end:s.end,text:s.text,role:String(c.role||'conteúdo').slice(0,60),reason:String(c.reason||'').slice(0,400),clipIndex:containing[0].index});});
 if(!out.length)fail('Nenhum trecho aproveitável');return out;}
 /** Send narrative, review and retake semantic requests using the SAME provider selected in Transcription. */
 function groq(messages,signal){
@@ -456,7 +459,7 @@ progress('Conferindo sequência e transcrição...');view('working');var transcr
 if(!transcript||!transcript.words||!transcript.words.length){var err=new Error('A montagem precisa da transcrição por palavras. Ative a etapa Transcrever.');failureDiagnostic(err,'transcricao');view('ready');return done({ok:false,erro:err.message});}
 isBusy=true;loadHost().then(function(){return host('fsNarrativeBetaSnapshot',{});}).then(function(snapshot){
 assertTranscriptIdentity(transcript,snapshot);assertUnchangedTranscript(fingerprint);transcript=deepCopy(transcript);
-lastManifest=snapshot;lastSegments=groupWords(transcript.words,snapshot.clips);var hints=retakeContext(transcript,lastSegments);var pauses=silenceHints(transcript.words,snapshot.clips);
+lastManifest=snapshot;lastSegments=groupWords(transcript.words,snapshot.clips,snapshot.frameDuration);var hints=retakeContext(transcript,lastSegments);var pauses=silenceHints(transcript.words,snapshot.clips);
  eventLog('input','Segmentos: '+lastSegments.length+'; Retakes: '+hints.nearGroupsCount+'; pausas: '+pauses.length);
 var counted=lastSegments.reduce(function(n,x){return n+x.text.trim().split(/\s+/).length;},0);
 if(counted<transcript.words.length*.6)fail('Transcrição não corresponde à sequência ativa (mais de 40% fora dos clipes). Refaça a transcrição.');
@@ -464,11 +467,12 @@ if(!lastSegments.length)fail('Nenhuma fala coincide com a sequência atual.');
 progress('IA organizando '+lastSegments.length+' trechos ('+(config.mode==='roteiro'?'por roteiro':'livre')+')...');
 var sys='Você é editor audiovisual profissional em português. Objetivo: fala natural e contínua, com sentido completo. Prefira a ordem original; reorganize apenas takes reiniciados ou conforme roteiro explícito. Compare tentativas completas. Retire erros e repetições sustentados pelas evidências, nunca informação complementar, ressalvas, negações, valores ou exemplos necessários. Pausas estimadas não comprovam silêncio acústico. Não invente falas nem acelere o ritmo por omissão. Se não houver trecho para uma parte do roteiro, diga missing. Marcados blocked=true são proibidos.';
 var payload=naturalPayload(lastSegments,config,hints,pauses);
+if(typeof payload==='string'&&payload.length>54000)fail('Vídeo longo: o plano editorial excedeu o limite seguro da Groq. Divida a montagem em sequências menores (ex.: 5–10 minutos) e reúna as prévias depois. A sequência original não foi alterada.');
 function invokeEditor(messages,label){eventLog('groq-request',label);return groq(messages).then(function(answer){return answer;});}
 function inspectPlan(candidate,first){
  var normalized=editorialNormalize(candidate);
  if(!normalized.cuts.length)fail('A IA não selecionou falas aproveitáveis.');
- var cuts=validate({cuts:normalized.cuts},lastSegments,snapshot.clips),unique=dedupePlan(cuts,config.sections);
+ var cuts=validate({cuts:normalized.cuts},lastSegments,snapshot.clips,snapshot.frameDuration),unique=dedupePlan(cuts,config.sections);
  if(!unique.cuts.length)fail('Montagem vazia após remover repetições.');
  var audit=narrativeGuard(unique.cuts,lastSegments),ideaCoverage=ideaAudit(normalized,unique.cuts,lastSegments);strongRetakePlanGuard(unique.cuts,hints);
  var coverage=coverageReport(normalized,config.sections,unique.cuts);

@@ -33,7 +33,7 @@ function dimensions(item){
  var file=new File(item.getMediaPath());if(!file.exists)throw Error('Mídia não encontrada: '+file.fsName);
  var meta=String(item.getProjectMetadata?item.getProjectMetadata():''),m=/(\d{2,6})\s*[x×]\s*(\d{2,6})/.exec(videoInfo(meta));
  if(!m)throw Error('Dimensões da mídia indisponíveis no Premiere. Atualize os metadados da mídia e tente novamente.');
- var par=0;try{var interpretation=item.getFootageInterpretation();if(interpretation&&interpretation.pixelAspectRatio)par=Number(interpretation.pixelAspectRatio);}catch(e){}
+ var par=1;try{var interpretation=item.getFootageInterpretation();if(interpretation&&interpretation.pixelAspectRatio)par=Number(interpretation.pixelAspectRatio);}catch(e){}
  if(!isFinite(par)||par<=0)throw Error('Proporção de pixel da mídia inválida.');
  return {width:Number(m[1]),height:Number(m[2]),pixelAspect:par,path:file.fsName,size:Number(file.length),modified:file.modified?Number(file.modified.getTime()):0};
 }
@@ -54,7 +54,7 @@ function inspect(){var s=seq(),settings=s.getSettings(),frame=Number(s.timebase)
 function propSet(p,v,label){var result=p.setValue(v,1);if(result===false)throw Error('Premiere recusou '+label+'.');var actual=p.getValue();if(v instanceof Array){if(!actual||actual.length!==v.length)throw Error('Não consegui conferir '+label+'.');for(var i=0;i<v.length;i++)if(Math.abs(Number(actual[i])-v[i])>.002)throw Error('Premiere não confirmou '+label+'.');}else if(Math.abs(Number(actual)-v)>.02)throw Error('Premiere não confirmou '+label+'.');}
 function crop(clip,track,index,values,expectedID){
  if(values.left<.0001&&values.top<.0001&&values.right<.0001&&values.bottom<.0001)return;
- if(typeof qe==='undefined')app.enableQE();if(typeof qe==='undefined')throw Error('Preencher precisa do efeito Crop, indisponível neste Premiere. Use Ajustar.');
+ if(typeof qe==='undefined')app.enableQE();if(typeof qe==='undefined')throw Error('Preencher requer o Crop do adaptador QE (não documentado). Use Ajustar para trabalhar só com Movimento da API pública.');
  var effect=qe.project.getVideoEffectByName('Crop');if(!effect)effect=qe.project.getVideoEffectByName('Cortar');if(!effect)effect=qe.project.getVideoEffectByName('Recortar');if(!effect)throw Error('Efeito Crop não localizado. Use Ajustar.');
  var count=clip.components.numItems,qt=qeSequence(expectedID).getVideoTrackAt(track),target=null;
  for(var i=0;i<qt.numItems;i++){var item=qt.getItemAt(i);if(item&&item.start&&Math.abs(sec(item.start)-sec(clip.start))<.001&&String(item.name)===String(clip.name)){if(target)throw Error('Correspondência ambígua no efeito Crop.');target=item;}}
@@ -68,7 +68,7 @@ function crop(clip,track,index,values,expectedID){
 function apply(args){var original=seq(),fresh=inspect();if(String(args.sequenceID)!==String(original.sequenceID)||args.signature!==fresh.signature)throw Error('A seleção ou sequência mudou. Prepare a tela dividida novamente.');
  var presets={'side-by-side':2,'top-bottom':2,'grid-2x2':4};if(!presets[args.preset]||!args.items||args.items.length!==presets[args.preset]||args.items.length!==fresh.clips.length||(args.fit!=='fit'&&args.fit!=='fill'))throw Error('Plano de layout inválido.');
  var columns=args.preset==='top-bottom'?1:2,rows=args.preset==='side-by-side'?1:2,tracks={},base=fresh.clips[0];
- for(i=0;i<fresh.clips.length;i++){var check=fresh.clips[i];if(tracks[check.track])throw Error('Cada vídeo precisa ocupar uma faixa diferente.');tracks[check.track]=true;if(Math.abs(check.start-base.start)>fresh.frameDuration*.1||Math.abs(check.end-base.end)>fresh.frameDuration*.1)throw Error('Alinhe os vídeos antes de dividir a tela.');}
+ for(i=0;i<fresh.clips.length;i++){var check=fresh.clips[i];if(tracks[check.track])throw Error('Cada vídeo precisa ocupar uma faixa diferente.');tracks[check.track]=true;if(Math.abs(check.start-base.start)>fresh.frameDuration*1.01||Math.abs(check.end-base.end)>fresh.frameDuration*1.01)throw Error('Alinhe início e fim dos vídeos no mesmo frame antes de dividir a tela.');}
  var ids={},i,c,target;for(i=0;i<app.project.sequences.numSequences;i++)ids[String(app.project.sequences[i].sequenceID)]=true;
  if(!original.clone())throw Error('Não consegui criar a cópia de segurança. Nenhum clipe foi ajustado.');
  for(i=0;i<app.project.sequences.numSequences;i++)if(!ids[String(app.project.sequences[i].sequenceID)]){target=app.project.sequences[i];break;}

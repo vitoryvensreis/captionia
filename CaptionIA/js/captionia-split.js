@@ -15,7 +15,7 @@ function plan(snapshot,options){
  var frame=number(snapshot.frameDuration,'Duração do frame'),start=clips[0].start,end=clips[0].end,tracks={},items=[];
  clips.forEach(function(clip,index){
   if(tracks[clip.track])fail('Use uma faixa de vídeo diferente para cada clipe.');tracks[clip.track]=true;
-  if(Math.abs(clip.start-start)>frame*.1||Math.abs(clip.end-end)>frame*.1)fail('Alinhe início e fim dos vídeos na timeline antes de dividir. O áudio permanece no lugar.');
+  if(Math.abs(clip.start-start)>frame*1.01||Math.abs(clip.end-end)>frame*1.01)fail('Alinhe os vídeos no mesmo frame de início e fim (tolerância máxima de 1 quadro). Ajuste os cortes e analise novamente.');
   var sourceWidth=number(clip.width,'Largura de '+clip.name),sourceHeight=number(clip.height,'Altura de '+clip.name),sourcePAR=number(clip.pixelAspect||1,'Proporção de pixel da mídia');
   var slot={x:index%preset.columns*width/preset.columns,y:Math.floor(index/preset.columns)*height/preset.rows,width:width/preset.columns,height:height/preset.rows};
   var sx=slot.width*par/(sourceWidth*sourcePAR),sy=slot.height/sourceHeight,scale=(mode==='fill'?Math.max(sx,sy):Math.min(sx,sy));
@@ -26,11 +26,13 @@ function plan(snapshot,options){
    position:[(slot.x+slot.width/2)/width,(slot.y+slot.height/2)/height],crop:{left:cropX,right:cropX,top:cropY,bottom:cropY},name:clip.name});
  });
  return {version:1,sequenceID:String(snapshot.sequenceID),signature:snapshot.signature,preset:options.preset||'side-by-side',fit:mode,width:width,height:height,
-  duration:end-start,items:items,notice:'A aplicação cria uma cópia da sequência e preserva a original, o áudio e os efeitos existentes. Movimento dos vídeos será ajustado.'};
+  duration:end-start,items:items,notice:'Prévia esquemática, não é o frame real. A aplicação cria uma cópia e altera o Movimento nela. O modo Preencher requer Crop via QE; use Ajustar para ficar só na API pública.'};
 }
-function host(name,payload){return new Promise(function(resolve,reject){
+function host(name,payload){if(root.CaptionIABridge)return root.CaptionIABridge.call(name,payload,{timeoutMs:75000});return new Promise(function(resolve,reject){
  var cs=root.csInterface;if(!cs||typeof cs.evalScript!=='function')return reject(Error('Ponte Adobe indisponível.'));
- cs.evalScript(name+'('+JSON.stringify(JSON.stringify(payload||{}))+')',function(raw){try{var result=JSON.parse(raw);if(!result||!result.ok)throw Error(result&&result.error||'Resposta inválida do Premiere.');resolve(result);}catch(e){reject(e);}});
+ var finished=false,timer=setTimeout(function(){finish(Error('O Premiere não respondeu à operação '+name+'. Confira a sequência antes de repetir.'));},30000);
+ function finish(err,result){if(finished)return;finished=true;clearTimeout(timer);if(err)reject(err);else resolve(result);}
+ try{cs.evalScript(name+'('+JSON.stringify(JSON.stringify(payload||{}))+')',function(raw){try{var result=JSON.parse(raw);if(!result||!result.ok)throw Error(result&&result.error||'Resposta inválida do Premiere.');finish(null,result);}catch(e){finish(e);}});}catch(e){finish(e);}
 });}
 function load(){if(ready)return ready;ready=new Promise(function(resolve,reject){
  try{var cs=root.csInterface;if(!cs)throw Error('Abra o painel no Premiere.');var path=cs.getSystemPath(SystemPath.EXTENSION).replace(/\\/g,'/')+'/jsx/captionia-split.jsx';

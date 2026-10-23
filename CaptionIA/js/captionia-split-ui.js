@@ -43,7 +43,7 @@
         ['td-v2-preset', 'td-v2-fit'].forEach(function (id) { el(id).addEventListener('change', invalidate); });
         preview.addEventListener('click', function () {
             if (waiting) return;
-            invalidate(); busy(true); message('Conferindo seleção, dimensões e enquadramento…');
+            invalidate(); busy(true); message('Verificando 2 ou 4 vídeos em faixas diferentes. A prévia abaixo é esquemática; o resultado real aparece no Premiere…');
             w.CaptionIASplit.preview({ preset: el('td-v2-preset').value, fit: el('td-v2-fit').value }).then(function (plan) {
                 prepared = plan; draw(plan); message(plan.notice);
             }).catch(function (error) { message(error.message || String(error), true); }).then(function () { busy(false); });
@@ -53,7 +53,7 @@
             busy(true); message('Criando uma cópia da sequência e aplicando o enquadramento…');
             w.CaptionIASplit.apply(prepared).then(function () {
                 prepared = null; el('btn-td-v2-restore').hidden = false;
-                message('Tela dividida aplicada na cópia. Confira o resultado; a sequência original foi preservada.');
+                message('Cópia criada. Confira o enquadramento no Monitor do Programa; a sequência original permanece intacta.');
             }).catch(function (error) { prepared = null; message(error.message || String(error), true); }).then(function () { busy(false); });
         });
         el('btn-td-v2-restore').addEventListener('click', function () {

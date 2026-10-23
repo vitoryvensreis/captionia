@@ -39,7 +39,8 @@ function write(list,data){
  try{localStorage.setItem(key(list),JSON.stringify(data));}
  catch(e){throw Error('Não foi possível salvar ajustes locais de SFX.');}
 }
-function apply(times){
+function apply(times,options){
+ options=options||{};
  var list=words();
  if(!list.length)throw Error('Transcrição com tempos por palavra indisponível.');
  if(!Array.isArray(times)||times.length!==list.length)
@@ -49,17 +50,20 @@ function apply(times){
    throw Error('A transcrição mudou; ajuste de SFX não aplicado.');
  var state=read(list);
  var out=[],affected=0,conflicts=0;
+ var timing=w.CaptionIATimebase;
+ if(!timing)throw Error('Motor de sincronia não carregado.');
+ var frameSize=(typeof options.frameDuration==='number'&&isFinite(options.frameDuration)&&options.frameDuration>0)?options.frameDuration:1/state.fps;
  for(i=0;i<times.length;i++){
   var corr=state.global+Number(state.corrections[i]||0);
-  var t=times[i]+corr/state.fps;
+  var t=times[i]+corr*frameSize;
   // Os disparos SFX usam trilhas próprias; a distribuição ordena os eventos
   // por tempo e alterna entre duas trilhas sem alterar as palavras originais.
   if(t<0){t=0;conflicts++;}
   if(i&&t<out[i-1]-0.0001)conflicts++;
-  out.push(t);
+  out.push(timing.at(t,frameSize));
   if(corr!==0)affected++;
  }
- return {times:out,affected:affected,fps:state.fps,global:state.global,
+ return {times:out,affected:affected,fps:1/frameSize,global:state.global,
   custom:Object.keys(state.corrections).length,conflicts:conflicts};
 }
 var ui={};

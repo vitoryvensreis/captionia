@@ -77,6 +77,7 @@
     <script src="js/premiere_fix.js"></script>
     <script src="js/transcription.js"></script>
     <script id="cia-cloud-audio-script" src="js/cloud_audio_panel.js"></script>
+    <script src="js/captionia-timebase.js"></script>
     <script src="js/sfx_scheduler.js"></script>
     <script src="js/sfx_media_store.js"></script>
     <script src="js/sfx_dual_tracks.js"></script>
@@ -99,6 +100,7 @@
     <script src="js/fxpresets.js"></script>
     <script src="js/animtexto.js"></script>
     <script src="js/dinamica.js"></script>
+    <script src="js/captionia-bridge.js"></script>
     <script src="js/captionia-split.js"></script>
     <script src="js/captionia-split-ui.js"></script>
     <script src="js/guias.js"></script>
@@ -1806,10 +1808,10 @@
                          (09/08/2026): "somente as mais precisas". -->
                     <select id="autosfx-granularity" style="width:100%;">
                         <option value="linha">1 som por linha, no tempo que o modelo anima</option>
-                        <option value="sync">1 som por palavra do bloco</option>
+                        <option value="sync">Por palavra (exato quando há WORD_TIMINGS)</option>
                         <option value="capsync">1 som por bloco de legenda</option>
                     </select>
-                    <span class="transcribe-hint" id="autosfx-gran-hint">Lê os blocos que estão na timeline e conta as palavras de cada um. Bloco com 3 palavras recebe 3 sons.</span>
+                    <span class="transcribe-hint" id="autosfx-gran-hint">Usa a entrada visual real quando disponível (Word Highlight). Nos outros modelos estima pela animação e avisa na prévia.</span>
                 </div>
                 <!-- O PASSO ENTRE PALAVRAS (06/09/2026, Victor: "três efeitos sonoros
                      quase na sequência um do outro, uns três quadros"). Só no modo por
