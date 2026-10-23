@@ -3,6 +3,7 @@
 (function(){
     var TICKS=254016000000;
     var hostTrace=[];
+    var BUILD='3.6.5-dev-r3-audio-cross-component-20261023';
     function hostNote(phase,detail){if(hostTrace.length<150)hostTrace.push({phase:String(phase).slice(0,54),detail:String(detail||'').slice(0,240)});}
     function ok(o){o.ok=true;o.hostTrace=hostTrace.slice(0);hostTrace=[];return JSON.stringify(o);}
     function error(msg){var result={ok:false,error:String(msg),code:'NARRATIVE_HOST_GUARD',hostTrace:hostTrace.slice(0)};hostTrace=[];return JSON.stringify(result);}
@@ -344,7 +345,7 @@
     }
     $.global.fsNarrativeBetaCloneForRetake=function(payload){try{return ok(cloneForRetake(JSON.parse(payload)));}catch(e){return error(e.message);}};
     $.global.fsNarrativeBetaValidatePreview=function(payload){try{return ok(validatePreview(JSON.parse(payload)));}catch(e){return error(e.message);}};
-    $.global.fsNarrativeBetaSnapshot=function(){try{hostTrace=[];hostNote('snapshot.start','checking source tracks and effect defaults');return ok(snapshot());}catch(e){return error(e.message);}};
+    $.global.fsNarrativeBetaSnapshot=function(){try{hostTrace=[];hostNote('snapshot.start','checking source tracks and effect defaults');hostNote('snapshot.build',BUILD);return ok(snapshot());}catch(e){return error(e.message);}};
     $.global.fsNarrativeBetaPreview=function(payload){try{hostTrace=[];hostNote('preview.start','verify clone and source intervals');if(typeof JSON==='undefined')throw Error('JSON indisponível no ExtendScript.');return ok(makePreview(JSON.parse(payload)));}catch(e){return error(e.message);}};
     $.global.fsNarrativeBetaRestore=function(payload){try{var d=JSON.parse(payload),seq=byID(d.sequenceID);if(!seq)throw Error('Sequência anterior não encontrada');if(!d.sourceSignature||snapshot(seq).signature!==d.sourceSignature)throw Error('A original mudou desde a análise. Refaça a transcrição antes de continuar o Auto Edit.');app.project.openSequence(seq.sequenceID);return ok({restored:true});}catch(e){return error(e.message);}};
 })();
