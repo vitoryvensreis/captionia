@@ -51,7 +51,7 @@ function inspect(){var s=seq(),settings=s.getSettings(),frame=Number(s.timebase)
 }
 function propSet(p,v,label){var result=p.setValue(v,1);if(result===false)throw Error('Premiere recusou '+label+'.');var actual=p.getValue();if(v instanceof Array){if(!actual||actual.length!==v.length)throw Error('Não consegui conferir '+label+'.');for(var i=0;i<v.length;i++)if(Math.abs(Number(actual[i])-v[i])>.002)throw Error('Premiere não confirmou '+label+'.');}else if(Math.abs(Number(actual)-v)>.02)throw Error('Premiere não confirmou '+label+'.');}
 function apply(args){
- hostTrace=[];hostNote('split.start','validate native masks and selected tracks');
+ hostTrace=[];hostNote('split.build','3.6.5-dev-r5-native-mask-20261023');hostNote('split.start','validate native masks and selected tracks');
  var original=seq(),fresh=inspect(),presets={'side-by-side':2,'top-bottom':2,'grid-2x2':4};
  if(String(args.sequenceID)!==String(original.sequenceID)||args.signature!==fresh.signature)
   throw Error('A seleção mudou. Analise novamente antes de criar a tela dividida.');
