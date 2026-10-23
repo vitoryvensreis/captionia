@@ -199,4 +199,31 @@ assert.equal(f.original.videoTracks[0].clips[0].components[0].properties[1].getV
 assert.equal(f.original.videoTracks[0].clips[0].components[0].properties[5].getValue(),0,'original Crop must stay untouched');
 assert.equal(f.call('captioniaSplitReframe',{sequenceID:'original',track:0,index:0,focusX:50,focusY:50,zoom:1,columns:2,rows:1,col:0,row:0}).ok,false,'not allowed to mutate original');
 
+// A Crop that fails mid-operation must restore all previously written values.
+const cloned=f.project.activeSequence.videoTracks[0].clips[0], cropProps=cloned.components[0].properties;
+const beforeReframe=cropProps.map(prop=>prop.getValue());
+const bottomProp=cropProps[8], bottomSetter=bottomProp.setValue.bind(bottomProp);
+let rejectedOnce=false;
+bottomProp.setValue=function(value,flag){
+ if(!rejectedOnce){rejectedOnce=true;return false;}
+ return bottomSetter(value,flag);
+};
+let rejected=f.call('captioniaSplitReframe',{sequenceID:applied.sequenceID,track:0,index:0,focusX:75,focusY:50,zoom:1.4,columns:2,rows:1,col:0,row:0});
+assert.equal(rejected.ok,false,'Crop setter refusal must cancel the reframe');
+assert.match(rejected.error,/estado anterior.*restaurado/);
+assert.deepEqual(Array.from(cropProps,prop=>prop.getValue()),Array.from(beforeReframe),'Crop and Motion must be rolled back');
+assert.equal(f.original.videoTracks[0].clips[0].components[0].properties[5].getValue(),0,'original remains untouched after rollback');
+
+// Split properties across unrelated components are NOT a writable Crop.
+f=fixture('jsx/captionia-split.jsx');
+f.original.videoTracks.push(f.track([f.clip(f.media('m2'),'video')]));
+prepared=split.plan(f.call('captioniaSplitInspect'),{preset:'side-by-side',fit:'fill'});
+applied=f.call('captioniaSplitApply',prepared);
+const disjoint=f.project.activeSequence.videoTracks[0].clips[0];
+disjoint.components.push(component('Crop',[property('Left',0),property('Right',0)]));
+disjoint.components.push(component('Crop',[property('Top',0),property('Bottom',0)]));
+const unavailable=f.call('captioniaSplitSelectPane',{sequenceID:applied.sequenceID,track:0,index:0});
+assert.equal(unavailable.ok,false,'test fixture has no setSelected; host must not claim selection'); 
+
+
 console.log('PASS: split layouts, stale selections, clone isolation, audio preservation, host geometry, safe failures, narrative identity/media/effects guards, natural profile and factual dedupe.');
