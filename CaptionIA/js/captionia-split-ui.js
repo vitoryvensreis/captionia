@@ -39,18 +39,65 @@
         container.appendChild(list);
     }
     function showReframe(result) {
-        var section=el('td-v2-reframe'),list=el('td-v2-pane-list');if(!section||!list)return;
+        var section=el('td-v2-reframe'),list=el('td-v2-pane-list');
+        if(!section||!list)return;
         section.hidden=false;list.textContent='';
         (result.panes||[]).forEach(function(pane,idx){
-            var card=d.createElement('div');card.className='fs-bloco';card.style.cssText='margin:8px 0;padding:10px;border:1px solid var(--border-color,#253851);border-radius:8px';
-            var title=d.createElement('strong');title.textContent='Vídeo '+(idx+1)+' · V'+(pane.track+1);card.appendChild(title);
-            var select=d.createElement('button');select.type='button';select.className='btn-secondary';select.style.cssText='width:100%;margin:8px 0';select.textContent='Selecionar este vídeo no Premiere';card.appendChild(select);
-            var controls=d.createElement('div'),input={},names=[['focusX','Área horizontal',50,0,100,1],['focusY','Área vertical',50,0,100,1],['zoom','Ampliação',1,1,3,.05]];
-            names.forEach(function(spec){var line=d.createElement('label');line.style.cssText='display:block;font-size:11px;margin:8px 0';line.textContent=spec[1]+': ';var value=d.createElement('span');value.textContent=String(spec[2]);line.appendChild(value);var slider=d.createElement('input');slider.type='range';slider.min=spec[3];slider.max=spec[4];slider.step=spec[5];slider.value=spec[2];slider.style.cssText='display:block;width:100%';slider.addEventListener('input',function(){value.textContent=slider.value;});line.appendChild(slider);input[spec[0]]=slider;controls.appendChild(line);});
-            var submit=d.createElement('button');submit.className='btn-secondary';submit.type='button';submit.textContent='Aplicar Crop e enquadramento';submit.style.cssText='width:100%;margin:4px 0';submit.disabled=true;submit.title='Selecione o clipe e confirme a disponibilidade do Crop no Premiere antes de aplicar.';controls.appendChild(submit);
-            var status=d.createElement('div');status.style.cssText='font-size:11px;color:var(--text-2);margin-top:4px';card.appendChild(controls);card.appendChild(status);list.appendChild(card);
-            select.addEventListener('click',function(){select.disabled=true;submit.disabled=true;w.CaptionIASplit.selectPane(pane).then(function(v){status.textContent=v.nativeCropAccessible?'Vídeo selecionado. Crop intrínseco acessível: use os controles aqui ou ajuste em Propriedades.':'Vídeo selecionado. Use Propriedades → Cortar no Premiere; esta versão não expõe os parâmetros pela API CEP.';submit.disabled=!v.nativeCropAccessible;}).catch(function(e){status.textContent=e.message||String(e);}).then(function(){select.disabled=false;});});
-            submit.addEventListener('click',function(){if(submit.disabled)return;submit.disabled=true;w.CaptionIASplit.reframe(pane,{focusX:Number(input.focusX.value),focusY:Number(input.focusY.value),zoom:Number(input.zoom.value)}).then(function(v){status.textContent='Crop confirmado para V'+(pane.track+1)+'. Confira o Monitor do Programa.';}).catch(function(e){status.textContent=e.message||String(e);}).then(function(){submit.disabled=false;});});
+            var card=d.createElement('div');card.className='fs-bloco';
+            card.style.cssText='margin:8px 0;padding:10px;border:1px solid var(--border-color,#253851);border-radius:8px';
+            var title=d.createElement('strong');title.textContent='Vídeo '+(idx+1)+' · V'+(pane.track+1);
+            card.appendChild(title);
+            var frame=d.createElement('div');
+            frame.style.cssText='font-size:11px;color:var(--text-2);margin:6px 0';
+            frame.textContent='Máscara fixa: '+Math.round(pane.mask.width)+' × '+Math.round(pane.mask.height)+' px · '+(idx+1)+'ª célula';
+            card.appendChild(frame);
+            var select=d.createElement('button');select.type='button';select.className='btn-secondary';
+            select.style.cssText='width:100%;margin:8px 0';select.textContent='Selecionar este vídeo no Premiere';card.appendChild(select);
+            var controls=d.createElement('div'),input={},
+                names=[['focusX','Posição horizontal',50,0,100,1],['focusY','Posição vertical',50,0,100,1],['zoom','Ampliação',1,1,3,.05]];
+            var status=d.createElement('div');status.style.cssText='font-size:11px;color:var(--text-2);margin-top:6px';
+            var cropReady=pane.nativeCropAccessible===true,pending=false,queued=false;
+            var submit=d.createElement('button');submit.type='button';submit.className='btn-secondary';
+            submit.style.cssText='width:100%;margin:5px 0';submit.textContent='Aplicar enquadramento';
+            submit.disabled=!cropReady;submit.title='O Premiere deve expor os quatro controles nativos de Crop.';
+            names.forEach(function(spec){
+                var line=d.createElement('label');line.style.cssText='display:block;font-size:11px;margin:9px 0';
+                line.textContent=spec[1]+': ';
+                var value=d.createElement('span');value.textContent=String(spec[2]);line.appendChild(value);
+                var slider=d.createElement('input');slider.type='range';
+                slider.min=spec[3];slider.max=spec[4];slider.step=spec[5];slider.value=spec[2];
+                slider.style.cssText='display:block;width:100%';
+                slider.addEventListener('input',function(){value.textContent=slider.value;});
+                slider.addEventListener('change',function(){applyValues();});
+                line.appendChild(slider);input[spec[0]]=slider;controls.appendChild(line);
+            });
+            function applyValues(){
+                if(!cropReady){status.textContent='Crop nativo indisponível. Nenhum ajuste foi enviado.';return;}
+                if(pending){queued=true;return;}
+                pending=true;submit.disabled=true;
+                status.textContent='Atualizando vídeo dentro da máscara fixa…';
+                var values={focusX:Number(input.focusX.value),focusY:Number(input.focusY.value),zoom:Number(input.zoom.value)};
+                w.CaptionIASplit.reframe(pane,values).then(function(v){
+                    status.textContent='Máscara mantida e imagem reenquadrada em V'+(pane.track+1)+'. Confira o Programa.';
+                },function(e){status.textContent=e.message||String(e);})
+                .then(function(){
+                    pending=false;submit.disabled=!cropReady;
+                    if(queued){queued=false;applyValues();}
+                });
+            }
+            submit.addEventListener('click',applyValues);
+            select.addEventListener('click',function(){
+                select.disabled=true;w.CaptionIASplit.selectPane(pane).then(function(v){
+                    cropReady=!!v.nativeCropAccessible;
+                    submit.disabled=!cropReady||pending;
+                    status.textContent=v.selected?'Vídeo selecionado; ajuste a imagem pelas barras.':
+                        'O Premiere não permite seleção automática, mas você pode ajustar o vídeo pelas barras.';
+                    if(!cropReady)status.textContent='Os controles nativos de Crop não estão disponíveis nesse clipe.';
+                },function(e){status.textContent=e.message||String(e);})
+                .then(function(){select.disabled=false;});
+            });
+            card.appendChild(controls);card.appendChild(submit);card.appendChild(status);list.appendChild(card);
+            if(cropReady)status.textContent='Máscara ativa. Solte uma barra para atualizar o enquadramento automaticamente.';
         });
     }
     function init() {
