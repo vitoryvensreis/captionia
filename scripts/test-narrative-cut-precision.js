@@ -9,10 +9,23 @@ const narrative=fs.readFileSync('CaptionIA/js/narrative-beta.js','utf8');
 function mockPremiere(frame, sources){
  let sequences=[],active=null;
  const counter={id:1},subclipCalls=[];
- function makeClip(media,options){
+ function property(displayName,initial){
+   return {displayName,getValue(){return initial},isTimeVarying(){return false}};
+ }
+ function component(displayName,props){
+   Object.defineProperty(props,'numItems',{get(){return props.length;}});
+   return {displayName,matchName:displayName,properties:props};
+ }
+ function makeClip(media,options,kind){
+   const motion=component('Motion',[property('Position',[.5,.5]),property('Scale',100),
+     property('Uniform Scale',true),property('Rotation',0),property('Anchor Point',[960,540])]);
+   const opacity=component('Opacity',[property('Opacity',100),property('Blend Mode',18)]);
+   const volume=component('Volume',[property('Level',1)]);
+   const components=kind==='audio'?[volume]:[motion,opacity];
+   Object.defineProperty(components,'numItems',{get(){return components.length;}});
    return {projectItem:media,name:media.name,start:{seconds:options.start},end:{seconds:options.end},
      inPoint:{seconds:options.sourceStart},outPoint:{seconds:options.sourceEnd},getSpeed(){return 1},
-     remove(){throw Error('remove() should be replaced by track factory');}};
+     components,remove(){throw Error('remove() should be replaced by track factory');}};
  }
  function track(clips){
    const arr=clips.slice();
@@ -21,14 +34,15 @@ function mockPremiere(frame, sources){
    return {clips:arr};
  }
  function makeSequence(name,clips){
-   const id=String(counter.id++),vid=track(clips.map(c=>makeClip(c.media,c))),aud=track(clips.map(c=>makeClip(c.media,c)));
+   const id=String(counter.id++),vid=track(clips.map(c=>makeClip(c.media,c,'video'))),aud=track(clips.map(c=>makeClip(c.media,c,'audio')));
    return {sequenceID:id,name,timebase:frame*TICKS,
+     getSettings(){return {videoFrameWidth:1920,videoFrameHeight:1080,videoPixelAspectRatio:1}},
      videoTracks:{0:vid,numTracks:1},audioTracks:{0:aud,numTracks:1},
      clone(){const copy=makeSequence(name+' copy',clips);sequences.push(copy);return true;},
      insertClip(subclip,time){
        const at=Number(time.seconds),duration=subclip.end-subclip.start;
        for(const tr of [this.videoTracks[0],this.audioTracks[0]]){
-         const inserted=makeClip(subclip.media,{start:at,end:at+duration,sourceStart:subclip.start,sourceEnd:subclip.end});
+         const inserted=makeClip(subclip.media,{start:at,end:at+duration,sourceStart:subclip.start,sourceEnd:subclip.end},tr===this.videoTracks[0]?'video':'audio');
          inserted.remove=()=>tr.clips.splice(tr.clips.indexOf(inserted),1);
          tr.clips.push(inserted);
        }
@@ -37,6 +51,9 @@ function mockPremiere(frame, sources){
  }
  const media=sources.map((name,i)=>({
    nodeId:'src-'+i,name,
+   getMediaPath(){return '/mock/take.mp4'},
+   isOffline(){return false},
+   getProjectMetadata(){return '<x:Column.Intrinsic.VideoInfo>1920 x 1080</x:Column.Intrinsic.VideoInfo>'},
    createSubClip(name,from,to){
      const sub={name,start:Number(from)/TICKS,end:Number(to)/TICKS,media:this};
      subclipCalls.push(sub);return sub;
@@ -48,14 +65,17 @@ function mockPremiere(frame, sources){
  const app={project:{sequences,get activeSequence(){return active;},
    openSequence(id){active=sequences.find(s=>s.sequenceID===id);if(!active)throw Error('not found '+id);}
  }};
- const context={app,Time:function(){this.seconds=0;},JSON,Date,Math,isFinite,Number,String,Error,Array};
+ function File(path){this.exists=path==='/mock/take.mp4';this.fsName=path;this.length=1000;this.modified=new Date(1000);}
+ const context={app,File,Time:function(){this.seconds=0;},JSON,Date,Math,isFinite,Number,String,Error,Array};
  context.$={global:{}};
  vm.runInNewContext(jsx,context,{filename:'narrative-beta.jsx'});
  return {api:context.$.global,media,original:seq,subclipCalls,sequences,get active(){return active;}};
 }
 function preview(frame,cuts){
  const host=mockPremiere(frame,['take.mp4']);
- const result=JSON.parse(host.api.fsNarrativeBetaPreview(JSON.stringify({sequenceID:host.original.sequenceID,cuts})));
+ const snapshot=JSON.parse(host.api.fsNarrativeBetaSnapshot());
+ assert.equal(snapshot.ok,true,snapshot.error);
+ const result=JSON.parse(host.api.fsNarrativeBetaPreview(JSON.stringify({sequenceID:host.original.sequenceID,sourceSignature:snapshot.signature,cuts})));
  return {host,result};
 }
 function cut(id,start,end){return {id,start,end};}
