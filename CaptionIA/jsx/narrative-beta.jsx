@@ -11,165 +11,19 @@
     function active(){return app&&app.project&&app.project.activeSequence;}
     function secs(v){return Number(v&&v.seconds!==undefined?v.seconds:v);}
     function mediaItem(clip){return clip&&clip.projectItem;}
-    function normalized(s){return String(s||'').toLowerCase().replace(/ç/g,'c').replace(/[ãáàâ]/g,'a').replace(/[éê]/g,'e').replace(/í/g,'i').replace(/[óôõ]/g,'o').replace(/ú/g,'u');}
-    function videoInfo(xml){
-        var value='';try{if(typeof ExternalObject!=='undefined'&&!ExternalObject.AdobeXMPScript)ExternalObject.AdobeXMPScript=new ExternalObject('lib:AdobeXMPScript');if(typeof XMPMeta!=='undefined'){var xmp=new XMPMeta(xml),p=xmp.getProperty('http://ns.adobe.com/premierePrivateProjectMetaData/1.0/','Column.Intrinsic.VideoInfo');if(p)value=String(p.value!==undefined?p.value:p);}}catch(e){}
-        if(!value){var element=/<(?:[\w]+:)?Column\.Intrinsic\.VideoInfo[^>]*>([\s\S]*?)<\//i.exec(xml),attribute=/(?:[\w]+:)?Column\.Intrinsic\.VideoInfo\s*=\s*["']([^"']+)["']/i.exec(xml);value=element?element[1]:attribute?attribute[1]:'';}return value;
-    }
-    function mediaState(item){
-        if(!item||!item.getMediaPath)throw Error('Use mídia local com áudio e vídeo; sequências aninhadas não são suportadas.');
-        if(item.isOffline&&item.isOffline())throw Error('Há mídia offline. Religue os arquivos antes da montagem.');
-        var path=String(item.getMediaPath()||''),file=new File(path);
-        if(!path||!file.exists)throw Error('Arquivo de mídia não encontrado: '+path);
-        var xml=String(item.getProjectMetadata?item.getProjectMetadata():''),size=/(\d{2,6})\s*[x×]\s*(\d{2,6})/.exec(videoInfo(xml));
-        if(!size)throw Error('Dimensões da mídia indisponíveis para validar o Movimento.');
-        return {path:file.fsName,size:Number(file.length),modified:file.modified?Number(file.modified.getTime()):0,width:Number(size[1]),height:Number(size[2])};
-    }
-    // CEP returns Scale as 100, 1.0 (fraction), '100%' or a two-value array
-    // depending on the Premiere build / Scale Width mode. Only neutral scale
-    // passes; genuinely scaled clips remain blocked, as subclips drop Motion.
-    function neutralScale(value){
-        function neutralNumber(n){return isFinite(n)&&(Math.abs(n-100)<=.05||Math.abs(n-1)<=.0005);}
-        if(value instanceof Array||Object.prototype.toString.call(value)==='[object Array]'){
-            if(value.length<1||value.length>2)return false;
-            for(var i=0;i<value.length;i++)if(!neutralScale(value[i]))return false;
-            return true;
-        }
-        if(typeof value==='string'){
-            var txt=value.replace(/\s/g,'').replace(',','.');
-            if(!/^[-+]?[0-9]+(?:\.[0-9]+)?%?$/.test(txt))return false;
-            return txt.indexOf('%')!==-1?Math.abs(parseFloat(txt)-100)<=.05:neutralNumber(Number(txt));
-        }
-        return neutralNumber(Number(value));
-    }
-    function debugValue(value){
-        var text='';try{text=JSON.stringify(value);}catch(e){text=String(value);}
-        return String(text).slice(0,80);
-    }
-    // Premiere PT-BR also exposes native Crop controls within Motion.
-    // Neutral values are safe when rebuilding subclips, changed or animated values are not.
-    function cropSide(label){
-        return /^(?:crop|corte|recorte|cortar|recortar) (?:a |para a |da |do )?(?:esquerda|direita|superior|inferior|cima|baixo|left|right|top|bottom)$/.test(label);
-    }
-    function neutralCrop(value){
-        if(typeof value==='number')return isFinite(value)&&Math.abs(value)<=.0001;
-        if(typeof value!=='string')return false;
-        var txt=value.replace(/\s/g,'').replace(',','.').replace(/%$/,'');
-        return /^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)$/.test(txt)&&Math.abs(Number(txt))<=.0001;
-    }
-    // Native audio parameters vary with Premiere language and channel layout.
-    // Reject ambiguous values: subclips recreate source audio without clip effects.
-    function neutralAudioSwitch(value){
-        return value===false||value===0||value==='0'||normalized(value)==='false'||normalized(value)==='falso'||normalized(value)==='desativado';
-    }
-    function neutralAudioLevel(value,label){
-        // CEP builds use either unit gain=1 or Premiere's observed 0 dB value
-        // (15 dB native offset) = 0.177827941. The latter is accepted ONLY for
-        // an explicit Level/Nivel control, not a generic Volume toggle.
-        if(typeof value==='boolean'||value===null||typeof value==='undefined')return false;
-        var level=Number(value),neutralLinear=isFinite(level)&&Math.abs(level-1)<.00001;
-        var offsetLevel=(label==='level'||label==='nivel')&&isFinite(level)&&Math.abs(level-0.1778279410038923)<.0001;
-        if(typeof value==='number')return neutralLinear||offsetLevel;
-        if(typeof value!=='string')return false;
-        var text=value.replace(/^\s+|\s+$/g,'').replace(',','.');
-        if(/^[-+]?(?:0+(?:\.0+)?|\.0+)\s*dB$/i.test(text))return true;
-        if(!/^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)$/.test(text))return false;
-        return neutralLinear||offsetLevel;
-    }
-    function neutralAudioPan(value){
-        if(typeof value==='number')return isFinite(value)&&Math.abs(value)<.00001;
-        if(typeof value!=='string')return false;
-        var text=value.replace(/^\s+|\s+$/g,'').replace(',','.').replace(/%$/,'');
-        return /^[-+]?(?:0+(?:\.0+)?|\.0+)$/.test(text);
-    }
-    function audioLevelLabel(label){
-        return /^(?:level|nivel|volume|nivel (?:de|do) (?:audio|volume)|volume (?:do|de|da) (?:clipe|clip|canal|canais)|volume (?:esquerdo|direito)|canal (?:esquerdo|direito)|(?:left|right)(?: channel)?|(?:esquerda|direita)|(?:channel|canal) [0-9]+)$/.test(label);
-    }
-    function audioPanLabel(label){
-        return /^(?:balance|balanco|pan|panoramica|panoramico|panoramizador|panoramizacao|panoramica (?:do|de) (?:clipe|clip|audio)|balanco (?:do|de) audio)$/.test(label);
-    }
-    function plainClipState(clip,isAudio,media){
-        var result=[],i,j,component,p,label,name,v,allowed,center;
-        // Validate native boolean Volume switches and actual gain independently.
-        // Premiere may expose the switch on Channel Volume instead of Volume.
-        var sawNativeVolumeSwitch=false,verifiedAudioLevel=false;
-        if(!clip.components)throw Error('Não foi possível verificar os efeitos do take.');
-        for(i=0;i<clip.components.numItems;i++){
-            component=clip.components[i];name=normalized(component.displayName);var match=String(component.matchName||'');
-            allowed=isAudio?/^(volume|channel volume|volume (?:do|de|dos) (?:canal|canais)|panner|panoramica|panoramico|panoramizador)$/.test(name):/^(motion|movimento|opacity|opacidade|time remapping|remapeamento de tempo)$/.test(name);
-            if(!allowed)throw Error('A montagem por subclipes não preserva o efeito "'+component.displayName+'". Use takes brutos ou faça uma cópia renderizada para esta etapa.');
-            var props=[];
-            for(j=0;j<component.properties.numItems;j++){
-                p=component.properties[j];label=normalized(p.displayName);
-                if(p.isTimeVarying&&p.isTimeVarying())throw Error('O take contém animação em '+component.displayName+'. A prévia não pode preservar esses keyframes.');
-                v=p.getValue();props.push({name:String(p.displayName),value:v});
-                if(name==='motion'||name==='movimento'){
-                    // Only technical Adobe property metadata; never log a clip name, media path or dialogue.
-                    hostNote('motion.property',label.slice(0,45)+' = '+debugValue(v).slice(0,32));
-                    if(label==='position'||label==='posicao'||label==='anchor point'||label==='ponto de ancoragem'){
-                        center=v&&v.length===2&&((Math.abs(Number(v[0])-.5)<.001&&Math.abs(Number(v[1])-.5)<.001)||(Math.abs(Number(v[0])-media.width/2)<.1&&Math.abs(Number(v[1])-media.height/2)<.1));
-                        if(!center)throw Error('O take tem enquadramento alterado. A montagem por subclipes não preserva Movimento; use takes brutos.');
-                    }else if(/^(scale|escala|scale width|largura da escala|largura de escala|dimensionar largura|dimensao largura|dimensionar altura|scale height|altura da escala)$/.test(label)){if(!neutralScale(v))throw Error('O take contém escala alterada ou sem leitura segura ('+p.displayName+': '+debugValue(v)+'). Use takes brutos na Montagem.');}
-                    else if(/^(rotation|rotacao|anti-flicker filter|filtro[ -]?anticintilacao|filtro[ -]?anticintilante|filtro[ -]?anti[ -]?cintilacao|filtro[ -]?anti[ -]?cintilante)$/.test(label)){if(Math.abs(Number(v))>.001)throw Error('O take contém rotação/filtro de Movimento alterado.');}
-                    else if(cropSide(label)){
-                        if(!neutralCrop(v))throw Error('O take contém Corte/Recorte de Movimento alterado ('+p.displayName+': '+debugValue(v)+'). Zere o recorte antes de montar, ou renderize uma cópia para preservar o enquadramento.');
-                    }
-                    else if(/^(uniform scale|escala uniforme|dimensionar uniformemente|escala proporcional|scale uniformly)$/.test(label)){
-                        if(!(v===true||v===1||v==='1'||normalized(v)==='true'||normalized(v)==='verdadeiro'))throw Error('Escala uniforme desativada: use takes com Movimento padrão.');
-                    }
-                    else {hostNote('motion.unknown','component='+name+' prop='+label.slice(0,65)+' type='+typeof v+' value='+debugValue(v));throw Error('Parâmetro de Movimento não reconhecido: '+p.displayName+' ('+debugValue(v)+'). Não consigo garantir a preservação.');}
-                }else if(name==='opacity'||name==='opacidade'){
-                    if(label==='opacity'||label==='opacidade'){if(Math.abs(Number(v)-100)>.01)throw Error('Opacidade alterada não é preservada na montagem.');}
-                    else if(label==='blend mode'||label==='modo de mesclagem'){
-                        // CEP can expose either its UI enum, a numeric enum or the
-                        // localized label. Never block an untouched Normal blend
-                        // solely because getValue() used another representation.
-                        var blend=normalized(v).replace(/^\s+|\s+$/g,''),code=Number(v);
-                        if(!(blend==='normal'||blend==='padrao'||blend==='default'||(isFinite(code)&&(code===0||code===1||code===18))))
-                            throw Error('Modo de mesclagem diferente de Normal ou sem identificação segura (tipo '+typeof v+', valor '+String(v).slice(0,24)+'). Ajuste o clipe para Normal antes de montar.');
-                    }
-                    else throw Error('Máscaras/ajustes de Opacidade não são preservados na montagem.');
-                }else if(name==='time remapping'||name==='remapeamento de tempo'){
-                    if(!/^(speed|velocidade)$/.test(label)||Math.abs(Number(v)-100)>.01)throw Error('Remapeamento de tempo não é preservado na montagem.');
-                }else if(/^(volume|channel volume|volume (?:do|de|dos) (?:canal|canais))$/.test(name)){
-                    // Diagnostic records only a property label/type/value, never speech or media paths.
-                    var matchLabel=normalized(p.matchName||''),effectiveLabel=label;
-                    if(!(/^(bypass|ignorar|desvio|mute|mudo|silenciar|silenciado)$/.test(label)||audioLevelLabel(label)||audioPanLabel(label))){
-                        if(/^(bypass|level|volume|mute|pan|balance)$/.test(matchLabel)||audioLevelLabel(matchLabel)||audioPanLabel(matchLabel))effectiveLabel=matchLabel;
-                    }
-                    hostNote('audio.property',name.slice(0,35)+' / '+label.slice(0,50)+' = '+debugValue(v).slice(0,32));
-                    if(/^(bypass|ignorar|desvio|mute|mudo|silenciar|silenciado)$/.test(effectiveLabel)){
-                        if(!neutralAudioSwitch(v))throw Error('O take contém bypass/silenciamento alterado ('+p.displayName+': '+debugValue(v)+').');
-                    }else if(effectiveLabel==='volume' && (typeof v==='boolean' || v==='true' || v==='false')){
-                        // Real Premiere PT-BR: native Volume=false can occur on Volume
-                        // OR Channel Volume. It is a boolean state, not zero gain.
-                        if(v!==false&&v!=='false')throw Error('Estado booleano de Volume alterado. Revise o áudio antes da montagem.');
-                        sawNativeVolumeSwitch=true;
-                        hostNote('audio.volume-flag','neutral-false component='+name+' (separate Level/Nivel required)');
-                    }else if(audioLevelLabel(effectiveLabel)){
-                        if(!neutralAudioLevel(v,effectiveLabel))throw Error('Volume do take alterado ou sem leitura neutra ('+(p.displayName||p.matchName||'parâmetro sem nome')+': '+debugValue(v)+'). Renderize uma cópia para preservar o tratamento.');
-                        if(effectiveLabel==='level'||effectiveLabel==='nivel')verifiedAudioLevel=true;
-                    }else if(audioPanLabel(effectiveLabel)){
-                        if(!neutralAudioPan(v))throw Error('Panorama de áudio alterado ('+p.displayName+': '+debugValue(v)+').');
-                    }else{
-                        hostNote('audio.unknown','component='+name+' prop='+label.slice(0,65)+' type='+typeof v+' value='+debugValue(v));
-                        throw Error('Ajuste de áudio não reconhecido: '+p.displayName+' ('+debugValue(v)+'). Não consigo preservá-lo por subclipe.');
-                    }
-                }else if(audioPanLabel(label)){
-                    hostNote('audio.property',name.slice(0,35)+' / '+label.slice(0,50)+' = '+debugValue(v).slice(0,32));
-                    if(!neutralAudioPan(v))throw Error('Panorama de áudio alterado não é preservado ('+p.displayName+': '+debugValue(v)+').');
-                }else{
-                    hostNote('audio.unknown','component='+name+' prop='+label.slice(0,65)+' type='+typeof v+' value='+debugValue(v));
-                    throw Error('Panorama de áudio não reconhecido: '+p.displayName+' ('+debugValue(v)+'). A montagem foi bloqueada para preservar seu tratamento.');
-                }
-            }
-            result.push({matchName:match,name:String(component.displayName),properties:props});
-        }
-        if(isAudio&&sawNativeVolumeSwitch&&!verifiedAudioLevel){
-            hostNote('audio.level-unverified','Volume=false, no neutral Level/Nivel in any native component');
-            throw Error('O Premiere retornou Volume=false, mas não foi possível confirmar Nível/Level neutro. Confira Controles de efeitos de A1 antes de montar.');
-        }
-        return result;
+    // Transcript-only montage. Editorial selection uses the existing timed words.
+    // Do not read Premiere's localized Motion, Volume, Crop or color parameters.
+    function timelineClip(c,index){
+        var item=mediaItem(c);
+        if(!item||!item.createSubClip)throw Error('A montagem requer vídeo importado com mídia editável na V1.');
+        var start=secs(c.start),end=secs(c.end),ins=secs(c.inPoint),outs=secs(c.outPoint);
+        if(!isFinite(start)||!isFinite(end)||!isFinite(ins)||!isFinite(outs)||end<=start||outs<=ins)
+            throw Error('Clipe '+(index+1)+' com intervalos inválidos.');
+        if(Math.abs((end-start)-(outs-ins))>.12)
+            throw Error('Clipe '+(index+1)+' com velocidade ou remapeamento incompatível.');
+        if(c.getSpeed&&Math.abs(Number(c.getSpeed())-1)>.001)
+            throw Error('Clipe '+(index+1)+' com velocidade alterada não é suportado.');
+        return {index:index,start:start,end:end,inPoint:ins,outPoint:outs,nodeId:String(item.nodeId||'')};
     }
     function trackSafe(track){
         if(track.isLocked&&track.isLocked())throw Error('Destrave as faixas de áudio e vídeo antes de gerar a prévia.');
@@ -220,36 +74,57 @@
     }
     function snapshot(target){
         var seq=target||active();if(!seq)throw Error('Abra uma sequência no Premiere.');
+        hostNote('snapshot.build','3.6.5-dev-r4-transcript-only-20261023');
         hostNote('snapshot.sequence','videoTracks='+seq.videoTracks.numTracks+' audioTracks='+seq.audioTracks.numTracks+' frameTicks='+String(seq.timebase));
-        if(hasExtraTracks(seq))throw Error('Use somente V1 e A1 com takes brutos. Faixas adicionais não são preservadas por esta montagem.');
-        var video=[],audio=[];var tr,i,c;
-        for(i=0;i<seq.videoTracks.numTracks;i++){tr=seq.videoTracks[i];if(tr.clips.numItems){trackSafe(tr);if(video.length)throw Error('BETA: use somente uma faixa de vídeo com falas; outras faixas devem estar vazias.');for(var j=0;j<tr.clips.numItems;j++){c=tr.clips[j];if(!mediaItem(c)||!mediaItem(c).createSubClip)throw Error('Item sem mídia editável na faixa de vídeo.');if(c.isAdjustmentLayer&&c.isAdjustmentLayer())throw Error('Faixa contém camada de ajuste.');if(c.getSpeed&&Math.abs(Number(c.getSpeed())-1)>.001)throw Error('Velocidade alterada não é suportada na BETA.');
-             var vs=secs(c.start),ve=secs(c.end),ins=secs(c.inPoint),outs=secs(c.outPoint),media=mediaState(mediaItem(c));if(Math.abs((ve-vs)-(outs-ins))>.12)throw Error('Um clipe tem velocidade/remapeamento incompatível.');video.push({index:j,start:vs,end:ve,inPoint:ins,outPoint:outs,name:String(c.name),nodeId:String(mediaItem(c).nodeId||''),media:media,effects:plainClipState(c,false,media)});}}
+        if(hasExtraTracks(seq))throw Error('A montagem simples usa V1 e A1. Mova materiais extras para outra sequência antes de gerar a prévia.');
+        var video=[],audio=[],tr,i,j,c;
+        for(i=0;i<seq.videoTracks.numTracks;i++){
+            tr=seq.videoTracks[i];if(!tr.clips.numItems)continue;
+            if(video.length)throw Error('Use apenas uma faixa de vídeo com falas.');
+            for(j=0;j<tr.clips.numItems;j++){
+                c=tr.clips[j];if(c.isAdjustmentLayer&&c.isAdjustmentLayer())throw Error('A V1 contém uma camada de ajuste.');
+                video.push(timelineClip(c,j));
+            }
         }
-        if(!video.length)throw Error('A sequência não tem vídeos na faixa V1.');
-        for(i=0;i<seq.audioTracks.numTracks;i++){tr=seq.audioTracks[i];if(tr.clips.numItems){trackSafe(tr);if(audio.length)throw Error('BETA: múltiplas faixas de áudio não são suportadas nesta revisão.');for(var k=0;k<tr.clips.numItems;k++){c=tr.clips[k];var am=mediaState(mediaItem(c));audio.push({start:secs(c.start),end:secs(c.end),inPoint:secs(c.inPoint),outPoint:secs(c.outPoint),nodeId:String(mediaItem(c)&&mediaItem(c).nodeId||''),media:am,effects:plainClipState(c,true,am)});}}}
-        hostNote('snapshot.media','videoClips='+video.length+' audioClips='+audio.length);
-        if(audio.length!==video.length)throw Error('Áudio separado/não alinhado: use takes com áudio vinculado na A1.');
-        for(i=0;i<video.length;i++){if(Math.abs(audio[i].start-video[i].start)>.01||Math.abs(audio[i].end-video[i].end)>.01||Math.abs(audio[i].inPoint-video[i].inPoint)>.01||Math.abs(audio[i].outPoint-video[i].outPoint)>.01||audio[i].nodeId!==video[i].nodeId)throw Error('Áudio e vídeo não estão alinhados à mesma mídia no take '+(i+1)+'.');}
+        if(!video.length)throw Error('A sequência não tem vídeos na V1.');
+        for(i=0;i<seq.audioTracks.numTracks;i++){
+            tr=seq.audioTracks[i];if(!tr.clips.numItems)continue;
+            if(audio.length)throw Error('Use apenas a faixa A1 para as falas.');
+            for(j=0;j<tr.clips.numItems;j++)audio.push(timelineClip(tr.clips[j],j));
+        }
+        if(audio.length!==video.length)throw Error('V1/A1 não estão alinhadas: cada take precisa ter seu áudio correspondente.');
+        for(i=0;i<video.length;i++){
+            if(Math.abs(audio[i].start-video[i].start)>.01||Math.abs(audio[i].end-video[i].end)>.01||
+               Math.abs(audio[i].inPoint-video[i].inPoint)>.01||Math.abs(audio[i].outPoint-video[i].outPoint)>.01||
+               (audio[i].nodeId&&video[i].nodeId&&audio[i].nodeId!==video[i].nodeId))
+                throw Error('Áudio e vídeo estão fora de sincronismo no take '+(i+1)+'.');
+        }
         video.sort(function(a,b){return a.start-b.start;});
-        for(i=1;i<video.length;i++)if(video[i].start<video[i-1].end-.02)throw Error('Clipes sobrepostos não são suportados nesta BETA.');
-        var result={sequenceID:String(seq.sequenceID),clips:video,audio:audio,clipCount:video.length,frameDuration:frameDuration(seq),settings:seq.getSettings()};
-        result.signature=JSON.stringify(result);result.sequenceName=String(seq.name);return result;
+        for(i=1;i<video.length;i++)if(video[i].start<video[i-1].end-.02)
+            throw Error('Há sobreposição de takes na V1. Use uma timeline de fala simples.');
+        var result={sequenceID:String(seq.sequenceID),clips:video,audio:audio,clipCount:video.length,frameDuration:frameDuration(seq)};
+        result.signature=JSON.stringify(result);
+        result.sequenceName=String(seq.name);
+        result.effectNotice='A prévia utiliza a mídia de origem: efeitos, volume, cor e transições aplicados aos clipes da timeline não são copiados para os novos subclipes. Revise antes de aprovar.';
+        hostNote('snapshot.transcript-only','clipCount='+video.length+' audioCount='+audio.length+' no-effect-inspection=1');
+        return result;
     }
     function hasExtraTracks(seq){var i;for(i=1;i<seq.videoTracks.numTracks;i++)if(seq.videoTracks[i].clips.numItems)return true;for(i=1;i<seq.audioTracks.numTracks;i++)if(seq.audioTracks[i].clips.numItems)return true;return false;}
     function makePreview(args){
         var original=byID(args.sequenceID);if(!original)throw Error('Sequência original não encontrada: reabra o projeto.');
         var previous=app.project.activeSequence;
         if(!previous||(String(previous.sequenceID)!==String(original.sequenceID)&&String(previous.sequenceID)!==String(args.currentPreviewId||'')))throw Error('A sequência ativa mudou. Volte à original ou à prévia desta montagem.');
-        var snap=snapshot(original);if(!args.sourceSignature||args.sourceSignature!==snap.signature)throw Error('Mídia, efeitos ou cortes da original mudaram desde a análise. Refaça a montagem.');
+        var snap=snapshot(original);if(!args.sourceSignature||args.sourceSignature!==snap.signature)throw Error('Os intervalos da timeline original mudaram desde a análise. Refaça a montagem.');
         if(!args.cuts||!args.cuts.length||args.cuts.length>100)throw Error('Plano vazio ou grande demais.');
         var cuts=[],i,j,c,ref,source,clip;var sourceTrack=original.videoTracks[0],frame=frameDuration(original);
         hostNote('preview.plan','cuts='+args.cuts.length+' clips='+snap.clips.length+' frameMs='+Math.round(frame*1000));
+        hostNote('preview.effects','raw-source-subclips; timeline effects not transferred');
         for(i=0;i<args.cuts.length;i++){
             c=args.cuts[i];var a=Number(c.start),b=Number(c.end);if(!isFinite(a)||!isFinite(b)||b-a<.18)throw Error('Intervalo inválido no trecho '+(i+1));
             ref=null;for(j=0;j<snap.clips.length;j++)if(a>=snap.clips[j].start-.035&&b<=snap.clips[j].end+.035){ref=snap.clips[j];break;}
             if(!ref)throw Error('Trecho cruza clipes/cortes: '+(i+1));
             clip=sourceTrack.clips[ref.index];source=mediaItem(clip);if(!source||!source.createSubClip)throw Error('Fonte incompatível.');
+            if(source.isOffline&&source.isOffline())throw Error('A mídia do trecho '+(i+1)+' está offline. Religue o arquivo original.');
             var offsetStart=ref.inPoint+(a-ref.start),offsetEnd=ref.inPoint+(b-ref.start);
             if(offsetStart<ref.inPoint-.035||offsetEnd>ref.outPoint+.035)throw Error('Intervalo fora da fonte.');
             // Align SOURCE in/out once to the timeline frame grid, not independently
@@ -304,7 +179,7 @@
             if(preview.videoTracks[0].clips.numItems!==subclips.length)throw Error('A quantidade de clipes gerados difere do plano.');
             for(i=1;i<layout.length;i++)if(Math.abs(layout[i].destStart-layout[i-1].destEnd)>epsilon)throw Error('Detectado espaço entre os clipes '+i+' e '+(i+1));
             app.project.openSequence(preview.sequenceID);
-            return {previewId:String(preview.sequenceID),duration:cursor,layout:layout,previewSignature:snapshot(preview).signature,created:true};
+            return {previewId:String(preview.sequenceID),duration:cursor,layout:layout,previewSignature:snapshot(preview).signature,created:true,effectNotice:snap.effectNotice};
         }catch(e){app.project.openSequence(original.sequenceID);throw Error('A prévia falhou e foi isolada. Original preservado. '+e.message);}
     }
     function validatePreview(args){
