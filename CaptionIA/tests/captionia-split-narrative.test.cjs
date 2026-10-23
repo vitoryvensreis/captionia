@@ -253,6 +253,7 @@ for(const family of ['Volume','Channel Volume','Volume do canal']){
  const snap=f.call('fsNarrativeBetaSnapshot');
  assert.equal(snap.ok,true,'Default '+family+' should pass: '+snap.error);
  assert.ok(snap.hostTrace.some(x=>x.phase==='audio.volume-flag'));
+ assert.ok(snap.hostTrace.some(x=>x.phase==='snapshot.build'&&x.detail.includes('3.6.5-dev-r3')));
  const preview=f.call('fsNarrativeBetaPreview',{
   sequenceID:'original',sourceSignature:snap.signature,
   cuts:[{id:'safe1',start:0,end:2},{id:'safe2',start:2.5,end:5}]
