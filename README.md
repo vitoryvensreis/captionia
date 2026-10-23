@@ -1,6 +1,12 @@
-# Caption IA 3.5.1
+# Caption IA 3.6.0 — desenvolvimento
 
 Esta árvore foi criada a partir do pacote recuperado do FrameSpeed 2.2.
+
+## Caption IA 3.6.0 — precisão e UX
+
+Esta versão está em `dev` para testes manuais no Premiere. Inclui alinhamento de SFX por frame e pelos WORD_TIMINGS da legenda quando disponíveis, melhorias em Tela Dividida, proteção de retakes, diagnósticos da ponte Adobe e otimizações do painel.
+
+**Limites atuais:** preenchimento da Tela Dividida ainda usa QE legado; montagens por subclipe aceitam apenas material compatível em V1/A1; não foi realizada migração de CEP para UXP. Consulte `CaptionIA/docs/ADOBE_API_MIGRACAO_3.6.0.md`.
 
 ## Integração Groq por conta (3.5.1)
 
@@ -12,7 +18,7 @@ Tutorial: https://caption.escotilhaprodutora.com/tutoriais
 - Nome público alterado para **Caption IA**.
 - Nome público e menu do CEP alterados para **Caption IA**.
 - IDs internos `com.editbest` / `com.editbest.panel` foram preservados por compatibilidade e para evitar duplicar a extensão em projetos/instalações existentes.
-- Versão atual: **3.5.1** (o restante deste arquivo registra a evolução histórica do plugin).
+- Versão atual de desenvolvimento: **3.6.0** (o restante deste arquivo registra a evolução histórica do plugin).
 - Tela de login removida.
 - Cliente de autenticação e chamadas `login.php`, `validate.php` e `logout.php` removidos do plugin.
 - Revalidação periódica de sessão removida.
