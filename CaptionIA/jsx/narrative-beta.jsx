@@ -45,6 +45,17 @@
         var text='';try{text=JSON.stringify(value);}catch(e){text=String(value);}
         return String(text).slice(0,80);
     }
+    // Premiere PT-BR also exposes native Crop controls within Motion.
+    // Neutral values are safe when rebuilding subclips, changed or animated values are not.
+    function cropSide(label){
+        return /^(?:crop|corte|recorte|cortar|recortar) (?:a |para a |da |do )?(?:esquerda|direita|superior|inferior|cima|baixo|left|right|top|bottom)$/.test(label);
+    }
+    function neutralCrop(value){
+        if(typeof value==='number')return isFinite(value)&&Math.abs(value)<=.0001;
+        if(typeof value!=='string')return false;
+        var txt=value.replace(/\s/g,'').replace(',','.').replace(/%$/,'');
+        return /^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)$/.test(txt)&&Math.abs(Number(txt))<=.0001;
+    }
     function plainClipState(clip,isAudio,media){
         var result=[],i,j,component,p,label,name,v,allowed,center;
         if(!clip.components)throw Error('Não foi possível verificar os efeitos do take.');
@@ -65,6 +76,9 @@
                         if(!center)throw Error('O take tem enquadramento alterado. A montagem por subclipes não preserva Movimento; use takes brutos.');
                     }else if(/^(scale|escala|scale width|largura da escala|largura de escala|dimensionar largura|dimensao largura|dimensionar altura|scale height|altura da escala)$/.test(label)){if(!neutralScale(v))throw Error('O take contém escala alterada ou sem leitura segura ('+p.displayName+': '+debugValue(v)+'). Use takes brutos na Montagem.');}
                     else if(/^(rotation|rotacao|anti-flicker filter|filtro[ -]?anticintilacao|filtro[ -]?anticintilante|filtro[ -]?anti[ -]?cintilacao|filtro[ -]?anti[ -]?cintilante)$/.test(label)){if(Math.abs(Number(v))>.001)throw Error('O take contém rotação/filtro de Movimento alterado.');}
+                    else if(cropSide(label)){
+                        if(!neutralCrop(v))throw Error('O take contém Corte/Recorte de Movimento alterado ('+p.displayName+': '+debugValue(v)+'). Zere o recorte antes de montar, ou renderize uma cópia para preservar o enquadramento.');
+                    }
                     else if(/^(uniform scale|escala uniforme|dimensionar uniformemente|escala proporcional|scale uniformly)$/.test(label)){
                         if(!(v===true||v===1||v==='1'||normalized(v)==='true'||normalized(v)==='verdadeiro'))throw Error('Escala uniforme desativada: use takes com Movimento padrão.');
                     }
