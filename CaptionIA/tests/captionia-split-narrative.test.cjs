@@ -97,36 +97,15 @@ applied=f.call('captioniaSplitApply',prepared);
 assert.equal(applied.ok,true,applied.error);
 assert.deepEqual(Array.from(f.project.activeSequence.videoTracks,track=>Array.from(track.clips[0].components[0].properties[0].getValue())),[[.25,.25],[.75,.25],[.25,.75],[.75,.75]]);
 
-// Normal Scale is represented differently by CEP versions. Do not block
-// visually untouched takes; never accept a genuinely changed scale.
-for(const neutral of [1,'100%',[100,100],[1,1]]){
+// Editing intent comes from timed words, never from Adobe component labels.
+for(const scale of [1,125,'100%',[100,100]]){
  f=fixture('jsx/narrative-beta.jsx');
- f.original.videoTracks[0].clips[0].components[0].properties[1].setValue(neutral);
- assert.equal(f.call('fsNarrativeBetaSnapshot').ok,true,'neutral scale rejected: '+JSON.stringify(neutral));
+ f.original.videoTracks[0].clips[0].components[0].properties[1].setValue(scale);
+ const snap=f.call('fsNarrativeBetaSnapshot');
+ assert.equal(snap.ok,true,'Motion Scale must not block transcription-based editing');
+ assert.ok(snap.hostTrace.some(x=>x.phase==='snapshot.transcript-only'));
+ assert.match(snap.effectNotice,/efeitos.*não são copiados/);
 }
-f=fixture('jsx/narrative-beta.jsx');
-f.original.videoTracks[0].clips[0].components[0].properties[1].setValue(125);
-assert.match(f.call('fsNarrativeBetaSnapshot').error,/escala alterada.*125/);
-
-// Premiere Portuguese localization labels Scale Width as Dimensionar largura.
-// Reject genuine transforms, but accept the default 100% in talking-head takes.
-f=fixture('jsx/narrative-beta.jsx');
-f.original.videoTracks[0].clips[0].components[0].properties.push(property('Dimensionar largura',100));
-let ptSnapshot=f.call('fsNarrativeBetaSnapshot');
-assert.equal(ptSnapshot.ok,true,ptSnapshot.error);
-assert.ok(ptSnapshot.hostTrace.some(s=>s.phase==='motion.property'&&s.detail.includes('dimensionar largura')));
-f.original.videoTracks[0].clips[0].components[0].properties.at(-1).setValue(160);
-assert.match(f.call('fsNarrativeBetaSnapshot').error,/escala alterada.*Dimensionar largura/);
-
-// Motion in Portuguese Premiere may expose boolean Uniform Scale as 'Dimensionar uniformemente'.
-f=fixture('jsx/narrative-beta.jsx');
-f.original.videoTracks[0].clips[0].components[0].properties.push(property('Dimensionar uniformemente',true));
-let localized=f.call('fsNarrativeBetaSnapshot');
-assert.equal(localized.ok,true,localized.error);
-assert.ok(localized.hostTrace.some(x=>x.phase==='motion.property'&&x.detail.includes('dimensionar uniformemente')));
-f.original.videoTracks[0].clips[0].components[0].properties.at(-1).setValue(false);
-assert.match(f.call('fsNarrativeBetaSnapshot').error,/Escala uniforme desativada/);
-
 // The legacy Favorites sub-navigation must move below Sua biblioteca context.
 const workspaceSource=source('js/captionia-workspace.js');
 assert.match(workspaceSource,/context\.parentNode\.insertBefore\(favSubtabs, main\)/);
@@ -137,8 +116,8 @@ let preview=f.call('fsNarrativeBetaPreview',{sequenceID:'original',sourceSignatu
 preview=f.call('fsNarrativeBetaPreview',{sequenceID:'original',sourceSignature:snapshot.signature,cuts});assert.equal(preview.ok,true,preview.error);assert.equal(f.state.clones,1);assert.equal(f.original.videoTracks[0].clips.length,1);assert.equal(f.original.audioTracks[0].clips.length,1);
 let approveArgs={sequenceID:'original',sourceSignature:snapshot.signature,previewId:preview.previewId,previewSignature:preview.previewSignature,layout:preview.layout};
 assert.equal(f.call('fsNarrativeBetaValidatePreview',approveArgs).ok,true);
-f.project.activeSequence.videoTracks[0].clips[0].projectItem=f.media('changed');assert.match(f.call('fsNarrativeBetaValidatePreview',approveArgs).error,/alterados|não estão alinhados/);
-f.state.files['/take.mov'].size=2000;assert.match(f.call('fsNarrativeBetaValidatePreview',approveArgs).error,/original.*mudou/);
+const previewMedia=f.project.activeSequence.videoTracks[0].clips[0].projectItem;f.project.activeSequence.videoTracks[0].clips[0].projectItem=f.media('changed');assert.match(f.call('fsNarrativeBetaValidatePreview',approveArgs).error,/alterados|não estão alinhados|fora de sincronismo/);f.project.activeSequence.videoTracks[0].clips[0].projectItem=previewMedia;
+f.state.files['/take.mov'].size=2000;assert.equal(f.call('fsNarrativeBetaValidatePreview',approveArgs).ok,true,'No filesystem size dependency');
 // Older Premiere releases do not expose Track.transitions. Missing collection
 // is not a reason to reject a safe copied rough cut.
 f=fixture('jsx/narrative-beta.jsx');
@@ -152,12 +131,36 @@ assert.notEqual(safeClone.previewId,'original');
 assert.equal(f.original.videoTracks[0].clips.length,1);
 assert.equal(f.original.audioTracks[0].clips.length,1);
 assert.equal(f.project.activeSequence.sequenceID,safeClone.previewId);
-f=fixture('jsx/narrative-beta.jsx');f.original.videoTracks[0].clips[0].components.push(component('Lumetri Color',[]));assert.match(f.call('fsNarrativeBetaSnapshot').error,/não preserva o efeito/);assert.equal(f.state.clones,0);
-f=fixture('jsx/narrative-beta.jsx');f.original.videoTracks[0].clips[0].components[0].properties[0].isTimeVarying=()=>true;assert.match(f.call('fsNarrativeBetaSnapshot').error,/keyframes/);
-f=fixture('jsx/narrative-beta.jsx');f.state.files['/take.mov'].exists=false;assert.match(f.call('fsNarrativeBetaSnapshot').error,/offline/);
-f=fixture('jsx/narrative-beta.jsx');f.original.videoTracks[0].transitions.push({});assert.match(f.call('fsNarrativeBetaSnapshot').error,/transições/);
-f=fixture('jsx/narrative-beta.jsx');f.state.attributeMetadata=true;assert.equal(f.call('fsNarrativeBetaSnapshot').ok,true);
-f=fixture('jsx/narrative-beta.jsx');f.original.videoTracks[0].clips[0].projectItem.getProjectMetadata=()=>'<rdf:Description/>';let xmpCalls=0;f.context.XMPMeta=function(){this.getProperty=function(namespace,key){assert.equal(namespace,'http://ns.adobe.com/premierePrivateProjectMetaData/1.0/');assert.equal(key,'Column.Intrinsic.VideoInfo');xmpCalls++;return {value:'1920 x 1080'};};};assert.equal(f.call('fsNarrativeBetaSnapshot').ok,true);assert.ok(xmpCalls>=2);
+// Real-world regression: controls may be non-neutral; the plan must still use
+// the existing transcribed times without inspecting Volume or Motion.
+f=fixture('jsx/narrative-beta.jsx');
+const changedVideo=f.original.videoTracks[0].clips[0],changedAudio=f.original.audioTracks[0].clips[0];
+changedVideo.components.push(component('Lumetri Color',[property('Saturation',145)]));
+changedVideo.components[0].properties.push(property('Corte à esquerda',15));
+changedAudio.components[0].properties.push(property('Volume',false));
+changedAudio.components[0].properties.push(property('Nível',0.5));
+const onlyTranscript=f.call('fsNarrativeBetaSnapshot');
+assert.equal(onlyTranscript.ok,true,onlyTranscript.error);
+assert.ok(onlyTranscript.hostTrace.every(x=>x.phase!=='motion.property'&&x.phase!=='audio.property'));
+const simplePreview=f.call('fsNarrativeBetaPreview',{sequenceID:'original',sourceSignature:onlyTranscript.signature,cuts:[{id:'S001',start:0,end:2},{id:'S002',start:3,end:5}]});
+assert.equal(simplePreview.ok,true,simplePreview.error);assert.equal(f.state.clones,1);assert.equal(f.state.subclips,2);
+assert.match(simplePreview.effectNotice,/efeitos.*não são copiados/);
+assert.equal(changedVideo.components.at(-1).properties[0].getValue(),145,'Original effects unchanged');
+assert.equal(changedAudio.components[0].properties.at(-1).getValue(),0.5,'Original gain unchanged');
+assert.equal(f.call('fsNarrativeBetaValidatePreview',{sequenceID:'original',sourceSignature:onlyTranscript.signature,previewId:simplePreview.previewId,previewSignature:simplePreview.previewSignature,layout:simplePreview.layout}).ok,true);
+f=fixture('jsx/narrative-beta.jsx');
+const originalSnap=f.call('fsNarrativeBetaSnapshot');
+f.original.videoTracks[0].clips[0].start.seconds=1;
+assert.match(f.call('fsNarrativeBetaPreview',{sequenceID:'original',sourceSignature:originalSnap.signature,cuts:[{id:'S001',start:1,end:2}]}).error,/intervalos da timeline original mudaram|remapeamento incompatível/);
+assert.equal(f.state.clones,0);
+f=fixture('jsx/narrative-beta.jsx');
+f.original.audioTracks[0].clips[0].start.seconds=.5;f.original.audioTracks[0].clips[0].end.seconds=10.5;
+assert.match(f.call('fsNarrativeBetaSnapshot').error,/fora de sincronismo/);
+f=fixture('jsx/narrative-beta.jsx');
+const offlineSnap=f.call('fsNarrativeBetaSnapshot');
+f.original.videoTracks[0].clips[0].projectItem.isOffline=()=>true;
+assert.match(f.call('fsNarrativeBetaPreview',{sequenceID:'original',sourceSignature:offlineSnap.signature,cuts:[{id:'S001',start:0,end:2}]}).error,/offline/);
+assert.equal(f.state.clones,0);
 
 const store=new Map(),win={};const dom={readyState:'loading',addEventListener(){},getElementById(){return null;},querySelector(){return null;}};
 const context=vm.createContext({window:win,document:dom,localStorage:{getItem:k=>store.has(k)?store.get(k):null,setItem:(k,v)=>store.set(k,String(v)),removeItem:k=>store.delete(k)},console,setTimeout,clearTimeout});
@@ -170,148 +173,20 @@ assert.equal(narrative.nearDuplicate('Eu recomendo este produto para todas as pe
 assert.equal(narrative.dedupePlan([{id:'1',text:'Ele explica o produto e mostra um exemplo'},{id:'2',text:'Ele explica o produto e mostra outro exemplo'}],[]).cuts.length,2);
 narrative.configure({objective:'natural',goalText:'Preservar o raciocínio completo'});assert.equal(narrative.readConfig().objective,'natural');assert.throws(()=>narrative.configure({objective:'aggressive'}),/não foram implementados/);
 let payload=JSON.parse(narrative.buildPayload([{id:'S001',text:'Uma fala completa.',start:0,end:2,blocked:false}],{mode:'livre',fidelity:'flexivel',sections:[],goalText:'Preservar raciocínio'},{groups:[]},[]));assert.equal(payload.editingProfile.id,'natural');assert.equal(payload.segments[0].evidence.endsSentence,true);assert.match(payload.objective,/natural/);assert.equal(payload.editorialGoal,'Preservar raciocínio');
-// Premiere audio Volume controls are localized and may expose neutral gain as 1 or 0 dB.
-// Unknown/nonneutral values must not be silently discarded when making subclips.
-for(const [label,normal,changed] of [
- ['Volume',1,0.5],
- ['Volume do clipe','1.0',1.4],
- ['Nível de volume',1,1.3],
- ['Nível de áudio',1,2],
- ['Volume do canal',1,0],
- ['Canal esquerdo',1,0.4],
- ['Canal direito','1',1.2],
- ['Channel 1',1,0.7],
- ['Bypass',false,true],
- ['Desvio',0,1],
- ['Mudo',false,true],
- ['Silenciar','false','true'],
- ['Panorâmica',0,0.7],
- ['Pan',0,0.5]
-]){
- f=fixture('jsx/narrative-beta.jsx');
- const prop=property(label,normal);
- f.original.audioTracks[0].clips[0].components[0].properties.push(prop);
- const snap=f.call('fsNarrativeBetaSnapshot');
- assert.equal(snap.ok,true,'Áudio padrão deve passar '+label+': '+snap.error);
- assert.ok(snap.hostTrace.some(v=>v.phase==='audio.property'&&v.detail.toLowerCase().includes(label.toLowerCase().replace('í','i').replace('í','i').slice(0,5))),'Trace should include native audio label '+label);
- prop.setValue(changed);
- assert.equal(f.call('fsNarrativeBetaSnapshot').ok,false,'Áudio alterado deve ser bloqueado: '+label);
-}
-f=fixture('jsx/narrative-beta.jsx');
-f.original.audioTracks[0].clips[0].components=collection([component('Channel Volume',[property('Canal 1',1),property('Canal 2',1)])]);
-assert.equal(f.call('fsNarrativeBetaSnapshot').ok,true,'Dois canais neutros devem ser aceitos');
-f.original.audioTracks[0].clips[0].components[0].properties[1].setValue(0.5);
-assert.match(f.call('fsNarrativeBetaSnapshot').error,/Volume do take alterado/);
-f=fixture('jsx/narrative-beta.jsx');
-f.original.audioTracks[0].clips[0].components[0].properties.push(property('Ajuste novo desconhecido',0));
-const audioUnknown=f.call('fsNarrativeBetaSnapshot');
-assert.equal(audioUnknown.ok,false,'Parâmetro desconhecido segue bloqueado');
-assert.match(audioUnknown.error,/Ajuste de áudio não reconhecido.*Ajuste novo desconhecido/);
-assert.ok(audioUnknown.hostTrace.some(v=>v.phase==='audio.unknown'));
-f=fixture('jsx/narrative-beta.jsx');
-const animatedAudio=property('Volume',1);animatedAudio.isTimeVarying=()=>true;
-f.original.audioTracks[0].clips[0].components[0].properties.push(animatedAudio);
-assert.match(f.call('fsNarrativeBetaSnapshot').error,/keyframes/);
-
-// Real Premiere PT-BR regression 23/10: native Volume/Volume=false is a
-// boolean control field. It must not be interpreted as zero gain/muted audio.
-f=fixture('jsx/narrative-beta.jsx');
-const nativeVolume=f.original.audioTracks[0].clips[0].components[0];
-nativeVolume.properties.unshift(property('Volume',false));
-const nativeAudioSnapshot=f.call('fsNarrativeBetaSnapshot');
-assert.equal(nativeAudioSnapshot.ok,true,nativeAudioSnapshot.error);
-assert.ok(nativeAudioSnapshot.hostTrace.some(x=>x.phase==='audio.volume-flag'));
-assert.ok(nativeAudioSnapshot.hostTrace.some(x=>x.phase==='audio.property'&&x.detail.includes('volume = false')));
-nativeVolume.properties[0].setValue(true);
-assert.match(f.call('fsNarrativeBetaSnapshot').error,/Estado booleano de Volume alterado/);
-nativeVolume.properties[0].setValue(false);
-nativeVolume.properties[1].setValue(0.5);
-assert.match(f.call('fsNarrativeBetaSnapshot').error,/Volume do take alterado/);
-// Without an independently verified Level/Nivel, a false flag alone is NOT enough.
-f=fixture('jsx/narrative-beta.jsx');
-f.original.audioTracks[0].clips[0].components[0].properties=collection([property('Volume',false)]);
-const noGain=f.call('fsNarrativeBetaSnapshot');
-assert.equal(noGain.ok,false);
-assert.match(noGain.error,/não foi possível confirmar Nível\/Level/);
-assert.ok(noGain.hostTrace.some(x=>x.phase==='audio.level-unverified'));
-// Some Premiere CEP versions expose zero dB as 0.177827941 (15 dB offset).
-f=fixture('jsx/narrative-beta.jsx');
-f.original.audioTracks[0].clips[0].components[0].properties=collection([property('Volume',false),property('Level',0.17782793939114)]);
-assert.equal(f.call('fsNarrativeBetaSnapshot').ok,true,'0 dB native level with neutral Volume=false must pass');
-f.original.audioTracks[0].clips[0].components[0].properties[1].setValue(0.25);
-assert.match(f.call('fsNarrativeBetaSnapshot').error,/Volume do take alterado/);
-// Gain values with no explicit Level identity must not be treated as a 0 dB offset.
-f=fixture('jsx/narrative-beta.jsx');
-f.original.audioTracks[0].clips[0].components[0].properties=collection([property('Volume',0.17782793939114)]);
-assert.match(f.call('fsNarrativeBetaSnapshot').error,/Volume do take alterado/);
-
-// End-to-end Premiere mock with PT-BR default audio switch variants.
+// End-to-end mocked Premiere, including the localized errors from field tests.
 for(const family of ['Volume','Channel Volume','Volume do canal']){
  f=fixture('jsx/narrative-beta.jsx');
- const nativeAudio=f.original.audioTracks[0].clips[0];
- nativeAudio.components=collection([component(family,[property('Volume',false),property('Level',1)])]);
+ f.original.videoTracks[0].clips[0].components[0].properties.push(property('Corte à esquerda',7));
+ f.original.audioTracks[0].clips[0].components=collection([component(family,[property('Volume',false),property('Level',0.5)])]);
  const snap=f.call('fsNarrativeBetaSnapshot');
- assert.equal(snap.ok,true,'Default '+family+' should pass: '+snap.error);
- assert.ok(snap.hostTrace.some(x=>x.phase==='audio.volume-flag'));
- assert.ok(snap.hostTrace.some(x=>x.phase==='snapshot.build'&&x.detail.includes('3.6.5-dev-r3')));
- const preview=f.call('fsNarrativeBetaPreview',{
-  sequenceID:'original',sourceSignature:snap.signature,
-  cuts:[{id:'safe1',start:0,end:2},{id:'safe2',start:2.5,end:5}]
- });
- assert.equal(preview.ok,true,'Safe '+family+' should cut: '+preview.error);
- assert.equal(f.state.subclips,2);
+ assert.equal(snap.ok,true,snap.error);
+ assert.ok(snap.hostTrace.some(x=>x.phase==='snapshot.transcript-only'));
+ const edited=f.call('fsNarrativeBetaPreview',{sequenceID:'original',sourceSignature:snap.signature,cuts:[{id:'safe1',start:0,end:2},{id:'safe2',start:3,end:5}]});
+ assert.equal(edited.ok,true,edited.error);assert.equal(f.state.subclips,2);
  assert.equal(f.original.videoTracks[0].clips.length,1);
  assert.equal(f.original.audioTracks[0].clips.length,1);
- const approved=f.call('fsNarrativeBetaValidatePreview',{
-  sequenceID:'original',sourceSignature:snap.signature,
-  previewId:preview.previewId,previewSignature:preview.previewSignature,layout:preview.layout
- });
- assert.equal(approved.ok,true,'Safe '+family+' should validate: '+approved.error);
+ assert.equal(f.call('fsNarrativeBetaValidatePreview',{sequenceID:'original',sourceSignature:snap.signature,previewId:edited.previewId,previewSignature:edited.previewSignature,layout:edited.layout}).ok,true);
 }
-// Neutral Level may be on a separate native Volume component.
-f=fixture('jsx/narrative-beta.jsx');
-f.original.audioTracks[0].clips[0].components=collection([
- component('Channel Volume',[property('Volume',false)]),
- component('Volume',[property('Level',1)])
-]);
-assert.equal(f.call('fsNarrativeBetaSnapshot').ok,true,'Cross-component neutral gain');
-f.original.audioTracks[0].clips[0].components[1].properties[0].setValue(0.5);
-assert.match(f.call('fsNarrativeBetaSnapshot').error,/Volume do take alterado/);
-f=fixture('jsx/narrative-beta.jsx');
-f.original.audioTracks[0].clips[0].components=collection([component('Channel Volume',[property('Volume',false)])]);
-assert.match(f.call('fsNarrativeBetaSnapshot').error,/não foi possível confirmar Nível\/Level neutro/);
-
-// Regression from real Premiere PT-BR logs, 23 Oct 2026.
-f=fixture('jsx/narrative-beta.jsx');
-f.original.videoTracks[0].clips[0].components[0].properties.push(property('Filtro anti-cintilação',0));
-let flicker=f.call('fsNarrativeBetaSnapshot');
-assert.equal(flicker.ok,true,flicker.error);
-assert.ok(flicker.hostTrace.some(x=>x.phase==='motion.property'&&x.detail.includes('filtro anti-cintilacao')));
-f.original.videoTracks[0].clips[0].components[0].properties.at(-1).setValue(3);
-assert.match(f.call('fsNarrativeBetaSnapshot').error,/rotação\/filtro de Movimento alterado/);
-
-// Real-world Premiere PT-BR 23/10: Crop is exposed inside Motion as "Corte à esquerda = 0".
-// All 4 neutral sides must pass; a nonzero/animated/unknown crop must still block.
-for (const [side,neutral] of [
- ['Corte à esquerda',0],['Corte à direita','0'],['Corte superior','0,0'],['Corte inferior','0%'],
- ['Crop Left',0],['Crop Right','0.00'],['Crop Top',0],['Crop Bottom',0]
-]) {
- f=fixture('jsx/narrative-beta.jsx');
- const cropProperty=property(side,neutral);
- f.original.videoTracks[0].clips[0].components[0].properties.push(cropProperty);
- const neutralSnapshot=f.call('fsNarrativeBetaSnapshot');
- assert.equal(neutralSnapshot.ok,true,side+': '+neutralSnapshot.error);
- assert.ok(neutralSnapshot.hostTrace.some(x=>x.phase==='motion.property'&&x.detail.includes(' = ')));
- cropProperty.setValue('7.5%');
- assert.match(f.call('fsNarrativeBetaSnapshot').error,/Corte\/Recorte de Movimento alterado/,side+' must block nonzero crop');
-}
-f=fixture('jsx/narrative-beta.jsx');
-let animCrop=property('Corte à esquerda',0);animCrop.isTimeVarying=()=>true;
-f.original.videoTracks[0].clips[0].components[0].properties.push(animCrop);
-assert.match(f.call('fsNarrativeBetaSnapshot').error,/keyframes/);
-f=fixture('jsx/narrative-beta.jsx');
-f.original.videoTracks[0].clips[0].components[0].properties.push(property('Corte diagonal',0));
-assert.match(f.call('fsNarrativeBetaSnapshot').error,/não reconhecido/);
 
 // CEP builds exposing four native crop controls support a post-split focus change.
 // No crop method is fabricated when native controls are missing.
