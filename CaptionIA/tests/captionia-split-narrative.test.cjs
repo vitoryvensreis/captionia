@@ -222,8 +222,10 @@ applied=f.call('captioniaSplitApply',prepared);
 const disjoint=f.project.activeSequence.videoTracks[0].clips[0];
 disjoint.components.push(component('Crop',[property('Left',0),property('Right',0)]));
 disjoint.components.push(component('Crop',[property('Top',0),property('Bottom',0)]));
-const unavailable=f.call('captioniaSplitSelectPane',{sequenceID:applied.sequenceID,track:0,index:0});
-assert.equal(unavailable.ok,false,'test fixture has no setSelected; host must not claim selection'); 
+const unavailable=f.call('captioniaSplitReframe',{sequenceID:applied.sequenceID,track:0,index:0,focusX:50,focusY:50,zoom:1.2,columns:2,rows:1,col:0,row:0});
+assert.equal(unavailable.ok,false,'Crop properties spread across distinct effects must be rejected');
+assert.match(unavailable.error,/não expõe Crop/);
+assert.equal(disjoint.components[2].properties[0].getValue(),0,'unrecognized Crop must not be modified'); 
 
 
 console.log('PASS: split layouts, stale selections, clone isolation, audio preservation, host geometry, safe failures, narrative identity/media/effects guards, natural profile and factual dedupe.');
