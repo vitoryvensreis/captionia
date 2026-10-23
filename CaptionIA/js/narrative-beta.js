@@ -350,12 +350,12 @@ function initCollapsible(card){
 }
 
 
-function preview(){if(isBusy||!pending||!lastPlan||!lastPlan.length)return;isBusy=true;var current=pending,previousPreview=current.previewId;progress('Conferindo mídia e preparando sequência de prévia...');el('nb-preview').disabled=true;el('nb-approve').disabled=true;
+function preview(){if(isBusy||!pending||!lastPlan||!lastPlan.length)return;isBusy=true;var current=pending,previousPreview=current.previewId;progress('Montando os cortes escolhidos pela IA numa cópia da sequência...');el('nb-preview').disabled=true;el('nb-approve').disabled=true;
 loadHost().then(function(){
  if(root._fsLastResp&&String(root._fsLastResp._fsSeq)===String(lastManifest.sequenceID))assertUnchangedTranscript(current.fingerprint);
  else if(!previousPreview)fail('A transcrição mudou ou foi descartada. Refaça a montagem.');
  return host('fsNarrativeBetaPreview',{sequenceID:lastManifest.sequenceID,sourceSignature:lastManifest.signature,currentPreviewId:previousPreview,cuts:lastPlan});
-}).then(function(r){if(pending!==current)fail('A revisão foi substituída.');current.previewId=String(r.previewId);current.previewDuration=r.duration;current.previewLayout=r.layout;current.previewSignature=r.previewSignature;current.previewCuts=deepCopy(lastPlan);progress('Prévia criada em cópia: assista no Premiere e aprove quando estiver pronto.');el('nb-approve').disabled=false;}).catch(function(e){progress('Não consegui criar a prévia: '+e.message);}).then(function(){isBusy=false;el('nb-preview').disabled=false;});}
+}).then(function(r){if(pending!==current)fail('A revisão foi substituída.');current.previewId=String(r.previewId);current.previewDuration=r.duration;current.previewLayout=r.layout;current.previewSignature=r.previewSignature;current.previewCuts=deepCopy(lastPlan);progress('Prévia criada! '+(r.effectNotice||'Confira a imagem, o áudio e os cortes antes de aprovar.'));el('nb-approve').disabled=false;}).catch(function(e){progress('Não consegui criar a prévia: '+e.message);}).then(function(){isBusy=false;el('nb-preview').disabled=false;});}
 function deepCopy(o){return JSON.parse(JSON.stringify(o));}
 function restoreTranscript(resp,sequenceID){
  if(!resp||!Array.isArray(resp.words)||!resp.words.length)fail('Snapshot da transcrição indisponível.');
@@ -461,7 +461,7 @@ function skip(){
 
 function run(done){addUI();if(pending||isBusy)return done({ok:false,erro:'Já existe uma montagem em análise ou aguardando revisão.'});
 var config;try{config=effectiveConfig();}catch(e){failureDiagnostic(e,'configuração');return done({ok:false,erro:e.message});}
-progress('Conferindo sequência e transcrição...');view('working');var transcript=root._fsLastResp,fingerprint=transcriptFingerprint(transcript);resetReport(transcript,config);
+progress('Reutilizando transcrição da primeira etapa e conferindo intervalos V1/A1...');view('working');var transcript=root._fsLastResp,fingerprint=transcriptFingerprint(transcript);resetReport(transcript,config);
 if(!transcript||!transcript.words||!transcript.words.length){var err=new Error('A montagem precisa da transcrição por palavras. Ative a etapa Transcrever.');failureDiagnostic(err,'transcricao');view('ready');return done({ok:false,erro:err.message});}
 isBusy=true;loadHost().then(function(){return host('fsNarrativeBetaSnapshot',{});}).then(function(snapshot){
 assertTranscriptIdentity(transcript,snapshot);assertUnchangedTranscript(fingerprint);transcript=deepCopy(transcript);
