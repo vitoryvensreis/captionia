@@ -16,7 +16,7 @@ const guard=fs.readFileSync('CaptionIA/js/autocut_warp_guard.js','utf8');
 const dual=require('../CaptionIA/js/sfx_dual_tracks.js');
 assert(html.indexOf('js/autocut_warp_guard.js')>html.indexOf('js/autocut.js'));
 assert(html.indexOf('js/autocut_warp_guard.js')<html.indexOf('js/autoedit.js'));
-assert(guard.includes('Warp Stabilizer')&&guard.includes('fx.remove()'));
+assert(guard.includes('Warp Stabilizer')&&!guard.includes('fx.remove()'),'Preflight nunca pode remover efeitos automaticamente');
 assert(typeof dual.addTracksScript==='function');
 assert(dual.addTracksScript().includes('addTracks'));
 assert(!fs.readFileSync('CaptionIA/js/sfx_timing_calibration.js','utf8').includes("document.addEventListener('DOMContentLoaded',setup)"));
