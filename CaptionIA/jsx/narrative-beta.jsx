@@ -89,12 +89,15 @@
     }
     function plainClipState(clip,isAudio,media){
         var result=[],i,j,component,p,label,name,v,allowed,center;
+        // Validate native boolean Volume switches and actual gain independently.
+        // Premiere may expose the switch on Channel Volume instead of Volume.
+        var sawNativeVolumeSwitch=false,verifiedAudioLevel=false;
         if(!clip.components)throw Error('Não foi possível verificar os efeitos do take.');
         for(i=0;i<clip.components.numItems;i++){
             component=clip.components[i];name=normalized(component.displayName);var match=String(component.matchName||'');
-            allowed=isAudio?/^(volume|channel volume|volume (?:do|de|dos) canais?|panner|panoramica|panoramico|panoramizador)$/.test(name):/^(motion|movimento|opacity|opacidade|time remapping|remapeamento de tempo)$/.test(name);
+            allowed=isAudio?/^(volume|channel volume|volume (?:do|de|dos) (?:canal|canais)|panner|panoramica|panoramico|panoramizador)$/.test(name):/^(motion|movimento|opacity|opacidade|time remapping|remapeamento de tempo)$/.test(name);
             if(!allowed)throw Error('A montagem por subclipes não preserva o efeito "'+component.displayName+'". Use takes brutos ou faça uma cópia renderizada para esta etapa.');
-            var props=[],volumeHeadingFlag=false,levelVerified=false;
+            var props=[];
             for(j=0;j<component.properties.numItems;j++){
                 p=component.properties[j];label=normalized(p.displayName);
                 if(p.isTimeVarying&&p.isTimeVarying())throw Error('O take contém animação em '+component.displayName+'. A prévia não pode preservar esses keyframes.');
@@ -127,7 +130,7 @@
                     else throw Error('Máscaras/ajustes de Opacidade não são preservados na montagem.');
                 }else if(name==='time remapping'||name==='remapeamento de tempo'){
                     if(!/^(speed|velocidade)$/.test(label)||Math.abs(Number(v)-100)>.01)throw Error('Remapeamento de tempo não é preservado na montagem.');
-                }else if(/^(volume|channel volume|volume (?:do|de|dos) canais?)$/.test(name)){
+                }else if(/^(volume|channel volume|volume (?:do|de|dos) (?:canal|canais))$/.test(name)){
                     // Diagnostic records only a property label/type/value, never speech or media paths.
                     var matchLabel=normalized(p.matchName||''),effectiveLabel=label;
                     if(!(/^(bypass|ignorar|desvio|mute|mudo|silenciar|silenciado)$/.test(label)||audioLevelLabel(label)||audioPanLabel(label))){
@@ -136,16 +139,15 @@
                     hostNote('audio.property',name.slice(0,35)+' / '+label.slice(0,50)+' = '+debugValue(v).slice(0,32));
                     if(/^(bypass|ignorar|desvio|mute|mudo|silenciar|silenciado)$/.test(effectiveLabel)){
                         if(!neutralAudioSwitch(v))throw Error('O take contém bypass/silenciamento alterado ('+p.displayName+': '+debugValue(v)+').');
-                    }else if(name==='volume'&&effectiveLabel==='volume'&&typeof v==='boolean'){
-                        // Real Premiere PT-BR 23 Oct 2026: native Volume/Volume=false.
-                        // This is a boolean control state, NOT a gain of zero or -inf dB.
-                        // A separate numeric Level/Nivel must still be read and checked.
-                        if(v!==false)throw Error('Estado booleano de Volume alterado. Revise o áudio antes da montagem.');
-                        volumeHeadingFlag=true;
-                        hostNote('audio.volume-flag','native-volume=false; checking-level-separately');
+                    }else if(effectiveLabel==='volume' && (typeof v==='boolean' || v==='true' || v==='false')){
+                        // Real Premiere PT-BR: native Volume=false can occur on Volume
+                        // OR Channel Volume. It is a boolean state, not zero gain.
+                        if(v!==false&&v!=='false')throw Error('Estado booleano de Volume alterado. Revise o áudio antes da montagem.');
+                        sawNativeVolumeSwitch=true;
+                        hostNote('audio.volume-flag','neutral-false component='+name+' (separate Level/Nivel required)');
                     }else if(audioLevelLabel(effectiveLabel)){
-                        if(!neutralAudioLevel(v,effectiveLabel))throw Error('Volume do take alterado ou sem leitura neutra ('+p.displayName+': '+debugValue(v)+'). Renderize uma cópia para preservar o tratamento.');
-                        if(effectiveLabel==='level'||effectiveLabel==='nivel')levelVerified=true;
+                        if(!neutralAudioLevel(v,effectiveLabel))throw Error('Volume do take alterado ou sem leitura neutra ('+(p.displayName||p.matchName||'parâmetro sem nome')+': '+debugValue(v)+'). Renderize uma cópia para preservar o tratamento.');
+                        if(effectiveLabel==='level'||effectiveLabel==='nivel')verifiedAudioLevel=true;
                     }else if(audioPanLabel(effectiveLabel)){
                         if(!neutralAudioPan(v))throw Error('Panorama de áudio alterado ('+p.displayName+': '+debugValue(v)+').');
                     }else{
@@ -160,11 +162,11 @@
                     throw Error('Panorama de áudio não reconhecido: '+p.displayName+' ('+debugValue(v)+'). A montagem foi bloqueada para preservar seu tratamento.');
                 }
             }
-            if(isAudio&&name==='volume'&&volumeHeadingFlag&&!levelVerified){
-                hostNote('audio.level-unverified','Volume boolean was neutral but no explicit Level/Nivel was confirmed');
-                throw Error('O Premiere retornou Volume=false, mas não foi possível confirmar Nível/Level. A montagem foi bloqueada para proteger o áudio.');
-            }
             result.push({matchName:match,name:String(component.displayName),properties:props});
+        }
+        if(isAudio&&sawNativeVolumeSwitch&&!verifiedAudioLevel){
+            hostNote('audio.level-unverified','Volume=false, no neutral Level/Nivel in any native component');
+            throw Error('O Premiere retornou Volume=false, mas não foi possível confirmar Nível/Level neutro. Confira Controles de efeitos de A1 antes de montar.');
         }
         return result;
     }
