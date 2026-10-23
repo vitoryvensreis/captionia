@@ -23,7 +23,7 @@ assert.throws(()=>split.plan(selection(),{fit:'invented'}),/ajustar ou preencher
 function collection(items,name='numItems'){Object.defineProperty(items,name,{get(){return this.length;},enumerable:false});return items;}
 function property(name,val){let current=JSON.parse(JSON.stringify(val));return {displayName:name,getValue(){return JSON.parse(JSON.stringify(current));},setValue(value){current=JSON.parse(JSON.stringify(value));return true;},isTimeVarying(){return false;}};}
 function component(name,properties,matchName){return {displayName:name,matchName:matchName||name,properties:collection(properties)};}
-function motion(){return component('Motion',[property('Position',[.5,.5]),property('Scale',100),property('Uniform Scale',true),property('Rotation',0),property('Anchor Point',[.5,.5])],'AE.ADBE Motion');}
+function motion(){return component('Motion',[property('Position',[.5,.5]),property('Scale',100),property('Uniform Scale',true),property('Rotation',0),property('Anchor Point',[.5,.5]),property('Corte à esquerda',0),property('Corte à direita',0),property('Corte superior',0),property('Corte inferior',0)],'AE.ADBE Motion');}
 function fixture(file){
  const state={clones:0,subclips:0,files:{'/take.mov':{exists:true,size:1000,modified:100,width:1920,height:1080}},sequences:[]};
  function media(id='m1',file='/take.mov',start=0,end=10){return {nodeId:id,name:id,_start:start,_end:end,getMediaPath(){return file;},isOffline(){return !state.files[file]||!state.files[file].exists;},getProjectMetadata(){let f=state.files[file];if(state.attributeMetadata)return '<rdf:Description x:Column.Intrinsic.VideoInfo="'+f.width+' x '+f.height+'"/>';return '<x:Column.Intrinsic.VideoInfo>'+f.width+' x '+f.height+'</x:Column.Intrinsic.VideoInfo>';},getFootageInterpretation(){return {pixelAspectRatio:1};},createSubClip(name,a,b){state.subclips++;return media('sub'+state.subclips,file,Number(a)/254016000000,Number(b)/254016000000);}};}
@@ -38,64 +38,96 @@ function fixture(file){
  vm.runInContext(source(file),context,{filename:file});
  return {state,original,project,api:context.$.global,context,media,clip,track,sequence,call(name,payload){return JSON.parse(context.$.global[name](JSON.stringify(payload||{})));}};
 }
+// Native Crop must actually constrain each pane in its fixed sequence-frame viewport.
 let f=fixture('jsx/captionia-split.jsx');
 f.original.videoTracks.push(f.track([f.clip(f.media('m2'),'video')]));
-let inspected=f.call('captioniaSplitInspect');assert.equal(inspected.ok,true);let prepared=split.plan(inspected,{preset:'side-by-side',fit:'fit'});
-let originalAudio=JSON.stringify(f.original.audioTracks[0].clips.map(c=>[c.nodeId,c.start,c.end,c.inPoint,c.outPoint]));
-let applied=f.call('captioniaSplitApply',prepared);assert.equal(applied.ok,true);assert.equal(f.state.clones,1);assert.equal(f.original.videoTracks[0].clips[0].components[0].properties[1].getValue(),100);assert.equal(f.project.activeSequence.videoTracks[0].clips[0].components[0].properties[1].getValue(),50);assert.equal(JSON.stringify(f.original.audioTracks[0].clips.map(c=>[c.nodeId,c.start,c.end,c.inPoint,c.outPoint])),originalAudio);
-assert.equal(f.call('captioniaSplitRestore',{sequenceID:'original'}).ok,true);
-f.original.videoTracks[0].clips[0].start.seconds=1;assert.match(f.call('captioniaSplitApply',prepared).error,/mudou/);assert.equal(f.state.clones,1);
-f.original.videoTracks[0].clips[0].start.seconds=0;prepared=split.plan(f.call('captioniaSplitInspect'),{preset:'side-by-side',fit:'fill'});let failed=f.call('captioniaSplitApply',prepared);assert.equal(failed.ok,true);assert.equal(failed.degraded,false);assert.equal(failed.fitApplied,'fill');assert.equal(failed.fillMethod,'canvas-edge');assert.match(failed.warning,/sem efeito Crop/);assert.equal(f.original.videoTracks[0].clips[0].components[0].properties[1].getValue(),100);assert.equal(f.project.activeSequence.videoTracks[0].clips[0].components[0].properties[1].getValue(),100);assert.ok(failed.hostTrace.some(s=>s.phase==='split.edge-clip'));f.project.openSequence('original');
-prepared=split.plan(f.call('captioniaSplitInspect'),{preset:'side-by-side',fit:'fit'});prepared.items[0].scale=9999;applied=f.call('captioniaSplitApply',prepared);assert.equal(applied.ok,true);assert.equal(f.project.activeSequence.videoTracks[0].clips[0].components[0].properties[1].getValue(),50);
-f=fixture('jsx/captionia-split.jsx');f.original.videoTracks.push(f.track([f.clip(f.media('m2'),'video')]));f.state.attributeMetadata=true;assert.equal(f.call('captioniaSplitInspect').ok,true);
-prepared=split.plan(f.call('captioniaSplitInspect'),{preset:'side-by-side',fit:'fill'});f.project.openSequence=function(){};
-let beforeMotion=JSON.stringify(f.original.videoTracks.map(t=>t.clips[0].components[0].properties.map(p=>p.getValue())));applied=f.call('captioniaSplitApply',prepared);
-assert.equal(applied.ok,false);assert.match(applied.error,/não abriu a cópia/);assert.equal(f.project.activeSequence.sequenceID,'original');assert.equal(JSON.stringify(f.original.videoTracks.map(t=>t.clips[0].components[0].properties.map(p=>p.getValue()))),beforeMotion);
-assert.equal(f.state.sequences[1].videoTracks[0].clips[0].components[0].properties[1].getValue(),100);
-f=fixture('jsx/captionia-split.jsx');f.original.videoTracks.push(f.track([f.clip(f.media('m2'),'video')]));prepared=split.plan(f.call('captioniaSplitInspect'),{preset:'side-by-side',fit:'fill'});
-let cropCalls=0;f.context.qe={project:{getVideoEffectByName(){return {};},getActiveSequence(){return {sequenceID:'original',getVideoTrackAt(){cropCalls++;throw Error('Must not reach source QE track');}};}}};
-applied=f.call('captioniaSplitApply',prepared);assert.equal(applied.ok,true,applied.error);assert.equal(cropCalls,0,'The new fill mode must not call the QE adapter');assert.equal(applied.fillMethod,'canvas-edge');assert.equal(f.original.videoTracks[0].clips[0].components.length,2);
-
-// Frame-edge fill must not depend on QE, even when QE simulates a valid Crop effect.
-f=fixture('jsx/captionia-split.jsx');
-f.original.videoTracks.push(f.track([f.clip(f.media('m2'),'video')]));
-prepared=split.plan(f.call('captioniaSplitInspect'),{preset:'side-by-side',fit:'fill'});
-let installedEffects=0;
-f.context.qe={project:{getVideoEffectByName(){return {name:'Crop'};},getActiveSequence(){
- const active=f.project.activeSequence;
- return {sequenceID:active.sequenceID,getVideoTrackAt(index){
-  const trackClip=active.videoTracks[index].clips[0];
-  const item={type:'Clip',start:{ticks:'0'},end:{seconds:10},addVideoEffect(){
-   installedEffects++;
-   trackClip.components.push(component('Crop',[property('Left',0),property('Right',0),property('Top',0),property('Bottom',0)]));
-  }};
-  return {numItems:2,getItemAt(i){return i===0?{type:'Empty',addVideoEffect(){throw Error('Never use QE gap');}}:item;}};
- }};
-}}};
-applied=f.call('captioniaSplitApply',prepared);
+let inspected=f.call('captioniaSplitInspect');assert.equal(inspected.ok,true);
+let prepared=split.plan(inspected,{preset:'side-by-side',fit:'fit'});
+let originalAudio=JSON.stringify(f.original.audioTracks[0].clips.map(c=>[c.nodeId,c.start,c.end]));
+let applied=f.call('captioniaSplitApply',prepared);
 assert.equal(applied.ok,true,applied.error);
-assert.equal(installedEffects,0,'canvas edge clipping uses only Motion, no QE Crop');
-assert.equal(f.original.videoTracks[0].clips[0].components.length,2,'original sequence untouched');
-assert.equal(f.project.activeSequence.videoTracks[0].clips[0].components.length,2);
-assert.equal(f.project.activeSequence.videoTracks[0].clips[0].components[0].properties[0].getValue()[0],0,'left clip finishes at split boundary');
-assert.equal(f.project.activeSequence.videoTracks[1].clips[0].components[0].properties[0].getValue()[0],1,'right clip begins at split boundary');
-
-// Fill by edge clipping remains deterministic for top-bottom and 2x2 layouts,
-// with independent tracks and without the undocumented QE Crop adapter.
-f=fixture('jsx/captionia-split.jsx');f.original.videoTracks.push(f.track([f.clip(f.media('m2'),'video')]));
+assert.equal(applied.maskMethod,'native-motion-crop');
+assert.equal(applied.panes.length,2);
+assert.equal(applied.panes[0].nativeCropAccessible,true);
+assert.equal(f.state.clones,1);
+assert.equal(f.project.activeSequence.videoTracks[0].clips[0].components[0].properties[1].getValue(),50);
+assert.equal(f.original.videoTracks[0].clips[0].components[0].properties[1].getValue(),100);
+assert.equal(JSON.stringify(f.original.audioTracks[0].clips.map(c=>[c.nodeId,c.start,c.end])),originalAudio);
+assert.equal(f.call('captioniaSplitRestore',{sequenceID:'original'}).ok,true);
+f.original.videoTracks[0].clips[0].start.seconds=1;
+assert.match(f.call('captioniaSplitApply',prepared).error,/mudou/);
+assert.equal(f.state.clones,1);
+f.original.videoTracks[0].clips[0].start.seconds=0;
+// Front/back halves of a 1920 x 1080 sequence produce an exact 540-pixel-high viewport.
 prepared=split.plan(f.call('captioniaSplitInspect'),{preset:'top-bottom',fit:'fill'});
 applied=f.call('captioniaSplitApply',prepared);
 assert.equal(applied.ok,true,applied.error);
-assert.equal(applied.fillMethod,'canvas-edge');
-assert.equal(f.project.activeSequence.videoTracks[0].clips[0].components[0].properties[0].getValue()[1],0);
-assert.equal(f.project.activeSequence.videoTracks[1].clips[0].components[0].properties[0].getValue()[1],1);
-assert.equal(f.original.videoTracks[0].clips[0].components[0].properties[0].getValue()[1],.5);
+assert.equal(applied.fillMethod,'intrinsic-crop');
+assert.deepEqual(Array.from(applied.panes,p=>[p.mask.x,p.mask.y,p.mask.width,p.mask.height]),[[0,0,1920,540],[0,540,1920,540]]);
+assert.equal(applied.panes[0].crop.top,25);
+assert.equal(applied.panes[0].crop.bottom,25);
+assert.equal(applied.panes[1].crop.top,25);
+assert.equal(applied.panes[1].crop.bottom,25);
+const topClip=f.project.activeSequence.videoTracks[0].clips[0];
+const bottomClip=f.project.activeSequence.videoTracks[1].clips[0];
+assert.deepEqual(Array.from(topClip.components[0].properties[0].getValue()),[.5,.25]);
+assert.deepEqual(Array.from(bottomClip.components[0].properties[0].getValue()),[.5,.75]);
+const focusMoved=f.call('captioniaSplitReframe',{sequenceID:applied.sequenceID,track:0,index:0,focusX:50,focusY:0,zoom:1.5,columns:1,rows:2,col:0,row:0});
+assert.equal(focusMoved.ok,true,focusMoved.error);
+assert.equal(focusMoved.mask.height,540);
+assert.equal(focusMoved.mask.y,0);
+assert.ok(focusMoved.crop.bottom>focusMoved.crop.top,'Image shifts within fixed top crop');
+assert.equal(f.original.videoTracks[0].clips[0].components[0].properties[7].getValue(),0,'Original crop unchanged');
+assert.equal(f.original.videoTracks[1].clips[0].components[0].properties[7].getValue(),0,'Other original unchanged');
+const untouchedBottom=f.project.activeSequence.videoTracks[1].clips[0].components[0].properties[0].getValue();
+assert.deepEqual(Array.from(untouchedBottom),[.5,.75],'Moving top must not move bottom');
+assert.equal(f.call('captioniaSplitReframe',{sequenceID:'original',track:0,index:0,focusX:50,focusY:50,zoom:1,columns:1,rows:2,col:0,row:0}).ok,false);
+const selectionResult=f.call('captioniaSplitSelectPane',{sequenceID:applied.sequenceID,track:0,index:0});
+assert.equal(selectionResult.ok,true,selectionResult.error);
+assert.equal(selectionResult.nativeCropAccessible,true);
+assert.equal(selectionResult.selected,false,'CEP without setSelected should still allow Crop sliders');
+// Invalid hosts must refuse to claim a successful masked layout.
+f=fixture('jsx/captionia-split.jsx');
+f.original.videoTracks.push(f.track([f.clip(f.media('m2'),'video')]));
+const unavailable=f.original.videoTracks[0].clips[0].components[0].properties;
+unavailable.splice(5,4);
+prepared=split.plan(f.call('captioniaSplitInspect'),{preset:'top-bottom',fit:'fill'});
+const withoutNativeMask=f.call('captioniaSplitApply',prepared);
+assert.equal(withoutNativeMask.ok,false);
+assert.match(withoutNativeMask.error,/não disponibiliza os quatro controles nativos/);
+assert.equal(f.state.clones,0,'Refuse before cloning without Crop');
+// Reject Crop properties scattered across unrelated effect components.
+f=fixture('jsx/captionia-split.jsx');
+f.original.videoTracks.push(f.track([f.clip(f.media('m2'),'video')]));
+f.original.videoTracks[0].clips[0].components[0].properties.splice(5,4);
+f.original.videoTracks[0].clips[0].components.push(component('Crop',[property('Left',0),property('Right',0)]));
+f.original.videoTracks[0].clips[0].components.push(component('Crop',[property('Top',0),property('Bottom',0)]));
+prepared=split.plan(f.call('captioniaSplitInspect'),{preset:'top-bottom',fit:'fill'});
+assert.equal(f.call('captioniaSplitApply',prepared).ok,false);
+// Quad layout creates exactly four disjoint quarter-frame masks.
 f=fixture('jsx/captionia-split.jsx');
 for(const label of ['m2','m3','m4'])f.original.videoTracks.push(f.track([f.clip(f.media(label),'video')]));
 prepared=split.plan(f.call('captioniaSplitInspect'),{preset:'grid-2x2',fit:'fill'});
 applied=f.call('captioniaSplitApply',prepared);
 assert.equal(applied.ok,true,applied.error);
-assert.deepEqual(Array.from(f.project.activeSequence.videoTracks,track=>Array.from(track.clips[0].components[0].properties[0].getValue())),[[.25,.25],[.75,.25],[.25,.75],[.75,.75]]);
+assert.deepEqual(Array.from(applied.panes,p=>[p.mask.x,p.mask.y,p.mask.width,p.mask.height]),[[0,0,960,540],[960,0,960,540],[0,540,960,540],[960,540,960,540]]);
+// Mid-mutation failure must restore the pane's previous Crop+Motion values.
+f=fixture('jsx/captionia-split.jsx');
+f.original.videoTracks.push(f.track([f.clip(f.media('m2'),'video')]));
+prepared=split.plan(f.call('captioniaSplitInspect'),{preset:'top-bottom',fit:'fill'});
+applied=f.call('captioniaSplitApply',prepared);
+assert.equal(applied.ok,true,applied.error);
+const clipToReject=f.project.activeSequence.videoTracks[0].clips[0];
+const beforeReject=clipToReject.components[0].properties.map(prop=>prop.getValue());
+const rejecting=clipToReject.components[0].properties[8];
+const setter=rejecting.setValue.bind(rejecting);
+let failOnce=false;
+rejecting.setValue=function(value,flag){if(!failOnce){failOnce=true;return false;}return setter(value,flag);};
+const rejected=f.call('captioniaSplitReframe',{sequenceID:applied.sequenceID,track:0,index:0,focusX:60,focusY:30,zoom:1.7,columns:1,rows:2,col:0,row:0});
+assert.equal(rejected.ok,false);
+assert.match(rejected.error,/estado anterior.*restaurado/);
+assert.deepEqual(Array.from(clipToReject.components[0].properties,x=>x.getValue()),beforeReject);
+assert.equal(f.original.videoTracks[0].clips[0].components[0].properties[8].getValue(),0);
 
 // Editing intent comes from timed words, never from Adobe component labels.
 for(const scale of [1,125,'100%',[100,100]]){
@@ -188,53 +220,9 @@ for(const family of ['Volume','Channel Volume','Volume do canal']){
  assert.equal(f.call('fsNarrativeBetaValidatePreview',{sequenceID:'original',sourceSignature:snap.signature,previewId:edited.previewId,previewSignature:edited.previewSignature,layout:edited.layout}).ok,true);
 }
 
-// CEP builds exposing four native crop controls support a post-split focus change.
-// No crop method is fabricated when native controls are missing.
-f=fixture('jsx/captionia-split.jsx');
-f.original.videoTracks.push(f.track([f.clip(f.media('m2'),'video')]));
-for(let t of f.original.videoTracks){
- const props=t.clips[0].components[0].properties;
- for(let name of ['Crop Left','Crop Right','Crop Top','Crop Bottom'])props.push(property(name,0));
-}
-prepared=split.plan(f.call('captioniaSplitInspect'),{preset:'side-by-side',fit:'fill'});
-applied=f.call('captioniaSplitApply',prepared);
-assert.equal(applied.ok,true,applied.error);
-assert.equal(applied.panes.length,2);
-let adjusted=f.call('captioniaSplitReframe',{sequenceID:applied.sequenceID,track:0,index:0,focusX:25,focusY:50,zoom:1.2,columns:2,rows:1,col:0,row:0});
-assert.equal(adjusted.ok,true,adjusted.error);
-assert.equal(adjusted.cropMethod,'intrinsic');
-assert.ok(adjusted.crop.left < adjusted.crop.right);
-assert.equal(f.original.videoTracks[0].clips[0].components[0].properties[1].getValue(),100,'original motion must stay untouched');
-assert.equal(f.original.videoTracks[0].clips[0].components[0].properties[5].getValue(),0,'original Crop must stay untouched');
-assert.equal(f.call('captioniaSplitReframe',{sequenceID:'original',track:0,index:0,focusX:50,focusY:50,zoom:1,columns:2,rows:1,col:0,row:0}).ok,false,'not allowed to mutate original');
-
-// A Crop that fails mid-operation must restore all previously written values.
-const cloned=f.project.activeSequence.videoTracks[0].clips[0], cropProps=cloned.components[0].properties;
-const beforeReframe=cropProps.map(prop=>prop.getValue());
-const bottomProp=cropProps[8], bottomSetter=bottomProp.setValue.bind(bottomProp);
-let rejectedOnce=false;
-bottomProp.setValue=function(value,flag){
- if(!rejectedOnce){rejectedOnce=true;return false;}
- return bottomSetter(value,flag);
-};
-let rejected=f.call('captioniaSplitReframe',{sequenceID:applied.sequenceID,track:0,index:0,focusX:75,focusY:50,zoom:1.4,columns:2,rows:1,col:0,row:0});
-assert.equal(rejected.ok,false,'Crop setter refusal must cancel the reframe');
-assert.match(rejected.error,/estado anterior.*restaurado/);
-assert.deepEqual(Array.from(cropProps,prop=>prop.getValue()),Array.from(beforeReframe),'Crop and Motion must be rolled back');
-assert.equal(f.original.videoTracks[0].clips[0].components[0].properties[5].getValue(),0,'original remains untouched after rollback');
-
-// Split properties across unrelated components are NOT a writable Crop.
-f=fixture('jsx/captionia-split.jsx');
-f.original.videoTracks.push(f.track([f.clip(f.media('m2'),'video')]));
-prepared=split.plan(f.call('captioniaSplitInspect'),{preset:'side-by-side',fit:'fill'});
-applied=f.call('captioniaSplitApply',prepared);
-const disjoint=f.project.activeSequence.videoTracks[0].clips[0];
-disjoint.components.push(component('Crop',[property('Left',0),property('Right',0)]));
-disjoint.components.push(component('Crop',[property('Top',0),property('Bottom',0)]));
-const unavailable=f.call('captioniaSplitReframe',{sequenceID:applied.sequenceID,track:0,index:0,focusX:50,focusY:50,zoom:1.2,columns:2,rows:1,col:0,row:0});
-assert.equal(unavailable.ok,false,'Crop properties spread across distinct effects must be rejected');
-assert.match(unavailable.error,/não expõe Crop/);
-assert.equal(disjoint.components[2].properties[0].getValue(),0,'unrecognized Crop must not be modified'); 
-
-
+// Authorization regression: bridge allows both per-pane operations (not arbitrary JSX).
+const bridgeText=source('js/captionia-bridge.js');
+assert.match(bridgeText,/captioniaSplitSelectPane:1/);
+assert.match(bridgeText,/captioniaSplitReframe:1/);
+assert.match(bridgeText,/Operação Adobe não autorizada/);
 console.log('PASS: split layouts, stale selections, clone isolation, audio preservation, host geometry, safe failures, narrative identity/media/effects guards, natural profile and factual dedupe.');
