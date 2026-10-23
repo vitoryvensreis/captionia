@@ -7,6 +7,7 @@ global.localStorage={
  setItem(k,v){store.set(k,String(v));}
 };
 global.window={_fsLastResp:null};
+global.window.CaptionIATimebase=require('../CaptionIA/js/captionia-timebase.js');
 const cal=require('../CaptionIA/js/sfx_timing_calibration.js');
 const source=fs.readFileSync('CaptionIA/js/autosfx.js','utf8');
 const html=fs.readFileSync('CaptionIA/index.html','utf8');
