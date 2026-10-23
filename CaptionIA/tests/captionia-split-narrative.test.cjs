@@ -170,6 +170,49 @@ assert.equal(narrative.nearDuplicate('Eu recomendo este produto para todas as pe
 assert.equal(narrative.dedupePlan([{id:'1',text:'Ele explica o produto e mostra um exemplo'},{id:'2',text:'Ele explica o produto e mostra outro exemplo'}],[]).cuts.length,2);
 narrative.configure({objective:'natural',goalText:'Preservar o raciocínio completo'});assert.equal(narrative.readConfig().objective,'natural');assert.throws(()=>narrative.configure({objective:'aggressive'}),/não foram implementados/);
 let payload=JSON.parse(narrative.buildPayload([{id:'S001',text:'Uma fala completa.',start:0,end:2,blocked:false}],{mode:'livre',fidelity:'flexivel',sections:[],goalText:'Preservar raciocínio'},{groups:[]},[]));assert.equal(payload.editingProfile.id,'natural');assert.equal(payload.segments[0].evidence.endsSentence,true);assert.match(payload.objective,/natural/);assert.equal(payload.editorialGoal,'Preservar raciocínio');
+// Premiere audio Volume controls are localized and may expose neutral gain as 1 or 0 dB.
+// Unknown/nonneutral values must not be silently discarded when making subclips.
+for(const [label,normal,changed] of [
+ ['Volume',1,0.5],
+ ['Volume do clipe','1.0',1.4],
+ ['Nível de volume',1,1.3],
+ ['Nível de áudio',1,2],
+ ['Volume do canal',1,0],
+ ['Canal esquerdo',1,0.4],
+ ['Canal direito','1',1.2],
+ ['Channel 1',1,0.7],
+ ['Bypass',false,true],
+ ['Desvio',0,1],
+ ['Mudo',false,true],
+ ['Silenciar','false','true'],
+ ['Panorâmica',0,0.7],
+ ['Pan',0,0.5]
+]){
+ f=fixture('jsx/narrative-beta.jsx');
+ const prop=property(label,normal);
+ f.original.audioTracks[0].clips[0].components[0].properties.push(prop);
+ const snap=f.call('fsNarrativeBetaSnapshot');
+ assert.equal(snap.ok,true,'Áudio padrão deve passar '+label+': '+snap.error);
+ assert.ok(snap.hostTrace.some(v=>v.phase==='audio.property'&&v.detail.toLowerCase().includes(label.toLowerCase().replace('í','i').replace('í','i').slice(0,5))),'Trace should include native audio label '+label);
+ prop.setValue(changed);
+ assert.equal(f.call('fsNarrativeBetaSnapshot').ok,false,'Áudio alterado deve ser bloqueado: '+label);
+}
+f=fixture('jsx/narrative-beta.jsx');
+f.original.audioTracks[0].clips[0].components=collection([component('Channel Volume',[property('Canal 1',1),property('Canal 2',1)])]);
+assert.equal(f.call('fsNarrativeBetaSnapshot').ok,true,'Dois canais neutros devem ser aceitos');
+f.original.audioTracks[0].clips[0].components[0].properties[1].setValue(0.5);
+assert.match(f.call('fsNarrativeBetaSnapshot').error,/Volume do take alterado/);
+f=fixture('jsx/narrative-beta.jsx');
+f.original.audioTracks[0].clips[0].components[0].properties.push(property('Ajuste novo desconhecido',0));
+const audioUnknown=f.call('fsNarrativeBetaSnapshot');
+assert.equal(audioUnknown.ok,false,'Parâmetro desconhecido segue bloqueado');
+assert.match(audioUnknown.error,/Ajuste de áudio não reconhecido.*Ajuste novo desconhecido/);
+assert.ok(audioUnknown.hostTrace.some(v=>v.phase==='audio.unknown'));
+f=fixture('jsx/narrative-beta.jsx');
+const animatedAudio=property('Volume',1);animatedAudio.isTimeVarying=()=>true;
+f.original.audioTracks[0].clips[0].components[0].properties.push(animatedAudio);
+assert.match(f.call('fsNarrativeBetaSnapshot').error,/keyframes/);
+
 // Regression from real Premiere PT-BR logs, 23 Oct 2026.
 f=fixture('jsx/narrative-beta.jsx');
 f.original.videoTracks[0].clips[0].components[0].properties.push(property('Filtro anti-cintilação',0));
