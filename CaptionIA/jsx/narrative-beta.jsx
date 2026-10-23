@@ -64,11 +64,11 @@
                         center=v&&v.length===2&&((Math.abs(Number(v[0])-.5)<.001&&Math.abs(Number(v[1])-.5)<.001)||(Math.abs(Number(v[0])-media.width/2)<.1&&Math.abs(Number(v[1])-media.height/2)<.1));
                         if(!center)throw Error('O take tem enquadramento alterado. A montagem por subclipes não preserva Movimento; use takes brutos.');
                     }else if(/^(scale|escala|scale width|largura da escala|largura de escala|dimensionar largura|dimensao largura|dimensionar altura|scale height|altura da escala)$/.test(label)){if(!neutralScale(v))throw Error('O take contém escala alterada ou sem leitura segura ('+p.displayName+': '+debugValue(v)+'). Use takes brutos na Montagem.');}
-                    else if(/^(rotation|rotacao|anti-flicker filter|filtro anticintilacao|filtro anticintilante)$/.test(label)){if(Math.abs(Number(v))>.001)throw Error('O take contém rotação/filtro de Movimento alterado.');}
+                    else if(/^(rotation|rotacao|anti-flicker filter|filtro[ -]?anticintilacao|filtro[ -]?anticintilante|filtro[ -]?anti[ -]?cintilacao|filtro[ -]?anti[ -]?cintilante)$/.test(label)){if(Math.abs(Number(v))>.001)throw Error('O take contém rotação/filtro de Movimento alterado.');}
                     else if(/^(uniform scale|escala uniforme|dimensionar uniformemente|escala proporcional|scale uniformly)$/.test(label)){
                         if(!(v===true||v===1||v==='1'||normalized(v)==='true'||normalized(v)==='verdadeiro'))throw Error('Escala uniforme desativada: use takes com Movimento padrão.');
                     }
-                    else throw Error('Parâmetro de Movimento não reconhecido: '+p.displayName+'. Não consigo garantir a preservação.');
+                    else {hostNote('motion.unknown','component='+name+' prop='+label.slice(0,65)+' type='+typeof v+' value='+debugValue(v));throw Error('Parâmetro de Movimento não reconhecido: '+p.displayName+' ('+debugValue(v)+'). Não consigo garantir a preservação.');}
                 }else if(name==='opacity'||name==='opacidade'){
                     if(label==='opacity'||label==='opacidade'){if(Math.abs(Number(v)-100)>.01)throw Error('Opacidade alterada não é preservada na montagem.');}
                     else if(label==='blend mode'||label==='modo de mesclagem'){

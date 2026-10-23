@@ -170,4 +170,33 @@ assert.equal(narrative.nearDuplicate('Eu recomendo este produto para todas as pe
 assert.equal(narrative.dedupePlan([{id:'1',text:'Ele explica o produto e mostra um exemplo'},{id:'2',text:'Ele explica o produto e mostra outro exemplo'}],[]).cuts.length,2);
 narrative.configure({objective:'natural',goalText:'Preservar o raciocínio completo'});assert.equal(narrative.readConfig().objective,'natural');assert.throws(()=>narrative.configure({objective:'aggressive'}),/não foram implementados/);
 let payload=JSON.parse(narrative.buildPayload([{id:'S001',text:'Uma fala completa.',start:0,end:2,blocked:false}],{mode:'livre',fidelity:'flexivel',sections:[],goalText:'Preservar raciocínio'},{groups:[]},[]));assert.equal(payload.editingProfile.id,'natural');assert.equal(payload.segments[0].evidence.endsSentence,true);assert.match(payload.objective,/natural/);assert.equal(payload.editorialGoal,'Preservar raciocínio');
+// Regression from real Premiere PT-BR logs, 23 Oct 2026.
+f=fixture('jsx/narrative-beta.jsx');
+f.original.videoTracks[0].clips[0].components[0].properties.push(property('Filtro anti-cintilação',0));
+let flicker=f.call('fsNarrativeBetaSnapshot');
+assert.equal(flicker.ok,true,flicker.error);
+assert.ok(flicker.hostTrace.some(x=>x.phase==='motion.property'&&x.detail.includes('filtro anti-cintilacao')));
+f.original.videoTracks[0].clips[0].components[0].properties.at(-1).setValue(3);
+assert.match(f.call('fsNarrativeBetaSnapshot').error,/rotação\/filtro de Movimento alterado/);
+
+// CEP builds exposing four native crop controls support a post-split focus change.
+// No crop method is fabricated when native controls are missing.
+f=fixture('jsx/captionia-split.jsx');
+f.original.videoTracks.push(f.track([f.clip(f.media('m2'),'video')]));
+for(let t of f.original.videoTracks){
+ const props=t.clips[0].components[0].properties;
+ for(let name of ['Crop Left','Crop Right','Crop Top','Crop Bottom'])props.push(property(name,0));
+}
+prepared=split.plan(f.call('captioniaSplitInspect'),{preset:'side-by-side',fit:'fill'});
+applied=f.call('captioniaSplitApply',prepared);
+assert.equal(applied.ok,true,applied.error);
+assert.equal(applied.panes.length,2);
+let adjusted=f.call('captioniaSplitReframe',{sequenceID:applied.sequenceID,track:0,index:0,focusX:25,focusY:50,zoom:1.2,columns:2,rows:1,col:0,row:0});
+assert.equal(adjusted.ok,true,adjusted.error);
+assert.equal(adjusted.cropMethod,'intrinsic');
+assert.ok(adjusted.crop.left < adjusted.crop.right);
+assert.equal(f.original.videoTracks[0].clips[0].components[0].properties[1].getValue(),100,'original motion must stay untouched');
+assert.equal(f.original.videoTracks[0].clips[0].components[0].properties[5].getValue(),0,'original Crop must stay untouched');
+assert.equal(f.call('captioniaSplitReframe',{sequenceID:'original',track:0,index:0,focusX:50,focusY:50,zoom:1,columns:2,rows:1,col:0,row:0}).ok,false,'not allowed to mutate original');
+
 console.log('PASS: split layouts, stale selections, clone isolation, audio preservation, host geometry, safe failures, narrative identity/media/effects guards, natural profile and factual dedupe.');

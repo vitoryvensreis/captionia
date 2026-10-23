@@ -88,9 +88,65 @@ function apply(args){hostTrace=[];hostNote('split.start','checking selected trac
 
  }
  hostNote('split.finished','clips='+args.items.length+' requested='+args.fit+' actual='+effectiveFit+' frameMs='+Math.round(fresh.frameDuration*1000));
- return {originalId:String(original.sequenceID),sequenceID:String(target.sequenceID),name:String(target.name),count:args.items.length,created:true,originalPreserved:true,fitApplied:effectiveFit,requestedFit:args.fit,degraded:effectiveFit!==args.fit,fillMethod:effectiveFit==='fill'?'canvas-edge':'native-motion-fit',warning:warning};
+ return {originalId:String(original.sequenceID),sequenceID:String(target.sequenceID),name:String(target.name),count:args.items.length,created:true,originalPreserved:true,fitApplied:effectiveFit,requestedFit:args.fit,degraded:effectiveFit!==args.fit,fillMethod:effectiveFit==='fill'?'canvas-edge':'native-motion-fit',panes:args.items.map(function(item){return {track:item.track,index:item.index};}),preset:args.preset,warning:warning};
  }catch(e){app.project.openSequence(original.sequenceID);throw Error('Tela dividida cancelada; original preservada. A cópia incompleta permanece no projeto para revisão. '+e.message);}
 }
+// Reframing is performed on the COPY only. Native Crop is a Premiere
+// intrinsic Motion control in supported builds; CEP may not expose it.
+function nativeCrop(clip){
+ var comps=clip.components,found={left:null,right:null,top:null,bottom:null},i,j,component,prop,group,label,side;
+ for(i=0;i<comps.numItems;i++){
+  component=comps[i];group=normalize(component.displayName||'');
+  for(j=0;j<component.properties.numItems;j++){
+   prop=component.properties[j];label=normalize(prop.displayName||'');side='';
+   if(/(^|[ ._-])(esquerda|left)([ ._-]|$)/.test(label))side='left';
+   if(/(^|[ ._-])(direita|right)([ ._-]|$)/.test(label))side='right';
+   if(/(^|[ ._-])(superior|cima|top)([ ._-]|$)/.test(label))side='top';
+   if(/(^|[ ._-])(inferior|baixo|bottom)([ ._-]|$)/.test(label))side='bottom';
+   if(side&&(group==='crop'||group==='recortar'||group==='cortar'||/crop|recort|cort/.test(label)||((group==='motion'||group==='movimento')&&/^(left|right|top|bottom|esquerda|direita|superior|inferior|cima|baixo)$/.test(label))))found[side]=prop;
+  }
+ }
+ return found.left&&found.right&&found.top&&found.bottom?found:null;
+}
+function selectPane(args){
+ var target=byID(args.sequenceID);requireActive(target.sequenceID);if(String(target.name).indexOf('Caption IA • Tela dividida • ')!==0)throw Error('Selecione primeiro uma cópia criada pela Tela Dividida.');
+ var t=Number(args.track),index=Number(args.index);
+ if(!isFinite(t)||!isFinite(index)||t<0||index<0||t>=target.videoTracks.numTracks||index>=target.videoTracks[t].clips.numItems)throw Error('Vídeo não localizado na cópia.');
+ var tr,i,j;for(i=0;i<target.videoTracks.numTracks;i++){tr=target.videoTracks[i];for(j=0;j<tr.clips.numItems;j++){if(tr.clips[j].setSelected)tr.clips[j].setSelected(0,0);}}
+ var clip=target.videoTracks[t].clips[index];if(!clip.setSelected)throw Error('Esta versão do Premiere não permite selecionar o clipe pela extensão.');
+ clip.setSelected(1,1);hostNote('split.reframe.select','track='+t+' index='+index);
+ return {selected:true,track:t,index:index,nativeCropAccessible:!!nativeCrop(clip)};
+}
+// The crop sliders are enabled ONLY when all four native Crop parameters can
+// actually be read and written in the current Premiere build. No QE guesswork.
+function reframe(args){
+ hostTrace=[];var target=byID(args.sequenceID);requireActive(target.sequenceID);if(String(target.name).indexOf('Caption IA • Tela dividida • ')!==0)throw Error('O reenquadramento só pode modificar uma cópia criada pelo Caption IA.');
+ var track=Number(args.track),index=Number(args.index),focusX=Number(args.focusX),focusY=Number(args.focusY),zoom=Number(args.zoom);
+ if(!isFinite(track)||!isFinite(index)||track<0||index<0||track>=target.videoTracks.numTracks||index>=target.videoTracks[track].clips.numItems)throw Error('Faixa ou clipe inválido.');
+ if(!isFinite(focusX)||!isFinite(focusY)||focusX<0||focusX>100||focusY<0||focusY>100||!isFinite(zoom)||zoom<1||zoom>3)throw Error('Enquadramento fora do intervalo permitido.');
+ var clip=target.videoTracks[track].clips[index],crop=nativeCrop(clip);if(!crop)throw Error('Este Premiere não expõe Crop à API CEP. Selecione este clipe e ajuste Cortar no painel Propriedades do Premiere.');
+ var settings=target.getSettings(),width=Number(settings.videoFrameWidth),height=Number(settings.videoFrameHeight);
+ var columns=Number(args.columns),rows=Number(args.rows),col=Number(args.col),row=Number(args.row);
+ if(!((columns===1||columns===2)&&(rows===1||rows===2)&&col>=0&&col<columns&&row>=0&&row<rows))throw Error('Célula inválida.');
+ var dim=dimensions(clip.projectItem),par=Number(settings.videoPixelAspectRatio)||1,slotW=width/columns,slotH=height/rows;
+ var sx=slotW*par/(dim.width*dim.pixelAspect),sy=slotH/dim.height,scale=Math.max(sx,sy)*zoom;
+ var spanX=dim.width*dim.pixelAspect*scale/par,spanY=dim.height*scale;
+ if(scale*100>10000||spanX<slotW-.1||spanY<slotH-.1)throw Error('Zoom inválido para o quadro.');
+ var totalX=Math.max(0,(1-slotW/spanX)*100),totalY=Math.max(0,(1-slotH/spanY)*100);
+ var left=totalX*focusX/100,right=totalX-left,top=totalY*focusY/100,bottom=totalY-top;
+ var dx=(left-right)/200*spanX,dy=(top-bottom)/200*spanY;
+ var positionX=(col+.5)*slotW-dx,positionY=(row+.5)*slotH-dy;
+ var m=motionState(clip),position=m.normalized?[positionX/width,positionY/height]:[positionX,positionY];
+ hostNote('split.reframe.plan','track='+track+' center='+positionX.toFixed(1)+','+positionY.toFixed(1)+' crop='+[left,right,top,bottom].map(function(v){return v.toFixed(2);}).join(',')+' scale='+scale.toFixed(4));
+ // Apply crop BEFORE releasing the old boundary-clipped positioning. On a crop
+ // setValue error, leave Motion unchanged and report it rather than claiming success.
+ propSet(crop.left,left,'Crop esquerdo');propSet(crop.right,right,'Crop direito');propSet(crop.top,top,'Crop superior');propSet(crop.bottom,bottom,'Crop inferior');
+ propSet(m.scale,scale*100,'Escala');propSet(m.position,position,'Posição');
+ hostNote('split.reframe.done','track='+track+' cropConfirmed=1');
+ return {track:track,index:index,applied:true,cropMethod:'intrinsic',crop:{left:left,right:right,top:top,bottom:bottom},scale:scale*100};
+}
+$.global.captioniaSplitSelectPane=function(payload){try{hostTrace=[];return response(selectPane(JSON.parse(payload)));}catch(e){return error(e);}};
+$.global.captioniaSplitReframe=function(payload){try{hostTrace=[];return response(reframe(JSON.parse(payload)));}catch(e){return error(e);}};
 $.global.captioniaSplitInspect=function(){try{hostTrace=[];hostNote('inspect.start','reading selected Premiere clips');return response(inspect());}catch(e){return error(e);}};
 $.global.captioniaSplitApply=function(payload){try{return response(apply(JSON.parse(payload)));}catch(e){return error(e);}};
 $.global.captioniaSplitRestore=function(payload){try{var args=JSON.parse(payload),s=byID(args.sequenceID);app.project.openSequence(s.sequenceID);return response({restored:true,sequenceID:String(s.sequenceID)});}catch(e){return error(e);}};

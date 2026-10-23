@@ -26,7 +26,7 @@ function plan(snapshot,options){
    position:[(slot.x+slot.width/2)/width,(slot.y+slot.height/2)/height],crop:{left:cropX,right:cropX,top:cropY,bottom:cropY},name:clip.name});
  });
  return {version:1,sequenceID:String(snapshot.sequenceID),signature:snapshot.signature,preset:options.preset||'side-by-side',fit:mode,width:width,height:height,
-  duration:end-start,items:items,notice:'Prévia esquemática, não é o frame real. A aplicação cria uma cópia e altera o Movimento nela. O modo Preencher requer Crop via QE; use Ajustar para ficar só na API pública.'};
+  duration:end-start,items:items,notice:'Prévia esquemática, não é o frame real. A aplicação cria uma cópia e altera o Movimento nela. O recorte livre só funciona pela API CEP se o Premiere expuser os parâmetros de Crop intrínsecos; caso contrário use o painel Propriedades do Premiere.'};
 }
 function host(name,payload){if(root.CaptionIABridge)return root.CaptionIABridge.call(name,payload,{timeoutMs:75000});return new Promise(function(resolve,reject){
  var cs=root.csInterface;if(!cs||typeof cs.evalScript!=='function')return reject(Error('Ponte Adobe indisponível.'));
@@ -43,7 +43,9 @@ function inspect(){return load().then(function(){return host('captioniaSplitInsp
 function preview(options){return inspect().then(function(snapshot){return plan(snapshot,options);});}
 function apply(prepared){if(busy)return Promise.reject(Error('Uma tela dividida já está sendo preparada.'));if(!prepared||prepared.version!==1)return Promise.reject(Error('Prepare e revise o layout antes de aplicar.'));
  busy=true;return load().then(function(){return host('captioniaSplitApply',prepared);}).then(function(result){lastResult=result;return result;}).then(function(v){busy=false;return v;},function(e){busy=false;throw e;});}
+function selectPane(pane){if(!lastResult)return Promise.reject(Error('Crie uma cópia primeiro.'));return load().then(function(){return host('captioniaSplitSelectPane',{sequenceID:lastResult.sequenceID,track:pane.track,index:pane.index});});}
+function reframe(pane,values){if(!lastResult)return Promise.reject(Error('Crie uma cópia primeiro.'));var shape=presets[lastResult.preset];if(!shape)return Promise.reject(Error('Layout indisponível.'));var idx=lastResult.panes.findIndex(function(v){return v.track===pane.track&&v.index===pane.index;});if(idx<0)return Promise.reject(Error('Vídeo não pertence à cópia.'));return load().then(function(){return host('captioniaSplitReframe',{sequenceID:lastResult.sequenceID,track:pane.track,index:pane.index,focusX:values.focusX,focusY:values.focusY,zoom:values.zoom,columns:shape.columns,rows:shape.rows,col:idx%shape.columns,row:Math.floor(idx/shape.columns)});});}
 function restore(){if(!lastResult||!lastResult.originalId)return Promise.reject(Error('Nenhuma sequência original registrada nesta sessão.'));return host('captioniaSplitRestore',{sequenceID:lastResult.originalId});}
-root.CaptionIASplit={presets:presets,plan:plan,inspect:inspect,preview:preview,apply:apply,restore:restore};
+root.CaptionIASplit={presets:presets,plan:plan,inspect:inspect,preview:preview,apply:apply,restore:restore,selectPane:selectPane,reframe:reframe};
 if(typeof module!=='undefined'&&module.exports)module.exports=root.CaptionIASplit;
 })(typeof window!=='undefined'?window:this);

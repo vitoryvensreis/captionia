@@ -38,12 +38,27 @@
         list.textContent = plan.items.map(function (item) { return 'V' + (Number(item.track) + 1) + ' · ' + item.name; }).join('  /  ');
         container.appendChild(list);
     }
+    function showReframe(result) {
+        var section=el('td-v2-reframe'),list=el('td-v2-pane-list');if(!section||!list)return;
+        section.hidden=false;list.textContent='';
+        (result.panes||[]).forEach(function(pane,idx){
+            var card=d.createElement('div');card.className='fs-bloco';card.style.cssText='margin:8px 0;padding:10px;border:1px solid var(--border-color,#253851);border-radius:8px';
+            var title=d.createElement('strong');title.textContent='Vídeo '+(idx+1)+' · V'+(pane.track+1);card.appendChild(title);
+            var select=d.createElement('button');select.type='button';select.className='btn-secondary';select.style.cssText='width:100%;margin:8px 0';select.textContent='Selecionar este vídeo no Premiere';card.appendChild(select);
+            var controls=d.createElement('div'),input={},names=[['focusX','Área horizontal',50,0,100,1],['focusY','Área vertical',50,0,100,1],['zoom','Ampliação',1,1,3,.05]];
+            names.forEach(function(spec){var line=d.createElement('label');line.style.cssText='display:block;font-size:11px;margin:8px 0';line.textContent=spec[1]+': ';var value=d.createElement('span');value.textContent=String(spec[2]);line.appendChild(value);var slider=d.createElement('input');slider.type='range';slider.min=spec[3];slider.max=spec[4];slider.step=spec[5];slider.value=spec[2];slider.style.cssText='display:block;width:100%';slider.addEventListener('input',function(){value.textContent=slider.value;});line.appendChild(slider);input[spec[0]]=slider;controls.appendChild(line);});
+            var submit=d.createElement('button');submit.className='btn-secondary';submit.type='button';submit.textContent='Aplicar Crop e enquadramento';submit.style.cssText='width:100%;margin:4px 0';controls.appendChild(submit);
+            var status=d.createElement('div');status.style.cssText='font-size:11px;color:var(--text-2);margin-top:4px';card.appendChild(controls);card.appendChild(status);list.appendChild(card);
+            select.addEventListener('click',function(){select.disabled=true;w.CaptionIASplit.selectPane(pane).then(function(v){status.textContent=v.nativeCropAccessible?'Vídeo selecionado. Crop intrínseco acessível: use os controles aqui ou ajuste em Propriedades.':'Vídeo selecionado. Use Propriedades → Cortar no Premiere; esta versão não expõe os parâmetros pela API CEP.';submit.disabled=!v.nativeCropAccessible;}).catch(function(e){status.textContent=e.message||String(e);}).then(function(){select.disabled=false;});});
+            submit.addEventListener('click',function(){submit.disabled=true;w.CaptionIASplit.reframe(pane,{focusX:Number(input.focusX.value),focusY:Number(input.focusY.value),zoom:Number(input.zoom.value)}).then(function(v){status.textContent='Crop confirmado para V'+(pane.track+1)+'. Confira o Monitor do Programa.';}).catch(function(e){status.textContent=e.message||String(e);}).then(function(){submit.disabled=false;});});
+        });
+    }
     function init() {
         var preview = el('btn-td-v2-preview'), apply = el('btn-td-v2-apply'); if (!preview || !apply) return;
         ['td-v2-preset', 'td-v2-fit'].forEach(function (id) { el(id).addEventListener('change', invalidate); });
         preview.addEventListener('click', function () {
             if (waiting) return;
-            invalidate(); busy(true); message('Verificando 2 ou 4 vídeos em faixas diferentes. A prévia abaixo é esquemática; o resultado real aparece no Premiere…');
+            if(el('td-v2-reframe'))el('td-v2-reframe').hidden=true;invalidate(); busy(true); message('Verificando 2 ou 4 vídeos em faixas diferentes. A prévia abaixo é esquemática; o resultado real aparece no Premiere…');
             w.CaptionIASplit.preview({ preset: el('td-v2-preset').value, fit: el('td-v2-fit').value }).then(function (plan) {
                 prepared = plan; draw(plan); message(plan.notice);
             }).catch(function (error) { message(error.message || String(error), true); }).then(function () { busy(false); });
@@ -52,7 +67,7 @@
             if (waiting || !prepared) return;
             busy(true); message('Criando uma cópia da sequência e aplicando o enquadramento…');
             w.CaptionIASplit.apply(prepared).then(function (result) {
-                prepared = null; el('btn-td-v2-restore').hidden = false;
+                prepared = null; el('btn-td-v2-restore').hidden = false;showReframe(result);
                 message(result&&result.warning ? result.warning : 'Cópia criada. Confira o enquadramento no Monitor do Programa; a sequência original permanece intacta.');
                 if(result&&result.degraded&&w.CaptionIADiagnostics)w.CaptionIADiagnostics.record('split.fallback','warning',{code:'QE_CROP_UNAVAILABLE',mode:'fit',detail:'Crop indisponível; aplicou Ajustar em cópia.'});
             }).catch(function (error) { prepared = null; message(error.message || String(error), true); }).then(function () { busy(false); });
