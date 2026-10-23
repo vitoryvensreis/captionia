@@ -12,8 +12,8 @@ test('bounded diagnostic events persist and redact tokens, emails and Windows pa
  const events=JSON.parse(JSON.stringify(a.recent()));assert.equal(events.length,1);assert.equal(events[0].action,'premiere.captioniaSplitApply');
  const payload=JSON.stringify(events);assert.doesNotMatch(payload,/gsk_ABC|vitor@example.com|secret\\\\test/);
  const b=instance(store);assert.equal(b.recent().length,1);
- for(let i=0;i<170;i++)b.record('narrative.step','ok',{phase:'plan'});
- assert.equal(b.recent().length,120);
+ for(let i=0;i<750;i++)b.record('narrative.step','ok',{phase:'plan'});
+ assert.equal(b.recent().length,600);
 });
 test('does not persist arbitrary payload keys',()=>{
  const store={},api=instance(store);

@@ -53,7 +53,7 @@
             busy(true); message('Criando uma cópia da sequência e aplicando o enquadramento…');
             w.CaptionIASplit.apply(prepared).then(function (result) {
                 prepared = null; el('btn-td-v2-restore').hidden = false;
-                message(result&&result.degraded ? result.warning : 'Cópia criada. Confira o enquadramento no Monitor do Programa; a sequência original permanece intacta.');
+                message(result&&result.warning ? result.warning : 'Cópia criada. Confira o enquadramento no Monitor do Programa; a sequência original permanece intacta.');
                 if(result&&result.degraded&&w.CaptionIADiagnostics)w.CaptionIADiagnostics.record('split.fallback','warning',{code:'QE_CROP_UNAVAILABLE',mode:'fit',detail:'Crop indisponível; aplicou Ajustar em cópia.'});
             }).catch(function (error) { prepared = null; message(error.message || String(error), true); }).then(function () { busy(false); });
         });

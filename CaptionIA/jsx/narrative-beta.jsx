@@ -3,7 +3,7 @@
 (function(){
     var TICKS=254016000000;
     var hostTrace=[];
-    function hostNote(phase,detail){if(hostTrace.length<22)hostTrace.push({phase:String(phase).slice(0,48),detail:String(detail||'').slice(0,105)});}
+    function hostNote(phase,detail){if(hostTrace.length<150)hostTrace.push({phase:String(phase).slice(0,54),detail:String(detail||'').slice(0,240)});}
     function ok(o){o.ok=true;o.hostTrace=hostTrace.slice(0);hostTrace=[];return JSON.stringify(o);}
     function error(msg){var result={ok:false,error:String(msg),code:'NARRATIVE_HOST_GUARD',hostTrace:hostTrace.slice(0)};hostTrace=[];return JSON.stringify(result);}
     function byID(id){var seqs=app.project.sequences;for(var i=0;i<seqs.numSequences;i++){var s=seqs[i];if(String(s.sequenceID)===String(id))return s;}return null;}
@@ -63,9 +63,11 @@
                     if(label==='position'||label==='posicao'||label==='anchor point'||label==='ponto de ancoragem'){
                         center=v&&v.length===2&&((Math.abs(Number(v[0])-.5)<.001&&Math.abs(Number(v[1])-.5)<.001)||(Math.abs(Number(v[0])-media.width/2)<.1&&Math.abs(Number(v[1])-media.height/2)<.1));
                         if(!center)throw Error('O take tem enquadramento alterado. A montagem por subclipes não preserva Movimento; use takes brutos.');
-                    }else if(/^(scale|escala|scale width|largura da escala|largura de escala|dimensionar largura|dimensao largura)$/.test(label)){if(!neutralScale(v))throw Error('O take contém escala alterada ou sem leitura segura ('+p.displayName+': '+debugValue(v)+'). Use takes brutos na Montagem.');}
+                    }else if(/^(scale|escala|scale width|largura da escala|largura de escala|dimensionar largura|dimensao largura|dimensionar altura|scale height|altura da escala)$/.test(label)){if(!neutralScale(v))throw Error('O take contém escala alterada ou sem leitura segura ('+p.displayName+': '+debugValue(v)+'). Use takes brutos na Montagem.');}
                     else if(/^(rotation|rotacao|anti-flicker filter|filtro anticintilacao|filtro anticintilante)$/.test(label)){if(Math.abs(Number(v))>.001)throw Error('O take contém rotação/filtro de Movimento alterado.');}
-                    else if(label==='uniform scale'||label==='escala uniforme'){if(!v)throw Error('Escala não uniforme não é preservada na montagem.');}
+                    else if(/^(uniform scale|escala uniforme|dimensionar uniformemente|escala proporcional|scale uniformly)$/.test(label)){
+                        if(!(v===true||v===1||v==='1'||normalized(v)==='true'||normalized(v)==='verdadeiro'))throw Error('Escala uniforme desativada: use takes com Movimento padrão.');
+                    }
                     else throw Error('Parâmetro de Movimento não reconhecido: '+p.displayName+'. Não consigo garantir a preservação.');
                 }else if(name==='opacity'||name==='opacidade'){
                     if(label==='opacity'||label==='opacidade'){if(Math.abs(Number(v)-100)>.01)throw Error('Opacidade alterada não é preservada na montagem.');}
@@ -140,6 +142,7 @@
     }
     function snapshot(target){
         var seq=target||active();if(!seq)throw Error('Abra uma sequência no Premiere.');
+        hostNote('snapshot.sequence','videoTracks='+seq.videoTracks.numTracks+' audioTracks='+seq.audioTracks.numTracks+' frameTicks='+String(seq.timebase));
         if(hasExtraTracks(seq))throw Error('Use somente V1 e A1 com takes brutos. Faixas adicionais não são preservadas por esta montagem.');
         var video=[],audio=[];var tr,i,c;
         for(i=0;i<seq.videoTracks.numTracks;i++){tr=seq.videoTracks[i];if(tr.clips.numItems){trackSafe(tr);if(video.length)throw Error('BETA: use somente uma faixa de vídeo com falas; outras faixas devem estar vazias.');for(var j=0;j<tr.clips.numItems;j++){c=tr.clips[j];if(!mediaItem(c)||!mediaItem(c).createSubClip)throw Error('Item sem mídia editável na faixa de vídeo.');if(c.isAdjustmentLayer&&c.isAdjustmentLayer())throw Error('Faixa contém camada de ajuste.');if(c.getSpeed&&Math.abs(Number(c.getSpeed())-1)>.001)throw Error('Velocidade alterada não é suportada na BETA.');
@@ -147,6 +150,7 @@
         }
         if(!video.length)throw Error('A sequência não tem vídeos na faixa V1.');
         for(i=0;i<seq.audioTracks.numTracks;i++){tr=seq.audioTracks[i];if(tr.clips.numItems){trackSafe(tr);if(audio.length)throw Error('BETA: múltiplas faixas de áudio não são suportadas nesta revisão.');for(var k=0;k<tr.clips.numItems;k++){c=tr.clips[k];var am=mediaState(mediaItem(c));audio.push({start:secs(c.start),end:secs(c.end),inPoint:secs(c.inPoint),outPoint:secs(c.outPoint),nodeId:String(mediaItem(c)&&mediaItem(c).nodeId||''),media:am,effects:plainClipState(c,true,am)});}}}
+        hostNote('snapshot.media','videoClips='+video.length+' audioClips='+audio.length);
         if(audio.length!==video.length)throw Error('Áudio separado/não alinhado: use takes com áudio vinculado na A1.');
         for(i=0;i<video.length;i++){if(Math.abs(audio[i].start-video[i].start)>.01||Math.abs(audio[i].end-video[i].end)>.01||Math.abs(audio[i].inPoint-video[i].inPoint)>.01||Math.abs(audio[i].outPoint-video[i].outPoint)>.01||audio[i].nodeId!==video[i].nodeId)throw Error('Áudio e vídeo não estão alinhados à mesma mídia no take '+(i+1)+'.');}
         video.sort(function(a,b){return a.start-b.start;});
@@ -162,6 +166,7 @@
         var snap=snapshot(original);if(!args.sourceSignature||args.sourceSignature!==snap.signature)throw Error('Mídia, efeitos ou cortes da original mudaram desde a análise. Refaça a montagem.');
         if(!args.cuts||!args.cuts.length||args.cuts.length>100)throw Error('Plano vazio ou grande demais.');
         var cuts=[],i,j,c,ref,source,clip;var sourceTrack=original.videoTracks[0],frame=frameDuration(original);
+        hostNote('preview.plan','cuts='+args.cuts.length+' clips='+snap.clips.length+' frameMs='+Math.round(frame*1000));
         for(i=0;i<args.cuts.length;i++){
             c=args.cuts[i];var a=Number(c.start),b=Number(c.end);if(!isFinite(a)||!isFinite(b)||b-a<.18)throw Error('Intervalo inválido no trecho '+(i+1));
             ref=null;for(j=0;j<snap.clips.length;j++)if(a>=snap.clips[j].start-.035&&b<=snap.clips[j].end+.035){ref=snap.clips[j];break;}
@@ -176,6 +181,7 @@
             offsetStart=Math.max(minTime,Math.min(maxTime,snapFrame(offsetStart,frame)));
             offsetEnd=Math.max(minTime,Math.min(maxTime,snapFrame(offsetEnd,frame)));
             if(offsetEnd-offsetStart<.18-frame*.01)throw Error('Trecho '+(i+1)+' ficou curto após alinhar aos frames.');
+            hostNote('preview.cut','index='+(i+1)+' inFrame='+Math.round(offsetStart/frame)+' outFrame='+Math.round(offsetEnd/frame));
             cuts.push({source:source,mediaId:String(ref.nodeId||''),originStart:ref.start,originInPoint:ref.inPoint,
                 inTime:offsetStart,outTime:offsetEnd,
                 sourceStart:ref.start+(offsetStart-ref.inPoint),sourceEnd:ref.start+(offsetEnd-ref.inPoint),
@@ -216,6 +222,7 @@
                     destStart:actualStart,destEnd:actualEnd});
                 cursor=actualEnd;
             }
+            hostNote('preview.result','sourceCuts='+cuts.length+' inserted='+preview.videoTracks[0].clips.numItems+' endFrame='+Math.round(cursor/frame));
             if(preview.videoTracks[0].clips.numItems!==subclips.length)throw Error('A quantidade de clipes gerados difere do plano.');
             for(i=1;i<layout.length;i++)if(Math.abs(layout[i].destStart-layout[i-1].destEnd)>epsilon)throw Error('Detectado espaço entre os clipes '+i+' e '+(i+1));
             app.project.openSequence(preview.sequenceID);

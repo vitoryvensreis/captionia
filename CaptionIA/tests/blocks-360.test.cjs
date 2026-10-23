@@ -70,3 +70,11 @@ test('safe bridge forwards snapshot with no response content logging',async()=>{
  assert.equal(answer.sequenceID,'safe');
  assert.ok(!JSON.stringify(context.window.CaptionIABridge.recent()).includes('sequenceID'));
 });
+
+test('AutoSFX spoken-word sync has no guessed 3-frame subdivisions',()=>{
+ const fs=require('node:fs');const source=fs.readFileSync(path.join(__dirname,'..','js','autosfx.js'),'utf8');
+ assert.match(source,/var spoken=\[\]/);
+ assert.match(source,/if\(spoken\.length===ao\)/);
+ assert.match(source,/ah\(ak\['ini'\],ak\['fim'\]\)/);
+ assert.doesNotMatch(source,/ak\['ini'\]\+av\*af/);
+});

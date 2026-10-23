@@ -45,7 +45,7 @@ let originalAudio=JSON.stringify(f.original.audioTracks[0].clips.map(c=>[c.nodeI
 let applied=f.call('captioniaSplitApply',prepared);assert.equal(applied.ok,true);assert.equal(f.state.clones,1);assert.equal(f.original.videoTracks[0].clips[0].components[0].properties[1].getValue(),100);assert.equal(f.project.activeSequence.videoTracks[0].clips[0].components[0].properties[1].getValue(),50);assert.equal(JSON.stringify(f.original.audioTracks[0].clips.map(c=>[c.nodeId,c.start,c.end,c.inPoint,c.outPoint])),originalAudio);
 assert.equal(f.call('captioniaSplitRestore',{sequenceID:'original'}).ok,true);
 f.original.videoTracks[0].clips[0].start.seconds=1;assert.match(f.call('captioniaSplitApply',prepared).error,/mudou/);assert.equal(f.state.clones,1);
-f.original.videoTracks[0].clips[0].start.seconds=0;prepared=split.plan(f.call('captioniaSplitInspect'),{preset:'side-by-side',fit:'fill'});let failed=f.call('captioniaSplitApply',prepared);assert.equal(failed.ok,true);assert.equal(failed.degraded,true);assert.equal(failed.fitApplied,'fit');assert.match(failed.warning,/Crop/);assert.equal(f.original.videoTracks[0].clips[0].components[0].properties[1].getValue(),100);assert.equal(f.project.activeSequence.videoTracks[0].clips[0].components[0].properties[1].getValue(),50);assert.ok(failed.hostTrace.some(s=>s.phase==='split.fallback'));f.project.openSequence('original');
+f.original.videoTracks[0].clips[0].start.seconds=0;prepared=split.plan(f.call('captioniaSplitInspect'),{preset:'side-by-side',fit:'fill'});let failed=f.call('captioniaSplitApply',prepared);assert.equal(failed.ok,true);assert.equal(failed.degraded,false);assert.equal(failed.fitApplied,'fill');assert.equal(failed.fillMethod,'canvas-edge');assert.match(failed.warning,/sem efeito Crop/);assert.equal(f.original.videoTracks[0].clips[0].components[0].properties[1].getValue(),100);assert.equal(f.project.activeSequence.videoTracks[0].clips[0].components[0].properties[1].getValue(),100);assert.ok(failed.hostTrace.some(s=>s.phase==='split.edge-clip'));f.project.openSequence('original');
 prepared=split.plan(f.call('captioniaSplitInspect'),{preset:'side-by-side',fit:'fit'});prepared.items[0].scale=9999;applied=f.call('captioniaSplitApply',prepared);assert.equal(applied.ok,true);assert.equal(f.project.activeSequence.videoTracks[0].clips[0].components[0].properties[1].getValue(),50);
 f=fixture('jsx/captionia-split.jsx');f.original.videoTracks.push(f.track([f.clip(f.media('m2'),'video')]));f.state.attributeMetadata=true;assert.equal(f.call('captioniaSplitInspect').ok,true);
 prepared=split.plan(f.call('captioniaSplitInspect'),{preset:'side-by-side',fit:'fill'});f.project.openSequence=function(){};
@@ -54,10 +54,9 @@ assert.equal(applied.ok,false);assert.match(applied.error,/não abriu a cópia/)
 assert.equal(f.state.sequences[1].videoTracks[0].clips[0].components[0].properties[1].getValue(),100);
 f=fixture('jsx/captionia-split.jsx');f.original.videoTracks.push(f.track([f.clip(f.media('m2'),'video')]));prepared=split.plan(f.call('captioniaSplitInspect'),{preset:'side-by-side',fit:'fill'});
 let cropCalls=0;f.context.qe={project:{getVideoEffectByName(){return {};},getActiveSequence(){return {sequenceID:'original',getVideoTrackAt(){cropCalls++;throw Error('Must not reach source QE track');}};}}};
-applied=f.call('captioniaSplitApply',prepared);assert.equal(applied.ok,false);assert.match(applied.error,/adaptador Crop está na cópia/);assert.equal(cropCalls,0);assert.equal(f.original.videoTracks[0].clips[0].components.length,2);
+applied=f.call('captioniaSplitApply',prepared);assert.equal(applied.ok,true,applied.error);assert.equal(cropCalls,0,'The new fill mode must not call the QE adapter');assert.equal(applied.fillMethod,'canvas-edge');assert.equal(f.original.videoTracks[0].clips[0].components.length,2);
 
-// QE DOM includes Empty gaps in numItems. The real clip must receive Crop,
-// even if the gap itself exposes an addVideoEffect function.
+// Frame-edge fill must not depend on QE, even when QE simulates a valid Crop effect.
 f=fixture('jsx/captionia-split.jsx');
 f.original.videoTracks.push(f.track([f.clip(f.media('m2'),'video')]));
 prepared=split.plan(f.call('captioniaSplitInspect'),{preset:'side-by-side',fit:'fill'});
@@ -75,9 +74,28 @@ f.context.qe={project:{getVideoEffectByName(){return {name:'Crop'};},getActiveSe
 }}};
 applied=f.call('captioniaSplitApply',prepared);
 assert.equal(applied.ok,true,applied.error);
-assert.equal(installedEffects,2,'one Crop effect must be added to each of two clips');
+assert.equal(installedEffects,0,'canvas edge clipping uses only Motion, no QE Crop');
 assert.equal(f.original.videoTracks[0].clips[0].components.length,2,'original sequence untouched');
-assert.equal(f.project.activeSequence.videoTracks[0].clips[0].components.length,3);
+assert.equal(f.project.activeSequence.videoTracks[0].clips[0].components.length,2);
+assert.equal(f.project.activeSequence.videoTracks[0].clips[0].components[0].properties[0].getValue()[0],0,'left clip finishes at split boundary');
+assert.equal(f.project.activeSequence.videoTracks[1].clips[0].components[0].properties[0].getValue()[0],1,'right clip begins at split boundary');
+
+// Fill by edge clipping remains deterministic for top-bottom and 2x2 layouts,
+// with independent tracks and without the undocumented QE Crop adapter.
+f=fixture('jsx/captionia-split.jsx');f.original.videoTracks.push(f.track([f.clip(f.media('m2'),'video')]));
+prepared=split.plan(f.call('captioniaSplitInspect'),{preset:'top-bottom',fit:'fill'});
+applied=f.call('captioniaSplitApply',prepared);
+assert.equal(applied.ok,true,applied.error);
+assert.equal(applied.fillMethod,'canvas-edge');
+assert.equal(f.project.activeSequence.videoTracks[0].clips[0].components[0].properties[0].getValue()[1],0);
+assert.equal(f.project.activeSequence.videoTracks[1].clips[0].components[0].properties[0].getValue()[1],1);
+assert.equal(f.original.videoTracks[0].clips[0].components[0].properties[0].getValue()[1],.5);
+f=fixture('jsx/captionia-split.jsx');
+for(const label of ['m2','m3','m4'])f.original.videoTracks.push(f.track([f.clip(f.media(label),'video')]));
+prepared=split.plan(f.call('captioniaSplitInspect'),{preset:'grid-2x2',fit:'fill'});
+applied=f.call('captioniaSplitApply',prepared);
+assert.equal(applied.ok,true,applied.error);
+assert.deepEqual(Array.from(f.project.activeSequence.videoTracks,track=>Array.from(track.clips[0].components[0].properties[0].getValue())),[[.25,.25],[.75,.25],[.25,.75],[.75,.75]]);
 
 // Normal Scale is represented differently by CEP versions. Do not block
 // visually untouched takes; never accept a genuinely changed scale.
@@ -99,6 +117,15 @@ assert.equal(ptSnapshot.ok,true,ptSnapshot.error);
 assert.ok(ptSnapshot.hostTrace.some(s=>s.phase==='motion.property'&&s.detail.includes('dimensionar largura')));
 f.original.videoTracks[0].clips[0].components[0].properties.at(-1).setValue(160);
 assert.match(f.call('fsNarrativeBetaSnapshot').error,/escala alterada.*Dimensionar largura/);
+
+// Motion in Portuguese Premiere may expose boolean Uniform Scale as 'Dimensionar uniformemente'.
+f=fixture('jsx/narrative-beta.jsx');
+f.original.videoTracks[0].clips[0].components[0].properties.push(property('Dimensionar uniformemente',true));
+let localized=f.call('fsNarrativeBetaSnapshot');
+assert.equal(localized.ok,true,localized.error);
+assert.ok(localized.hostTrace.some(x=>x.phase==='motion.property'&&x.detail.includes('dimensionar uniformemente')));
+f.original.videoTracks[0].clips[0].components[0].properties.at(-1).setValue(false);
+assert.match(f.call('fsNarrativeBetaSnapshot').error,/Escala uniforme desativada/);
 
 // The legacy Favorites sub-navigation must move below Sua biblioteca context.
 const workspaceSource=source('js/captionia-workspace.js');

@@ -14,11 +14,11 @@
 
  function trackHostTrace(name,trace){
   if(!Array.isArray(trace)||!root||!root.CaptionIADiagnostics)return;
-  trace.slice(-32).forEach(function(step){
+  trace.slice(-150).forEach(function(step){
    if(!step||typeof step!=='object')return;
    root.CaptionIADiagnostics.record('premiere.host-step','info',{
     operation:name,phase:String(step.phase||'host').slice(0,55),
-    detail:String(step.detail||'').slice(0,110)
+    detail:String(step.detail||'').slice(0,235)
    });
   });
  }
@@ -44,7 +44,7 @@
    }catch(e){finish(e);}
   });}catch(e){finish(e);}
  });}
- var api=Object.freeze({call:invoke,recent:function(){return root&&root.CaptionIADiagnostics?root.CaptionIADiagnostics.recent():[];},version:'3.6.3'});
+ var api=Object.freeze({call:invoke,recent:function(){return root&&root.CaptionIADiagnostics?root.CaptionIADiagnostics.recent():[];},version:'3.6.4'});
  if(typeof module!=='undefined'&&module.exports)module.exports=api;
  if(root)root.CaptionIABridge=api;
 })(typeof window!=='undefined'?window:null);
