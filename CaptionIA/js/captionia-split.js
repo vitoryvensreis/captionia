@@ -26,7 +26,7 @@ function plan(snapshot,options){
    position:[(slot.x+slot.width/2)/width,(slot.y+slot.height/2)/height],crop:{left:cropX,right:cropX,top:cropY,bottom:cropY},name:clip.name});
  });
  return {version:1,sequenceID:String(snapshot.sequenceID),signature:snapshot.signature,preset:options.preset||'side-by-side',fit:mode,width:width,height:height,
-  duration:end-start,items:items,notice:'Prévia esquemática, não é o frame real. A aplicação cria uma cópia e altera o Movimento nela. O recorte livre só funciona pela API CEP se o Premiere expuser os parâmetros de Crop intrínsecos; caso contrário use o painel Propriedades do Premiere.'};
+  duration:end-start,items:items,notice:'Prévia esquemática. A aplicação usa Crop nativo para criar uma máscara fixa em cada célula, sempre numa cópia. Se o Premiere não expuser os quatro controles Crop, nenhuma tela dividida sem máscara será criada. Use Preencher para ocupar toda a área.'};
 }
 function host(name,payload){if(root.CaptionIABridge)return root.CaptionIABridge.call(name,payload,{timeoutMs:75000});return new Promise(function(resolve,reject){
  var cs=root.csInterface;if(!cs||typeof cs.evalScript!=='function')return reject(Error('Ponte Adobe indisponível.'));
