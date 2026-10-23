@@ -179,6 +179,29 @@ assert.ok(flicker.hostTrace.some(x=>x.phase==='motion.property'&&x.detail.includ
 f.original.videoTracks[0].clips[0].components[0].properties.at(-1).setValue(3);
 assert.match(f.call('fsNarrativeBetaSnapshot').error,/rotação\/filtro de Movimento alterado/);
 
+// Real-world Premiere PT-BR 23/10: Crop is exposed inside Motion as "Corte à esquerda = 0".
+// All 4 neutral sides must pass; a nonzero/animated/unknown crop must still block.
+for (const [side,neutral] of [
+ ['Corte à esquerda',0],['Corte à direita','0'],['Corte superior','0,0'],['Corte inferior','0%'],
+ ['Crop Left',0],['Crop Right','0.00'],['Crop Top',0],['Crop Bottom',0]
+]) {
+ f=fixture('jsx/narrative-beta.jsx');
+ const cropProperty=property(side,neutral);
+ f.original.videoTracks[0].clips[0].components[0].properties.push(cropProperty);
+ const neutralSnapshot=f.call('fsNarrativeBetaSnapshot');
+ assert.equal(neutralSnapshot.ok,true,side+': '+neutralSnapshot.error);
+ assert.ok(neutralSnapshot.hostTrace.some(x=>x.phase==='motion.property'&&x.detail.includes(' = ')));
+ cropProperty.setValue('7.5%');
+ assert.match(f.call('fsNarrativeBetaSnapshot').error,/Corte\/Recorte de Movimento alterado/,side+' must block nonzero crop');
+}
+f=fixture('jsx/narrative-beta.jsx');
+let animCrop=property('Corte à esquerda',0);animCrop.isTimeVarying=()=>true;
+f.original.videoTracks[0].clips[0].components[0].properties.push(animCrop);
+assert.match(f.call('fsNarrativeBetaSnapshot').error,/keyframes/);
+f=fixture('jsx/narrative-beta.jsx');
+f.original.videoTracks[0].clips[0].components[0].properties.push(property('Corte diagonal',0));
+assert.match(f.call('fsNarrativeBetaSnapshot').error,/não reconhecido/);
+
 // CEP builds exposing four native crop controls support a post-split focus change.
 // No crop method is fabricated when native controls are missing.
 f=fixture('jsx/captionia-split.jsx');
