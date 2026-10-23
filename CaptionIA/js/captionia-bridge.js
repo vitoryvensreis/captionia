@@ -5,6 +5,7 @@
 (function(root){'use strict';
  var allow={
   captioniaSplitInspect:1,captioniaSplitApply:1,captioniaSplitRestore:1,
+  captioniaSplitSelectPane:1,captioniaSplitReframe:1,
   fsNarrativeBetaSnapshot:1,fsNarrativeBetaPreview:1,
   fsNarrativeBetaValidatePreview:1,fsNarrativeBetaRestore:1,fsNarrativeBetaCloneForRetake:1
  };
