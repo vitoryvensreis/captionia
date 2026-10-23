@@ -10,7 +10,7 @@ global.window={_fsLastResp:null};
 const cal=require('../CaptionIA/js/sfx_timing_calibration.js');
 const source=fs.readFileSync('CaptionIA/js/autosfx.js','utf8');
 const html=fs.readFileSync('CaptionIA/index.html','utf8');
-assert(source.includes('window.CaptionIASfxTiming.apply(a0)'));
+assert(/window\.CaptionIASfxTiming\.apply\(a0(?:,|\))/.test(source),'Calibração deve ser aplicada aos tempos dos SFX');
 assert(html.indexOf('js/sfx_timing_calibration.js')<html.indexOf('js/autosfx.js'));
 const guard=fs.readFileSync('CaptionIA/js/autocut_warp_guard.js','utf8');
 const dual=require('../CaptionIA/js/sfx_dual_tracks.js');
