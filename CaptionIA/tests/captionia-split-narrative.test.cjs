@@ -245,6 +245,41 @@ f=fixture('jsx/narrative-beta.jsx');
 f.original.audioTracks[0].clips[0].components[0].properties=collection([property('Volume',0.17782793939114)]);
 assert.match(f.call('fsNarrativeBetaSnapshot').error,/Volume do take alterado/);
 
+// End-to-end Premiere mock with PT-BR default audio switch variants.
+for(const family of ['Volume','Channel Volume','Volume do canal']){
+ f=fixture('jsx/narrative-beta.jsx');
+ const nativeAudio=f.original.audioTracks[0].clips[0];
+ nativeAudio.components=collection([component(family,[property('Volume',false),property('Level',1)])]);
+ const snap=f.call('fsNarrativeBetaSnapshot');
+ assert.equal(snap.ok,true,'Default '+family+' should pass: '+snap.error);
+ assert.ok(snap.hostTrace.some(x=>x.phase==='audio.volume-flag'));
+ const preview=f.call('fsNarrativeBetaPreview',{
+  sequenceID:'original',sourceSignature:snap.signature,
+  cuts:[{id:'safe1',start:0,end:2},{id:'safe2',start:2.5,end:5}]
+ });
+ assert.equal(preview.ok,true,'Safe '+family+' should cut: '+preview.error);
+ assert.equal(f.state.subclips,2);
+ assert.equal(f.original.videoTracks[0].clips.length,1);
+ assert.equal(f.original.audioTracks[0].clips.length,1);
+ const approved=f.call('fsNarrativeBetaValidatePreview',{
+  sequenceID:'original',sourceSignature:snap.signature,
+  previewId:preview.previewId,previewSignature:preview.previewSignature,layout:preview.layout
+ });
+ assert.equal(approved.ok,true,'Safe '+family+' should validate: '+approved.error);
+}
+// Neutral Level may be on a separate native Volume component.
+f=fixture('jsx/narrative-beta.jsx');
+f.original.audioTracks[0].clips[0].components=collection([
+ component('Channel Volume',[property('Volume',false)]),
+ component('Volume',[property('Level',1)])
+]);
+assert.equal(f.call('fsNarrativeBetaSnapshot').ok,true,'Cross-component neutral gain');
+f.original.audioTracks[0].clips[0].components[1].properties[0].setValue(0.5);
+assert.match(f.call('fsNarrativeBetaSnapshot').error,/Volume do take alterado/);
+f=fixture('jsx/narrative-beta.jsx');
+f.original.audioTracks[0].clips[0].components=collection([component('Channel Volume',[property('Volume',false)])]);
+assert.match(f.call('fsNarrativeBetaSnapshot').error,/não foi possível confirmar Nível\/Level neutro/);
+
 // Regression from real Premiere PT-BR logs, 23 Oct 2026.
 f=fixture('jsx/narrative-beta.jsx');
 f.original.videoTracks[0].clips[0].components[0].properties.push(property('Filtro anti-cintilação',0));
