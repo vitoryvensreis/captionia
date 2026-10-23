@@ -1,0 +1,7 @@
+Caption IA 3.6.1 DEV — correções observadas no Premiere
+
+- Tela Dividida: localiza Crop por alinhamento até metade de um frame e recusa correspondência ambígua. Original preservado.
+- Montagem: aceita retornos conhecidos de modo Normal 0/1/18 ou texto Normal; modos desconhecidos continuam bloqueados, mas agora explicam o valor técnico para diagnóstico.
+- Logs: eventos com status/etapa/duração persistidos localmente; painel ◉ e exportação manual JSON. Sem mídia, transcrições ou chaves.
+- UX: Favoritos dentro de Modelos (atalho), identidade neon azul/ciano/verde, hover suave com redução de movimento.
+- Esta é versão DEV para teste real; QE Crop permanece integração não documentada Adobe.

@@ -1,6 +1,6 @@
 (function(w,d){'use strict';
 
-var CURRENT_VERSION='3.5.1';
+var CURRENT_VERSION='3.6.5';
 var SITE='https://caption.escotilhaprodutora.com';
 var CHECK_EVERY_MS=6*60*60*1000;
 var checking=false;
@@ -276,6 +276,7 @@ function installRelease(release){
     });
 }
 function checkNow(){
+  if(w.CaptionIADevelopment&&w.CaptionIADevelopment.autoUpdates===false)return Promise.resolve(false);
   if(checking)return Promise.resolve(false);
   if(!w.CaptionIALicense||!w.CaptionIALicense.isAuthorized||!w.CaptionIALicense.isAuthorized())return Promise.resolve(false);
   checking=true;

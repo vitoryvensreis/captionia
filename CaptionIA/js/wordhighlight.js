@@ -152,6 +152,36 @@ function patch(track,blocks,style,tryN,done){
 }
 function record(track,blocks){
   try{
+    // The same WORD_TIMINGS values written into the MOGRT are used for SFX.
+    // This in-memory map is scoped to the current transcript, not a stale cached project.
+    var sequence=String(window._fsLastResp&&window._fsLastResp._fsSeq||'');
+    if(sequence){
+      var events=[];
+      blocks.forEach(function(block){
+        var absolute=Number(block.startTime);
+        if(!isFinite(absolute)||!block.wordTimings)return;
+        var entries=String(block.wordTimings).split(';'),onsets=[];
+        entries.forEach(function(entry){
+          var match=/^([0-9]+(?:\.[0-9]+)?),([0-9]+(?:\.[0-9]+)?)$/.exec(entry.trim());
+          if(match)onsets.push(absolute+Number(match[1]));
+        });
+        events.push({start:absolute,end:Number(block.endTime),onsets:onsets});
+      });
+      window.CaptionIAVisualOnsets={
+        sequenceID:sequence,
+        getForBlock:function(start,end,count){
+          var current=String(window._fsLastResp&&window._fsLastResp._fsSeq||'');
+          if(current!==sequence)return null;
+          for(var i=0;i<events.length;i++){
+            var item=events[i];
+            if(Math.abs(item.start-start)<.06&&Math.abs(item.end-end)<.09&&item.onsets.length===count)
+              return item.onsets.slice();
+          }
+          return null;
+        }
+      };
+    }
+
     var old=null;try{old=JSON.parse(localStorage.getItem('framespeed_blocos_inseridos')||'null');}catch(e){}
     var times=old&&old.tipo==='word-highlight'&&old.trilha===track&&old.tempos?old.tempos.slice():[];
     for(var i=0;i<blocks.length;i++)if(times.indexOf(blocks[i].startTime)<0)times.push(blocks[i].startTime);
@@ -177,7 +207,7 @@ function applyBlocks(src,opt,done){
   if(!opt.silent)status('Karaoke: inserindo 0/'+host.length+'...','work');
   function finish(res){
     BUSY=false;
-    if(res&&res.ok&&opt.record!==false&&typeof res.trackIndex==='number')record(res.trackIndex,prep.blocks);
+    if(res&&res.ok&&!res.missing&&opt.record!==false&&typeof res.trackIndex==='number')record(res.trackIndex,prep.blocks);
     if(!opt.silent){
       if(res&&res.ok)status('✓ '+res.patched+' Karaoke(s) sincronizados'+(res.colors?' · '+res.colors+' cor(es) aplicadas':'')+'.','ok');
       else status((res&&res.error)||'Erro ao inserir Karaoke.','err');

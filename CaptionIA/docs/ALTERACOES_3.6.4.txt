@@ -1,0 +1,15 @@
+CAPTION IA 3.6.4 — DEV (NÃO LIBERAR PARA CLIENTES SEM TESTE NO PREMIERE)
+
+CORREÇÕES BASEADAS NOS LOGS ENVIADOS EM 23/10/2026:
+1) Montagem Inteligente: reconhecer 'Dimensionar uniformemente' = true, mantendo recusa a Movimento alterado. Verificar fonte e destino dos cortes em frames por trechos, sem mexer no original. Montagem continua restrita a V1 e A1 sem efeitos incompatíveis.
+2) Tela Dividida: método 'Preencher por limite de quadro' inteiramente via Motion (escala + posição), sem QE ou inserção de Crop. Layouts 2 colunas, 2 linhas e 4 quadrantes trabalham sobre uma cópia da sequência. IMPORTANTE: o enquadramento fica preso às bordas e pode cortar rostos, especialmente em fontes verticais. NÃO equivale a um efeito Crop controlável — para ajustes livres será necessária uma versão UXP usando API documentada.
+3) AutoSFX: no modo sincronizado, prioridade para WORD_TIMINGS reais do Word Highlight. Na ausência do destaque por palavra, usa inícios reais de palavras da Groq se a contagem do bloco corresponder; quando só há revelação por linha ou bloco, coloca o som no início visível correspondente. Não inventa sons com intervalo fixo de 3 frames.
+4) Logs: até 600 eventos por sessões com até 180 visíveis no painel, com fases e parâmetros técnicos mais completos. Exportação manual inclui histórico completo disponível, com redação de paths/tokens/e-mails. Montagem registra propriedades de Movimento, contagem de takes e frames de cortes; Tela Dividida registra escala e posição por célula; SFX registra a origem e quantidade dos tempos.
+
+VALIDAÇÃO: testes Node automatizados + verificação de integridade do pacote. Nenhum resultado desta versão foi testado dentro do Premiere nesta sessão. 'hostscript.jsxbin' continua intacto.
+
+PESQUISA OFICIAL:
+- https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/videofilterfactory
+- https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/videocomponentchain
+- https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/componentparam
+- https://helpx.adobe.com/premiere/desktop/edit-projects/intro-to-editing/edit-video-using-the-properties-panel.html

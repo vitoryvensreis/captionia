@@ -7,16 +7,17 @@ global.localStorage={
  setItem(k,v){store.set(k,String(v));}
 };
 global.window={_fsLastResp:null};
+global.window.CaptionIATimebase=require('../CaptionIA/js/captionia-timebase.js');
 const cal=require('../CaptionIA/js/sfx_timing_calibration.js');
 const source=fs.readFileSync('CaptionIA/js/autosfx.js','utf8');
 const html=fs.readFileSync('CaptionIA/index.html','utf8');
-assert(source.includes('window.CaptionIASfxTiming.apply(a0)'));
+assert(/window\.CaptionIASfxTiming\.apply\(a0(?:,|\))/.test(source),'Calibração deve ser aplicada aos tempos dos SFX');
 assert(html.indexOf('js/sfx_timing_calibration.js')<html.indexOf('js/autosfx.js'));
 const guard=fs.readFileSync('CaptionIA/js/autocut_warp_guard.js','utf8');
 const dual=require('../CaptionIA/js/sfx_dual_tracks.js');
 assert(html.indexOf('js/autocut_warp_guard.js')>html.indexOf('js/autocut.js'));
 assert(html.indexOf('js/autocut_warp_guard.js')<html.indexOf('js/autoedit.js'));
-assert(guard.includes('Warp Stabilizer')&&guard.includes('fx.remove()'));
+assert(guard.includes('Warp Stabilizer')&&!guard.includes('fx.remove()'),'Preflight nunca pode remover efeitos automaticamente');
 assert(typeof dual.addTracksScript==='function');
 assert(dual.addTracksScript().includes('addTracks'));
 assert(!fs.readFileSync('CaptionIA/js/sfx_timing_calibration.js','utf8').includes("document.addEventListener('DOMContentLoaded',setup)"));

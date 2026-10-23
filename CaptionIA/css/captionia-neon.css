@@ -1,0 +1,97 @@
+/* Caption IA Neon Grid — readable, performant, prefers-reduced-motion safe */
+:root, body.captionia-workspace{
+ --bg-0:#090d18;--bg-1:#0b1220;--bg-2:#111a2e;--bg-3:#152440;--bg-4:#1b2d47;
+ --text:#ebfaff;--text-2:#bed4e8;--text-3:#8ca6bd;
+ --brand:#65ffd1;--brand-accent:#65ffd1;--brand-warn:#ffbb70;
+ --border:rgba(103,176,250,.19);--border-strong:rgba(101,255,209,.48);
+ --glow:0 0 0 1px rgba(101,255,209,.10);
+ --shadow-card:0 12px 32px rgba(0,5,17,.38);
+}
+body.captionia-workspace,body.captionia-workspace .app-shell{background:#090d18;color:var(--text)}
+.captionia-workspace .app-header,.captionia-workspace .captionia-navigation{
+ background:linear-gradient(115deg,#0c1527 0%,#10172b 70%,#161127 100%);
+ border-bottom:1px solid rgba(101,255,209,.18);
+}
+.captionia-workspace .app-header{box-shadow:0 2px 18px rgba(13,201,245,.06)}
+.captionia-workspace .header-brand::before{
+ background:linear-gradient(135deg,#77f9ce,#73c8ff 65%,#b995ff);
+ color:#071724;box-shadow:0 0 16px rgba(101,255,209,.26);
+}
+.captionia-workspace #global-search{background:#101d30;border-color:rgba(97,157,211,.2)}
+.captionia-workspace #global-search:focus{box-shadow:0 0 0 2px rgba(100,241,216,.15)}
+.captionia-navigation .sidebar-tab, .captionia-home-tab, .captionia-model-favorites{
+ position:relative;transition:color .17s ease,background-color .17s ease,border-color .17s ease,transform .17s ease,box-shadow .17s ease;
+}
+.captionia-navigation .sidebar-tab[data-filter="favorites"]{display:none!important}
+.captionia-model-favorites{flex:0 0 auto;border:1px solid rgba(123,142,212,.18);background:#151b30;
+ color:#a7bbd6;border-radius:8px;padding:7px 10px;font-size:10px;white-space:nowrap}
+.captionia-navigation .sidebar-tab:hover,.captionia-home-tab:hover,.captionia-model-favorites:hover{
+ color:#d9fff6;background:#14293a;border-color:rgba(101,255,209,.35);
+ box-shadow:0 0 12px rgba(101,255,209,.12);transform:translateY(-1px);
+}
+.captionia-navigation .sidebar-tab.active,.captionia-home-tab.active,
+.captionia-navigation .sidebar-tab[data-filter="all"].active + .captionia-model-favorites:hover{
+ color:#b4ffeb;background:linear-gradient(110deg,#0e332f,#142c4a);
+ border-color:rgba(101,255,209,.38);box-shadow:inset 0 -1px 0 rgba(101,255,209,.7),0 0 16px rgba(24,232,210,.10);
+}
+.captionia-workspace .captionia-primary-card{
+ background:linear-gradient(115deg,#132a34,#14213c 73%,#211632);
+ border-color:rgba(101,255,209,.28);
+ box-shadow:0 8px 26px rgba(2,6,20,.4),inset 0 0 30px rgba(101,255,209,.025);
+}
+.captionia-workspace .captionia-primary-card:hover{
+ background:linear-gradient(115deg,#163a39,#172d48 73%,#261d3f);
+ border-color:rgba(101,255,209,.75);box-shadow:0 0 25px rgba(101,255,209,.13);
+}
+.captionia-workspace .captionia-card-icon{background:rgba(101,255,209,.10);color:#65ffd1}
+.captionia-workspace .captionia-task-card{background:linear-gradient(145deg,#121f34,#131a2b);border:1px solid rgba(127,178,232,.18)}
+.captionia-workspace .captionia-task-card:hover{border-color:rgba(113,229,244,.55);box-shadow:0 0 18px rgba(75,190,243,.11)}
+.captionia-workspace .captionia-context{background:linear-gradient(90deg,rgba(12,26,43,.8),rgba(10,15,29,.75))}
+.captionia-workspace .app-sidebar,.captionia-workspace .app-footer{background:#10172a;border-color:rgba(101,255,209,.13)}
+.captionia-workspace .template-wrapper{background:#121a2a;border-color:rgba(105,158,219,.2)}
+.captionia-workspace .template-wrapper:hover{border-color:#65ffd1;box-shadow:0 0 20px rgba(101,255,209,.13)}
+.captionia-workspace button:not(:disabled):active{transform:translateY(1px)}
+.captionia-workspace button:focus-visible{outline:2px solid #9dfff0;outline-offset:2px}
+.captionia-workspace .ae-switch input:checked + .switch-slider{background-color:#25cbaa}
+.cia-diag-trigger{font-size:18px;color:#75ffd3!important}
+.cia-diag-overlay{position:fixed;inset:0;z-index:1000003;background:rgba(4,8,17,.78);display:flex;align-items:center;justify-content:center;padding:12px}
+.cia-diag-panel{display:flex;flex-direction:column;width:min(660px,98vw);max-height:85vh;min-height:260px;background:#101829;color:#e4fbff;border:1px solid rgba(101,255,209,.4);border-radius:14px;padding:14px;box-shadow:0 0 38px rgba(37,235,218,.10)}
+.cia-diag-head{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.cia-diag-head strong{font-size:13px}.cia-diag-head button{font-size:22px;color:#d6e8f0;background:none;border:0}
+.cia-diag-panel p,.cia-diag-panel small{font-size:11px;color:#9ab3cc;line-height:1.5}
+.cia-diag-panel pre{flex:1;min-height:150px;overflow:auto;white-space:pre-wrap;word-break:break-word;font:10px/1.65 Consolas,monospace;color:#c5eeef;background:#0a1121;border:1px solid #284053;border-radius:9px;padding:12px}
+.cia-diag-actions{display:flex;gap:10px}.cia-diag-actions button{padding:9px 13px;border-radius:9px;background:#142b3c;border:1px solid #367c8d;color:#aefee2;cursor:pointer}
+@media(prefers-reduced-motion:reduce){.captionia-workspace *{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+/* Short, GPU-friendly neon motion only on interaction; no perpetual repaint. */
+.captionia-workspace .captionia-primary-card,.captionia-workspace .captionia-task-card,
+.captionia-workspace .captionia-navigation button {overflow:hidden}
+.captionia-workspace .captionia-primary-card{position:relative}
+.captionia-workspace .captionia-primary-card::after,
+.captionia-workspace .captionia-task-card::after {
+ content:"";position:absolute;inset:-35%;pointer-events:none;
+ background:linear-gradient(110deg,transparent 40%,rgba(129,255,237,.09) 49%,rgba(158,175,255,.12) 51%,transparent 60%);
+ transform:translateX(-130%) rotate(9deg);opacity:0;
+}
+.captionia-workspace .captionia-primary-card:hover::after,
+.captionia-workspace .captionia-task-card:hover::after{animation:cia-neon-sweep .65s ease-out 1}
+@keyframes cia-neon-sweep{0%{transform:translateX(-130%) rotate(9deg);opacity:0}20%{opacity:1}100%{transform:translateX(130%) rotate(9deg);opacity:0}}
+@media(prefers-reduced-motion:reduce){.captionia-workspace .captionia-primary-card:hover::after,.captionia-workspace .captionia-task-card:hover::after{animation:none!important}}
+
+/* Modelos contains Favoritos as a second-level filter; top navigation stays lean. */
+.captionia-model-filters{display:flex;align-items:center;gap:5px;margin-left:auto}
+.captionia-model-filters[hidden]{display:none!important}
+.captionia-model-filters button{border:1px solid rgba(101,255,209,.16);background:#111e31;border-radius:9px;padding:8px 10px;color:#9ab2c5;font-size:10px;white-space:nowrap;cursor:pointer;transition:background .18s,border-color .18s,color .18s}
+.captionia-model-filters button.active{border-color:rgba(101,255,209,.6);color:#a8ffe1;background:#14312e;box-shadow:0 0 12px rgba(101,255,209,.10)}
+.captionia-model-filters button:hover{border-color:rgba(101,255,209,.5)}
+@media(max-width:600px){.captionia-model-filters{width:100%;margin-left:0}.captionia-model-filters button{flex:1;padding:7px 8px}.captionia-workspace .captionia-context{flex-wrap:wrap}}
+
+/* Favorites subnav lives immediately BELOW the Sua biblioteca header. */
+.captionia-workspace #fav-subtabs.captionia-library-subtabs{
+  flex:0 0 auto;width:auto;margin:0;padding:8px 18px 9px;
+  background:linear-gradient(90deg,#0e1b2e,#111b31);
+  border-bottom:1px solid rgba(101,255,209,.16);border-radius:0;
+}
+.captionia-workspace #fav-subtabs.captionia-library-subtabs .dyn-subtab{
+  min-height:30px;padding:6px 12px;
+}

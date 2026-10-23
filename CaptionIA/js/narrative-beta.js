@@ -8,13 +8,13 @@ function escapeHTML(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c
 function save(o){try{var v=settings();Object.keys(o).forEach(function(k){v[k]=o[k];});localStorage.setItem(STATE,JSON.stringify(v));}catch(_){} }
 function settings(){try{return JSON.parse(localStorage.getItem(STATE)||'{}')||{};}catch(_){return {};}}
 
-function host(functionName,payload){return new Promise(function(resolve,reject){if(typeof csInterface==='undefined')return reject(Error('O Premiere não está conectado ao painel.'));var expr=functionName+'('+JSON.stringify(JSON.stringify(payload||{}))+')';csInterface.evalScript(expr,function(out){try{if(!out||out==='EvalScript error.')throw Error('Falha da ponte JSX: '+String(out));var v=JSON.parse(out);if(!v.ok)throw Error(v.error||'Erro no Premiere');resolve(v);}catch(e){reject(e);}});});}
+function host(functionName,payload){if(root.CaptionIABridge)return root.CaptionIABridge.call(functionName,payload,{timeoutMs:90000});return new Promise(function(resolve,reject){if(typeof csInterface==='undefined')return reject(Error('O Premiere não está conectado ao painel.'));var expr=functionName+'('+JSON.stringify(JSON.stringify(payload||{}))+')';csInterface.evalScript(expr,function(out){try{if(!out||out==='EvalScript error.')throw Error('Falha da ponte JSX: '+String(out));var v=JSON.parse(out);if(!v.ok)throw Error(v.error||'Erro no Premiere');resolve(v);}catch(e){reject(e);}});});}
 function loadHost(){return new Promise(function(resolve,reject){if(typeof csInterface==='undefined'||typeof CSInterface==='undefined')return reject(Error('Somente Premiere Pro'));var p='';try{p=csInterface.getSystemPath(SystemPath.EXTENSION);}catch(_){}if(!p)return reject(Error('Diretório da extensão indisponível'));p=p.replace(/\\/g,'/')+'/jsx/narrative-beta.jsx';var script='$.evalFile('+JSON.stringify(p)+'); typeof fsNarrativeBetaSnapshot === "function" ? "OK" : "NO"';csInterface.evalScript(script,function(x){if(x==='OK')resolve();else reject(Error('Não foi possível carregar a ponte de montagem ('+x+').'));});});}
-function groupWords(words,clips){var result=[], cur=[];
+function groupWords(words,clips,frameDuration){var result=[], cur=[],tol=Math.min(.09,Math.max(.015,Number(frameDuration||1/30)*1.1));
 function emit(){if(!cur.length)return;var text=cur.map(function(x){return x.word;}).join(' ').replace(/\s+([,.!?;:])/g,'$1');var flag=/\b(n[aã]o[,.]?\s*calma|errei|de novo|pera a[ií]|come[cç]a de novo)\b/i.test(text);result.push({id:'S'+String(result.length+1).padStart(3,'0'),start:cur[0].start,end:cur[cur.length-1].end,text:text,blocked:flag});cur=[];}
 (words||[]).forEach(function(w){var a=Number(w.start),b=Number(w.end);if(!isFinite(a)||!isFinite(b)||b<=a||!String(w.word||'').trim())return;
-var inside=clips.some(function(c){return a>=c.start-.05&&b<=c.end+.05;});if(!inside)return;
-if(cur.length){var prev=cur[cur.length-1], gap=a-prev.end;var sameClip=clips.some(function(c){return prev.start>=c.start-.05&&b<=c.end+.05;});if(gap>=.65||gap<-.2||!sameClip||gap>=.15&&/[.!?]$/.test(prev.word))emit();}
+var inside=clips.some(function(c){return a>=c.start-tol&&b<=c.end+tol;});if(!inside)return;
+if(cur.length){var prev=cur[cur.length-1], gap=a-prev.end;var sameClip=clips.some(function(c){return prev.start>=c.start-tol&&b<=c.end+tol;});if(gap>=.65||gap<-.2||!sameClip||gap>=.15&&/[.!?]$/.test(prev.word))emit();}
 cur.push({start:a,end:b,word:String(w.word).trim()});});emit();return result.filter(function(s){return s.end-s.start>=.18;});}
 /* Retake em modo análise: não remover takes antes da decisão editorial. */
 /* Pauses extracted from the word timeline: hints only; no destructive cut. */
@@ -24,7 +24,10 @@ function silenceHints(words,clips){var result=[], last=null;
   if(last&&last.clipIndex===target.index&&a-last.end>=.45){result.push({start:last.end,end:a,duration:Math.round((a-last.end)*1000)/1000,after:String(last.word||'').slice(0,50),before:String(w.word||'').slice(0,50)});}
   last={end:b,clipIndex:target.index,word:w.word};
  });return result.slice(0,350);}
-function eventLog(phase,details){reportState.events.push({time:new Date().toISOString(),phase:phase,details:String(details||'').slice(0,1800)});}
+function eventLog(phase,details){
+ reportState.events.push({time:new Date().toISOString(),phase:phase,details:String(details||'').slice(0,1800)});
+ if(root.CaptionIADiagnostics)root.CaptionIADiagnostics.record('narrative.'+String(phase).replace(/[^a-z0-9_-]/gi,'-'),'info',{phase:phase});
+}
 function safeRetakes(entry){if(!entry)return null;return {groupCount:(entry.groups||[]).length,semanticGroupCount:(entry.semanticGroups||[]).length,semanticStatus:entry.semanticStatus||'not-run',semanticError:entry.semanticError||null,semanticGroups:(entry.semanticGroups||[]).slice(0,70),farCount:(entry.far||[]).length,groups:(entry.groups||[]).slice(0,60).map(function(g){return {takes:(g.takes||[]).map(function(t){return {start:t.ini,end:t.fim,text:String(t.texto||'').slice(0,1000),complete:!!t.completa};}),recommendation:g.sugestao&&g.sugestao.motivo||'',warning:g.aviso||'',similarity:g.notas||[]};})};}
 // Relatorios de diagnóstico e upload foram retirados da distribuição pública.
 // Erros da montagem permanecem visíveis no próprio painel.
@@ -32,10 +35,26 @@ function failureDiagnostic(e,phase){
  reportState.state='error';
  reportState.error={phase:phase||'narrative',message:String(e&&e.message||e),time:new Date().toISOString()};
  eventLog('error',reportState.error.message);
+ if(root.CaptionIADiagnostics)root.CaptionIADiagnostics.record('narrative.failed','failed',{code:'NARRATIVE_FAILED',phase:phase,detail:reportState.error.message});
  return null;
 }
 function resetReport(transcript,config){reportState={state:'analyzing',events:[],error:null};eventLog('start','Montagem '+(config&&config.mode||'livre'));}
-function transcriptFingerprint(resp){if(!resp||!Array.isArray(resp.words))return '';var w=resp.words,n=w.length;return [String(resp._fsSeq||''),n,n?Number(w[0].start).toFixed(3):'',n?Number(w[n-1].end).toFixed(3):'',n?String(w[n-1].word):''].join('|');}
+function transcriptFingerprint(resp){
+ if(!resp||!Array.isArray(resp.words))return '';
+ // Include every word and boundary. Equal first/last words do not identify a transcript.
+ return JSON.stringify({sequenceID:String(resp._fsSeq||''),words:resp.words.map(function(w){return [String(w.word||w.text||''),Number(w.start),Number(w.end)];})});
+}
+function assertTranscriptIdentity(resp,snapshot){
+ if(!resp||!Array.isArray(resp.words)||!resp.words.length)fail('Transcrição por palavra indisponível.');
+ if(!snapshot||!snapshot.signature||!resp._fsSeq||String(resp._fsSeq)!==String(snapshot.sequenceID))fail('A transcrição pertence a outra sequência ou não tem identificação. Transcreva a sequência ativa.');
+ var previous=-Infinity,inside=0,tolerance=Math.min(.09,Math.max(.015,Number(snapshot.frameDuration||1/30)*1.1));
+ resp.words.forEach(function(w){var a=Number(w.start),b=Number(w.end);if(!String(w.word||w.text||'').trim()||!isFinite(a)||!isFinite(b)||a<0||b<=a||a<previous-.2)fail('A transcrição contém tempos inválidos ou fora de ordem. Refaça a transcrição.');previous=a;
+  if(snapshot.clips.some(function(c){return a>=c.start-tolerance&&b<=c.end+tolerance;}))inside++;
+ });
+ if(inside<resp.words.length*.98)fail('Há palavras fora dos takes atuais. A timeline pode ter sido editada depois da transcrição; transcreva novamente.');
+ return transcriptFingerprint(resp);
+}
+function assertUnchangedTranscript(expected){if(!root._fsLastResp||transcriptFingerprint(root._fsLastResp)!==expected)fail('A transcrição mudou durante a análise. Refaça a montagem.');}
 /* Retake v0.7: two-layer analysis. The existing Retake is lexical; semantic grouping
    is advisory, source-ID-based and never performs a destructive cut. */
 function localRetakePairs(segments){
@@ -51,7 +70,7 @@ function localRetakePairs(segments){
    var overlap=shared/Math.max(1,Math.min(ka.length,kb.length));
    var lengthRatio=Math.max(ka.length,kb.length)/Math.max(1,Math.min(ka.length,kb.length));
    // Strong evidence only: moderate overlap with similar lengths, or near-exact matching.
-   if(shared>=3&&((overlap>=.86&&lengthRatio<=1.5)||(overlap>=.72&&lengthRatio<=1.18&&shared>=4))){ids.push(t.id);occupied[t.id]=true;}
+   if(factualTokens(s.text)===factualTokens(t.text)&&shared>=3&&((overlap>=.86&&lengthRatio<=1.5)||(overlap>=.72&&lengthRatio<=1.18&&shared>=4))){ids.push(t.id);occupied[t.id]=true;}
   }
   if(ids.length>1){occupied[s.id]=true;groups.push({group:'LX'+String(groups.length+1).padStart(3,'0'),ids:ids,confidence:.92,reason:'Falas com forte coincidência de palavras (possível retake)',origin:'lexical-local'});}
  });return groups;
@@ -67,6 +86,9 @@ function verifySemanticGroups(response,segments){
   // Contradictory groups must not discard anything on their own.
   if(idList.some(function(id){return used[id];}))return;
   idList.forEach(function(id){used[id]=true;});
+  // Retakes with opposing numbers/negations cannot be substituted automatically.
+  var facts=idList.map(function(id){return factualTokens(map[id].text);});
+  if(facts.some(function(v){return v!==facts[0];}))return;
   var best=idList.indexOf(g.recommendedId)>=0?g.recommendedId:null;
   groups.push({group:'SEM'+String(groups.length+1).padStart(3,'0'),ids:idList,confidence:confidence,recommendedId:best,reason:String(g.reason||'Mesma informação narrada de formas diferentes').slice(0,350),origin:'groq-semantic'});
  });return groups;
@@ -112,32 +134,69 @@ function analyzeRetakes(resp){
 function analyzeOnly(done){
  var resp=root._fsLastResp;
  try{resetReport(resp,{mode:'retake-analysis'});
-  var data=analyzeRetakes(resp);reportState.retakes=safeRetakes(data);
+   var data,fingerprint=transcriptFingerprint(resp);
   loadHost().then(function(){return host('fsNarrativeBetaSnapshot',{});}).then(function(snapshot){
+    assertTranscriptIdentity(resp,snapshot);assertUnchangedTranscript(fingerprint);data=analyzeRetakes(resp);reportState.retakes=safeRetakes(data);
    var segments=groupWords(resp.words,snapshot.clips);if(!segments.length)fail('Sem falas alinhadas aos clipes.');
    reportState.segments=deepCopy(segments);
    return buildRetakeHints(resp,segments);
   }).then(function(entry){
-   reportState.retakes=safeRetakes(entry);
+    assertUnchangedTranscript(fingerprint);reportState.retakes=safeRetakes(entry);
    var lexical=entry.groups.length,local=(entry.localGroups||[]).length,sem=(entry.semanticGroups||[]).length;
    var warn=entry.semanticStatus==='fallback'?' · IA semântica indisponível; usei detecção por palavras':entry.semanticStatus==='partial'?' · análise parcial':'';
    eventLog('retake','Tradicional: '+lexical+'; semelhantes: '+local+'; por sentido: '+sem+warn);
+   if(root.CaptionIADiagnostics)root.CaptionIADiagnostics.record('retake.analysis',entry.semanticStatus==='ok'?'ok':'warning',{phase:entry.semanticStatus,code:'RETAKE_ANALYSIS',count:lexical+local+sem});
    done({ok:true,resumo:lexical+' grupo(s) tradicional(is), '+local+' por texto e '+sem+' por sentido; sem cortes'+warn});
   }).catch(function(err){
    var old=root._fsNarrativeRetakeHints;
-   if(old){old.semanticStatus='fallback';old.semanticError=String(err.message||err).slice(0,250);reportState.retakes=safeRetakes(old);
+    if(old&&data&&old.source===resp&&old.fingerprint===fingerprint&&transcriptFingerprint(root._fsLastResp)===fingerprint){old.semanticStatus='fallback';old.semanticError=String(err.message||err).slice(0,250);reportState.retakes=safeRetakes(old);
      eventLog('retake-fallback',old.semanticError);
+     if(root.CaptionIADiagnostics)root.CaptionIADiagnostics.record('retake.analysis','warning',{phase:'fallback',code:'GROQ_SEMANTIC_FALLBACK'});
      return done({ok:true,resumo:old.groups.length+' grupo(s) tradicional(is), sem cortes · análise avançada indisponível: '+old.semanticError});}
    failureDiagnostic(err,'retake');done({ok:false,erro:'Retake (análise): '+err.message});
   });
  }catch(e){failureDiagnostic(e,'retake');done({ok:false,erro:'Retake (análise): '+e.message});}
 }
 root.fsAutoEditRetakeAnalise=analyzeOnly;
+/* Retake executável: copia a sequência ANTES do corte, para não destruir
+   a timeline original. A análise semântica segue como dica para a Montagem. */
+function retakeOnClone(done){
+ if(typeof done!=='function')return;
+ if(isBusy||pending)return done({ok:false,erro:'Aguarde a operação de Montagem/Retake em andamento.'});
+ var transcript=root._fsLastResp;
+ if(!transcript||!Array.isArray(transcript.words)||!transcript.words.length||!transcript._fsSeq)
+  return done({ok:false,erro:'Transcreva a sequência atual antes de executar o Retake.'});
+ if(typeof root.fsAutoEditRetake!=='function')
+  return done({ok:false,erro:'Motor de Retake não carregado. Verifique js/autocut.js.'});
+ var originalId=String(transcript._fsSeq),finished=false;
+ function complete(result){if(finished)return;finished=true;isBusy=false;done(result);}
+ isBusy=true;
+ progress('Retake: criando uma cópia da sequência para preservar o original...');
+ loadHost().then(function(){
+  return host('fsNarrativeBetaCloneForRetake',{sequenceID:originalId});
+ }).then(function(copy){
+  if(!copy||!copy.previewId||String(copy.previewId)===originalId)
+   fail('O Premiere não confirmou uma sequência de Retake independente.');
+  restoreTranscript(transcript,String(copy.previewId));
+  progress('Retake: analisando e removendo apenas repetições seguras na cópia...');
+  try{
+   root.fsAutoEditRetake(function(result){
+    if(!result||!result.ok){
+     return complete({ok:false,erro:'Retake na cópia: '+String(result&&result.erro||'Falha na execução')+'. Original preservado.'});
+    }
+    // O motor legado realinha a transcrição depois dos cortes aplicados.
+    complete({ok:true,resumo:String(result.resumo||'Retake concluído')+' · feito em sequência duplicada, original preservado'});
+   });
+  }catch(e){complete({ok:false,erro:'Retake na cópia: '+String(e.message||e)+'. Original preservado.'});}
+ }).catch(function(e){complete({ok:false,erro:'Não foi possível preparar o Retake seguro: '+String(e.message||e)});});
+}
+root.fsAutoEditRetakeSeguro=retakeOnClone;
+
 function overlappingSegments(take,segments){if(!take||!isFinite(take.ini)||!isFinite(take.fim))return [];
  return segments.filter(function(s){var overlap=Math.max(0,Math.min(s.end,take.fim)-Math.max(s.start,take.ini));return overlap>=.12&&overlap/Math.max(.18,s.end-s.start)>=.42;}).map(function(s){return s.id;});}
 function retakeContext(resp,segments){
  var cached=root._fsNarrativeRetakeHints;
- if(!cached||cached.source!==resp||cached.fingerprint!==transcriptFingerprint(resp))cached=analyzeRetakes(resp);
+  if(!cached||cached.fingerprint!==transcriptFingerprint(resp))cached=analyzeRetakes(resp);
  var out=[];cached.groups.slice(0,50).forEach(function(g,i){var items=[];
  (g.takes||[]).forEach(function(t,j){var ids=overlappingSegments(t,segments);if(!ids.length)return;
  items.push({take:j+1,ids:ids,start:t.ini,end:t.fim,text:String(t.texto||'').slice(0,650),preferred:!!(g.sugestao&&g.sugestao.take===t),complete:!!t.completa});});
@@ -176,9 +235,9 @@ function ideaAudit(editorial,selected,allSegments){var ids={};selected.forEach(f
  if(required>=2&&covered/required<.65)fail('Cobertura insuficiente por ideias: '+covered+'/'+required+' ideias essenciais com falas identificadas foram aproveitadas.');
  return {requiredIdeas:required,coveredIdeas:covered};
 }
-function validate(raw,segments,clips){if(!raw||!Array.isArray(raw.cuts))fail('A IA não retornou uma lista de cortes.');if(raw.cuts.length<1||raw.cuts.length>100)fail('Quantidade de cortes fora do limite de segurança.');
+function validate(raw,segments,clips,frameDuration){var tol=Math.min(.09,Math.max(.015,Number(frameDuration||1/30)*1.1));if(!raw||!Array.isArray(raw.cuts))fail('A IA não retornou uma lista de cortes.');if(raw.cuts.length<1||raw.cuts.length>100)fail('Quantidade de cortes fora do limite de segurança.');
 var map={};segments.forEach(function(s){map[s.id]=s;});var out=[],seen={};raw.cuts.forEach(function(c,i){var s=map[c.id];if(!s)fail('Trecho desconhecido: '+c.id);if(s.blocked)fail('Trecho marcado como erro de gravação: '+s.id);if(seen[s.id])fail('Trecho duplicado: '+s.id);seen[s.id]=true;
-if(/^(?:duplicate|duplicado|duplicata|discard|descartar|rejected|rejeitado|filler|erro|ignore|ignorar|repeticao|repetição)$/i.test(String(c.role||'').trim())||/^\s*(?:informa[cç][aã]o repetida|repeti[cç][aã]o de|erro de grava[cç][aã]o|descartar)/i.test(String(c.reason||'')))fail('A IA tentou manter um descarte: '+s.id+' ('+String(c.role||'sem classificação')+').');var containing=clips.filter(function(v){return s.start>=v.start-.05 && s.end<=v.end+.05;});if(containing.length!==1)fail('Trecho cruza cortes existentes: '+s.id);if(s.end-s.start<.18)fail('Trecho curto demais: '+s.id);out.push({id:s.id,start:s.start,end:s.end,text:s.text,role:String(c.role||'conteúdo').slice(0,60),reason:String(c.reason||'').slice(0,400),clipIndex:containing[0].index});});
+if(/^(?:duplicate|duplicado|duplicata|discard|descartar|rejected|rejeitado|filler|erro|ignore|ignorar|repeticao|repetição)$/i.test(String(c.role||'').trim())||/^\s*(?:informa[cç][aã]o repetida|repeti[cç][aã]o de|erro de grava[cç][aã]o|descartar)/i.test(String(c.reason||'')))fail('A IA tentou manter um descarte: '+s.id+' ('+String(c.role||'sem classificação')+').');var containing=clips.filter(function(v){return s.start>=v.start-tol && s.end<=v.end+tol;});if(containing.length!==1)fail('Trecho cruza cortes existentes: '+s.id);if(s.end-s.start<.18)fail('Trecho curto demais: '+s.id);out.push({id:s.id,start:s.start,end:s.end,text:s.text,role:String(c.role||'conteúdo').slice(0,60),reason:String(c.reason||'').slice(0,400),clipIndex:containing[0].index});});
 if(!out.length)fail('Nenhum trecho aproveitável');return out;}
 /** Send narrative, review and retake semantic requests using the SAME provider selected in Transcription. */
 function groq(messages,signal){
@@ -221,13 +280,36 @@ function groq(messages,signal){
 function normalizeIdea(text){return String(text||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();}
 var STOP={'a':1,'o':1,'e':1,'de':1,'da':1,'do':1,'um':1,'uma':1,'as':1,'os':1,'no':1,'na':1,'para':1,'pra':1,'eu':1,'que':1,'com':1,'é':1,'vou':1,'vai':1,'hoje':1,'meu':1,'minha':1,'se':1,'nos':1,'das':1,'dos':1};
 function ideaTokens(text){return normalizeIdea(text).split(' ').filter(function(w){return w.length>2&&!STOP[w];});}
-function nearDuplicate(a,b){var x=ideaTokens(a),y=ideaTokens(b);if(!x.length||!y.length)return normalizeIdea(a)===normalizeIdea(b);var ax={},bx={},inter=0;x.forEach(function(t){ax[t]=1;});y.forEach(function(t){bx[t]=1;});var ka=Object.keys(ax),kb=Object.keys(bx);ka.forEach(function(t){if(bx[t])inter++;});var union=ka.length+kb.length-inter;return (union&&inter/union>=.82&&inter>=Math.min(2,ka.length,kb.length)) ||(Math.min(ka.length,kb.length)>=4&&inter/Math.min(ka.length,kb.length)>=.9&&Math.max(ka.length,kb.length)/Math.min(ka.length,kb.length)<1.45);}
+function factualTokens(text){return normalizeIdea(text).split(' ').filter(function(w){return /\d/.test(w)||/^(nao|nunca|jamais|sem|exceto|antes|depois|mais|menos|primeiro|ultimo)$/.test(w);}).sort().join('|');}
+function nearDuplicate(a,b){if(factualTokens(a)!==factualTokens(b))return false;var x=ideaTokens(a),y=ideaTokens(b);if(!x.length||!y.length)return normalizeIdea(a)===normalizeIdea(b);var ax={},bx={},inter=0;x.forEach(function(t){ax[t]=1;});y.forEach(function(t){bx[t]=1;});var ka=Object.keys(ax),kb=Object.keys(bx);ka.forEach(function(t){if(bx[t])inter++;});var union=ka.length+kb.length-inter;return (union&&inter/union>=.9&&inter>=Math.min(2,ka.length,kb.length)) ||(Math.min(ka.length,kb.length)>=5&&inter/Math.min(ka.length,kb.length)>=.96&&Math.max(ka.length,kb.length)/Math.min(ka.length,kb.length)<1.18);}
 function parseScript(raw){var text=String(raw||'').trim();if(!text)return[];if(text.length>12000)fail('O roteiro excede 12.000 caracteres. Separe o projeto em partes.');var lines=text.split(/\r?\n/),sections=[],cur=null;
 function flush(){if(cur&&cur.text.trim())sections.push({id:'R'+String(sections.length+1).padStart(3,'0'),title:cur.title||'Trecho '+(sections.length+1),text:cur.text.trim()});cur=null;}
 lines.forEach(function(line){var t=line.trim();var match=t.match(/^#{1,4}\s+(.{2,70})$/)||t.match(/^((?:abertura|introdução|intro|gancho|conteúdo|desenvolvimento|fechamento|encerramento|cta|cena\s*\d+|parte\s*\d+)[^:]{0,45}):\s*(.*)$/i);if(match){flush();cur={title:match[1].trim(),text:match[2]||''};}else if(!t){if(cur&&cur.text&&!cur.title)flush();}else{if(!cur)cur={title:'',text:''};cur.text+=(cur.text?'\n':'')+t;}});flush();if(!sections.length&&text)sections=[{id:'R001',title:'Roteiro',text:text}];if(sections.length>30)fail('Roteiro com mais de 30 blocos. Agrupe cenas ou trechos.');return sections;}
 function readConfig(){var selected=document.querySelector('input[name="nb-montagem-modo"]:checked');var mode=selected?selected.value:'livre';var fidelity=el('nb-fidelity')?el('nb-fidelity').value:'flexivel';var raw=el('nb-script')?el('nb-script').value:'';if(mode!=='livre'&&mode!=='roteiro')mode='livre';if(fidelity!=='fiel'&&fidelity!=='flexivel')fidelity='flexivel';var sections=mode==='roteiro'?parseScript(raw):[];if(mode==='roteiro'&&!sections.length)fail('Cole o roteiro de referência antes de iniciar o Auto Edit.');return {mode:mode,fidelity:fidelity,sections:sections};}
 function buildPayload(segs,config,hints,silences){return JSON.stringify({retakeHints:hints||{groups:[]},silenceHints:silences||[],outputSchema:{selected:[{id:'S001',role:'abertura',ideaId:'I001',reason:'Por que esta fala foi escolhida'}],discarded:[{id:'S002',reason:'duplicate',replacedBy:'S001'}],ideas:[{id:'I001',summary:'Ideia central',required:true,candidateIds:['S001','S002']}],coverage:[{sectionId:'R001',status:'matched',ids:['S001'],note:''}],summary:'Resumo'},schemaRules:['NUNCA colocar descarte em selected; roles duplicate/filler/discard pertencem somente a discarded','Cada ideia essencial com candidato válido deve estar representada uma vez em selected','Somente IDs existentes da entrada; sem inventar texto nem falas','Não omitir desenvolvimento só para reduzir duração'],retakeInstruction:"Os grupos RTxxx e LXxxx indicam suspeitas técnicas; SEMxxx são sugestões de equivalência de sentido. Analise alternativas antes de selecionar. Escolha uma versão COMPLETA por ideia SEMxxx quando forem verdadeiramente substituíveis. Ignore agrupamentos falsos e nunca elimine informação complementar. Preserve a história completa, sem criar repetições; apenas evidências, nenhuma exclusão automática.",objective:config.mode==='roteiro'?'Seguir o roteiro-base por objetivos e na ordem indicada; escolher a melhor tentativa de cada ideia':'Construir uma narrativa coerente somente com as falas existentes, reorganizando takes fora de ordem',mode:config.mode,fidelity:config.fidelity,correspondenceRule:config.fidelity==='fiel'?'Priorizar falas próximas ao texto do roteiro; aceitar equivalentes somente quando necessário e registrar desvios.':'Aceitar paráfrases naturais que mantenham significado e intenção do roteiro.',scriptSections:config.sections,requirements:['Usar apenas IDs presentes; nunca inventar falas nem atribuir conteúdo ao trecho errado','Ignorar blocked=true; descartar início falso, frases incompletas e repetição semântica mesmo com palavras diferentes','Escolher a MELHOR versão por ideia; outra tentativa da mesma informação não é novo conteúdo','No modo roteiro, mapear cada parte Rxxx para os IDs presentes e sinalizar ausências com status missing','No modo livre, criar abertura, desenvolvimento e fechamento se existirem falas para isso','Reter contexto essencial; manter frases completas e coerentes','Retornar objeto JSON: cuts:[{id,role,reason,sectionId}], coverage:[{sectionId,status,ids,note}], summary; status deve ser matched ou missing'],segments:segs.map(function(x){return {id:x.id,text:x.text,start:x.start,end:x.end,blocked:x.blocked};})});}
-function dedupePlan(cuts,sections){var out=[],dropped=[];cuts.forEach(function(c){var previous=out.find(function(p){return nearDuplicate(p.text,c.text);});if(previous){dropped.push({id:c.id,reason:'Informação repetida de '+previous.id,text:c.text});return;}out.push(c);});return {cuts:out,removed:dropped};}
+function dedupePlan(cuts,sections){var out=[],dropped=[];cuts.forEach(function(c){var previous=out.find(function(p){return normalizeIdea(p.text)===normalizeIdea(c.text);});if(previous){dropped.push({id:c.id,reason:'Texto repetido de '+previous.id,text:c.text});return;}out.push(c);});return {cuts:out,removed:dropped};}
+function naturalPayload(segments,config,hints,silences){
+ var payload=JSON.parse(buildPayload(segments,config,hints,silences));
+ payload.editingProfile={id:'natural',goal:'Fala natural e contínua, com sentido completo',instructions:[
+  'Preservar contexto, ressalvas, números, negações, exemplos necessários e conclusão.',
+  'Preferir a ordem original. Reordenar somente quando houver evidência clara de tentativa reiniciada ou roteiro explícito.',
+  'Comparar retakes completos. Uma fala complementar não é duplicata.',
+  'Não usar duração-alvo ou ritmo acelerado como razão para omitir ideias.',
+  'Pausas são estimadas por timestamps, não comprovam silêncio acústico nem erro de gravação.'
+ ]};
+ payload.objective=config.mode==='roteiro'?'Seguir o roteiro preservando o sentido e a continuidade natural das falas':'Preservar uma fala natural e contínua; retirar somente erros e repetições sustentados pelas evidências';
+ if(config.goalText)payload.editorialGoal=config.goalText;
+ payload.schemaRules.push('Preservar diferenças factuais: negações, valores e relações antes/depois não são intercambiáveis.');
+ payload.requirements=payload.requirements.filter(function(line){return line.indexOf('Retornar objeto JSON:')!==0;});
+ payload.requirements.push('Retornar selected, discarded, ideas, coverage e summary conforme outputSchema.');
+ payload.segments=payload.segments.map(function(segment){
+  var ref=(segments||[]).filter(function(s){return s.id===segment.id;})[0];
+  segment.evidence={duration:Math.round((segment.end-segment.start)*1000)/1000,wordCount:String(segment.text).trim().split(/\s+/).length,endsSentence:/[.!?…]["')\]]*$/.test(segment.text),source:'transcript-word-timestamps',blocked:!!ref.blocked};return segment;
+ });
+ return JSON.stringify(payload);
+}
+function configure(options){options=options||{};if(options.objective&&options.objective!=='natural')fail('Este perfil preserva fala natural; outros ritmos ainda não foram implementados.');var values={objective:'natural'};if(typeof options.goalText==='string')values.goalText=options.goalText.trim().slice(0,500);save(values);return settings();}
+function effectiveConfig(){var config=readConfig(),stored=settings();config.objective='natural';config.goalText=String(stored.goalText||'').slice(0,500);return config;}
 function coverageReport(raw,sections,cuts){if(!sections.length)return[];var all={};cuts.forEach(function(c){all[c.id]=true;});var claims={};(raw&&Array.isArray(raw.coverage)?raw.coverage:[]).forEach(function(c){if(c&&typeof c.sectionId==='string')claims[c.sectionId]=c;});return sections.map(function(s){var c=claims[s.id]||{},ids=(Array.isArray(c.ids)?c.ids:[]).filter(function(id){return all[id];});return {sectionId:s.id,title:s.title,status:c.status==='matched'&&ids.length?'matched':'missing',ids:ids,note:String(c.note||'').slice(0,220)};});}
 
 function progress(str){var s=el('nb-status');if(s)s.textContent=str;}
@@ -268,8 +350,12 @@ function initCollapsible(card){
 }
 
 
-function preview(){if(isBusy||!pending||!lastPlan||!lastPlan.length)return;isBusy=true;progress('Preparando sequência de prévia...');el('nb-preview').disabled=true;el('nb-approve').disabled=true;pending.previewId=null;pending.previewCuts=null;pending.previewLayout=null;
-loadHost().then(function(){return host('fsNarrativeBetaPreview',{sequenceID:lastManifest.sequenceID,cuts:lastPlan});}).then(function(r){pending.previewId=String(r.previewId);pending.previewDuration=r.duration;pending.previewLayout=r.layout;pending.previewCuts=lastPlan.map(function(x){return Object.assign({},x);});progress('Prévia criada: assista no monitor do Premiere e aprove quando estiver pronto.');el('nb-approve').disabled=false;}).catch(function(e){progress('Não consegui criar a prévia: '+e.message);}).then(function(){isBusy=false;el('nb-preview').disabled=false;});}
+function preview(){if(isBusy||!pending||!lastPlan||!lastPlan.length)return;isBusy=true;var current=pending,previousPreview=current.previewId;progress('Montando os cortes escolhidos pela IA numa cópia da sequência...');el('nb-preview').disabled=true;el('nb-approve').disabled=true;
+loadHost().then(function(){
+ if(root._fsLastResp&&String(root._fsLastResp._fsSeq)===String(lastManifest.sequenceID))assertUnchangedTranscript(current.fingerprint);
+ else if(!previousPreview)fail('A transcrição mudou ou foi descartada. Refaça a montagem.');
+ return host('fsNarrativeBetaPreview',{sequenceID:lastManifest.sequenceID,sourceSignature:lastManifest.signature,currentPreviewId:previousPreview,cuts:lastPlan});
+}).then(function(r){if(pending!==current)fail('A revisão foi substituída.');current.previewId=String(r.previewId);current.previewDuration=r.duration;current.previewLayout=r.layout;current.previewSignature=r.previewSignature;current.previewCuts=deepCopy(lastPlan);progress('Prévia criada! '+(r.effectNotice||'Confira a imagem, o áudio e os cortes antes de aprovar.'));el('nb-approve').disabled=false;}).catch(function(e){progress('Não consegui criar a prévia: '+e.message);}).then(function(){isBusy=false;el('nb-preview').disabled=false;});}
 function deepCopy(o){return JSON.parse(JSON.stringify(o));}
 function restoreTranscript(resp,sequenceID){
  if(!resp||!Array.isArray(resp.words)||!resp.words.length)fail('Snapshot da transcrição indisponível.');
@@ -331,14 +417,20 @@ function verifySequence(expected){return new Promise(function(resolve,reject){
    return reject(Error('A sequência ativa mudou ou a transcrição não foi associada corretamente.'));resolve(result);
  });
 });}
+function captureTranscriptState(){var names=['_fsLastResp','_fsRespOriginal','_fsCortesTotal','_fsAudioRegions','premiereSrtData'],state={values:{},storage:{}};
+ names.forEach(function(name){var value=root[name];state.values[name]=value==null?value:deepCopy(value);});
+ ['framespeed_last_resp','framespeed_resp_original','framespeed_cortes_total','framespeed_audio_regions','framespeed_srt_data'].forEach(function(key){state.storage[key]=localStorage.getItem(key);});return state;
+}
+function restoreTranscriptState(state){Object.keys(state.values).forEach(function(name){root[name]=state.values[name];});Object.keys(state.storage).forEach(function(key){try{if(state.storage[key]===null)localStorage.removeItem(key);else localStorage.setItem(key,state.storage[key]);}catch(e){}});try{if(root.updateSRTButtonVisualState)root.updateSRTButtonVisualState();}catch(e){}}
 function approve(){
  if(isBusy||!pending||!pending.previewId){progress('Primeiro crie e assista à prévia no Premiere.');return;}
  if(JSON.stringify(lastPlan)!==JSON.stringify(pending.previewCuts)){progress('A ordem mudou: gere a prévia novamente antes de aprovar.');return;}
- var finished=pending;isBusy=true;el('nb-approve').disabled=true;progress('Sincronizando as palavras da transcrição com a prévia...');
+  var finished=pending,transaction=null;isBusy=true;el('nb-approve').disabled=true;progress('Sincronizando as palavras da transcrição com a prévia...');
  loadHost().then(function(){
-  return host('fsNarrativeBetaValidatePreview',{previewId:finished.previewId,layout:finished.previewLayout});
+  return host('fsNarrativeBetaValidatePreview',{sequenceID:lastManifest.sequenceID,sourceSignature:lastManifest.signature,previewId:finished.previewId,previewSignature:finished.previewSignature,layout:finished.previewLayout});
  }).then(function(checked){
   var transcript=remapTranscript(finished.originalTranscript,finished.previewCuts,checked.layout,finished.previewId);
+   transaction=captureTranscriptState();
   restoreTranscript(transcript,finished.previewId);
   return verifySequence(finished.previewId);
  }).then(function(){
@@ -349,8 +441,9 @@ function approve(){
   root.premiereSrtData=[];
   if(typeof root.fsResegment!=='function')fail('Motor de segmentação indisponível.');var newCues=root.fsResegment(null);if(!newCues||!newCues.length)fail('Não consegui recriar as legendas sincronizadas da prévia.');
   reportState.state='approved';eventLog('approved','Usuário aprovou '+lastPlan.length+' segmentos');progress('Aprovação concluída. Continuando o Auto Edit...');
-  pending=null;view('ready');finished.done({ok:true,resumo:'montagem aprovada: '+lastPlan.length+' trechos'});
+   pending=null;transaction=null;view('ready');finished.done({ok:true,resumo:'montagem aprovada: '+lastPlan.length+' trechos'});
  }).catch(function(e){
+   if(transaction)restoreTranscriptState(transaction);
   eventLog('approval-error',e.message);progress('Aprovação não concluída: '+e.message+'. A revisão permanece aberta.');
   // O snapshot continua preservado para permitir nova tentativa/pular.
  }).then(function(){isBusy=false;if(pending)el('nb-approve').disabled=false;});
@@ -358,7 +451,7 @@ function approve(){
 function skip(){
  if(isBusy||!pending)return;
  var current=pending;isBusy=true;progress('Voltando à sequência original...');
- host('fsNarrativeBetaRestore',{sequenceID:lastManifest.sequenceID}).then(function(){
+ host('fsNarrativeBetaRestore',{sequenceID:lastManifest.sequenceID,sourceSignature:lastManifest.signature}).then(function(){
   restoreTranscript(current.originalTranscript,lastManifest.sequenceID);
   return verifySequence(lastManifest.sequenceID);
  }).then(function(){
@@ -366,47 +459,49 @@ function skip(){
  }).catch(function(e){progress('Não consegui voltar à sequência original com transcrição preservada: '+e.message);}).then(function(){isBusy=false;});
 }
 
-function run(done){addUI();if(pending)return done({ok:false,erro:'Já existe uma montagem aguardando revisão.'});
-var config;try{config=readConfig();}catch(e){failureDiagnostic(e,'configuração');return done({ok:false,erro:e.message});}
-progress('Conferindo sequência e transcrição...');view('working');var transcript=root._fsLastResp;resetReport(transcript,config);
+function run(done){addUI();if(pending||isBusy)return done({ok:false,erro:'Já existe uma montagem em análise ou aguardando revisão.'});
+var config;try{config=effectiveConfig();}catch(e){failureDiagnostic(e,'configuração');return done({ok:false,erro:e.message});}
+progress('Reutilizando transcrição da primeira etapa e conferindo intervalos V1/A1...');view('working');var transcript=root._fsLastResp,fingerprint=transcriptFingerprint(transcript);resetReport(transcript,config);
 if(!transcript||!transcript.words||!transcript.words.length){var err=new Error('A montagem precisa da transcrição por palavras. Ative a etapa Transcrever.');failureDiagnostic(err,'transcricao');view('ready');return done({ok:false,erro:err.message});}
-loadHost().then(function(){return host('fsNarrativeBetaSnapshot',{});}).then(function(snapshot){
-lastManifest=snapshot;lastSegments=groupWords(transcript.words,snapshot.clips);var hints=retakeContext(transcript,lastSegments);var pauses=silenceHints(transcript.words,snapshot.clips);
+isBusy=true;loadHost().then(function(){return host('fsNarrativeBetaSnapshot',{});}).then(function(snapshot){
+assertTranscriptIdentity(transcript,snapshot);assertUnchangedTranscript(fingerprint);transcript=deepCopy(transcript);
+lastManifest=snapshot;lastSegments=groupWords(transcript.words,snapshot.clips,snapshot.frameDuration);var hints=retakeContext(transcript,lastSegments);var pauses=silenceHints(transcript.words,snapshot.clips);
  eventLog('input','Segmentos: '+lastSegments.length+'; Retakes: '+hints.nearGroupsCount+'; pausas: '+pauses.length);
 var counted=lastSegments.reduce(function(n,x){return n+x.text.trim().split(/\s+/).length;},0);
 if(counted<transcript.words.length*.6)fail('Transcrição não corresponde à sequência ativa (mais de 40% fora dos clipes). Refaça a transcrição.');
 if(!lastSegments.length)fail('Nenhuma fala coincide com a sequência atual.');
 progress('IA organizando '+lastSegments.length+' trechos ('+(config.mode==='roteiro'?'por roteiro':'livre')+')...');
-var sys='Você é editor audiovisual profissional em português. Os takes podem estar fora de ordem. Escolha as melhores tentativas e elimine TODA informação repetida, inclusive paráfrases em IDs diferentes. Preserve coerência. Não invente falas. Responda somente JSON com cuts, coverage e summary. Se não houver trecho para uma parte do roteiro, diga missing. Marcados blocked=true são proibidos.';
-var payload=buildPayload(lastSegments,config,hints,pauses);
+var sys='Você é editor audiovisual profissional em português. Objetivo: fala natural e contínua, com sentido completo. Prefira a ordem original; reorganize apenas takes reiniciados ou conforme roteiro explícito. Compare tentativas completas. Retire erros e repetições sustentados pelas evidências, nunca informação complementar, ressalvas, negações, valores ou exemplos necessários. Pausas estimadas não comprovam silêncio acústico. Não invente falas nem acelere o ritmo por omissão. Se não houver trecho para uma parte do roteiro, diga missing. Marcados blocked=true são proibidos.';
+var payload=naturalPayload(lastSegments,config,hints,pauses);
+if(typeof payload==='string'&&payload.length>54000)fail('Vídeo longo: o plano editorial excedeu o limite seguro da Groq. Divida a montagem em sequências menores (ex.: 5–10 minutos) e reúna as prévias depois. A sequência original não foi alterada.');
 function invokeEditor(messages,label){eventLog('groq-request',label);return groq(messages).then(function(answer){return answer;});}
 function inspectPlan(candidate,first){
  var normalized=editorialNormalize(candidate);
  if(!normalized.cuts.length)fail('A IA não selecionou falas aproveitáveis.');
- var cuts=validate({cuts:normalized.cuts},lastSegments,snapshot.clips),unique=dedupePlan(cuts,config.sections);
+ var cuts=validate({cuts:normalized.cuts},lastSegments,snapshot.clips,snapshot.frameDuration),unique=dedupePlan(cuts,config.sections);
  if(!unique.cuts.length)fail('Montagem vazia após remover repetições.');
  var audit=narrativeGuard(unique.cuts,lastSegments),ideaCoverage=ideaAudit(normalized,unique.cuts,lastSegments);strongRetakePlanGuard(unique.cuts,hints);
  var coverage=coverageReport(normalized,config.sections,unique.cuts);
  return {snapshot:snapshot,cuts:unique.cuts,removed:normalized.discarded.concat(unique.removed),coverage:coverage,config:config,summary:normalized.summary||first&&first.summary||'',retake:hints,audit:audit,ideaAudit:ideaCoverage};
 }
-return invokeEditor([{role:'system',content:sys+' Estruture a resposta obrigatoriamente em selected, discarded, ideas, coverage, summary. NÃO use cuts. Nunca marque uma fala selecionada como duplicate.'},{role:'user',content:payload}],'editor').then(function(first){
- var firstPlan;try{firstPlan=editorialNormalize(first);}catch(e){eventLog('first-plan-invalid',e.message);firstPlan={cuts:[],discarded:[],ideas:[]};}
- progress('IA revisando cobertura, tentativas e continuidade...');
- var reviewRequest={requirements:JSON.parse(payload),firstPlan:firstPlan.cuts,firstDiscarded:firstPlan.discarded,firstIdeas:firstPlan.ideas,firstCoverage:first.coverage||[]};
- return invokeEditor([{role:'system',content:sys+' Você é o REVISOR INDEPENDENTE. Entregue selected, discarded, ideas, coverage, summary. Corrija classificação contraditória, ideias essenciais omitidas e repetições. selected não pode conter role duplicate.'},{role:'user',content:JSON.stringify(reviewRequest)}],'review').then(function(review){
-  try{return inspectPlan(review,first);}catch(editorialError){
-   eventLog('review-rejected',editorialError.message);progress('A proposta foi rejeitada. Tentando reconstruir a montagem...');
-   return invokeEditor([{role:'system',content:sys+' REPARO FINAL. A proposta anterior falhou. Separe selected e discarded; nunca use duplicate como role de selected. Identifique TODAS as ideias principais que possuem falas disponíveis e cubra-as sem repetir. Devolva JSON com selected,discarded,ideas,coverage,summary.'},{role:'user',content:JSON.stringify({requirements:JSON.parse(payload),rejected:review,error:String(editorialError.message||editorialError),first:firstPlan})}],'repair').then(function(repaired){return inspectPlan(repaired,first);});
-  }
- });
+return invokeEditor([{role:'system',content:sys+' Entregue JSON com selected, discarded, ideas, coverage, summary. IDs devem pertencer à transcrição. Não inclua duplicatas na seleção.'},{role:'user',content:payload}],'editor').then(function(first){
+ // Não bloquear uma montagem válida exigindo uma segunda análise de 90 segundos.
+ try{return inspectPlan(first,first);}catch(editorialError){
+  eventLog('editor-rejected',editorialError.message);
+  progress('IA ajustando a seleção que não passou na validação...');
+  var firstPlan;
+  try{firstPlan=editorialNormalize(first);}catch(_){firstPlan={cuts:[],discarded:[],ideas:[],coverage:[]};}
+  var reviewRequest={goal:config.goalText||'preservar conteúdo',mode:config.mode,segments:lastSegments.map(function(s){return {id:s.id,text:s.text,blocked:s.blocked};}),retakeGroups:hints.groups||[],candidate:firstPlan.cuts,discarded:firstPlan.discarded,problem:String(editorialError.message||editorialError)};
+  return invokeEditor([{role:'system',content:sys+' Corrija a proposta. JSON: selected,discarded,ideas,coverage,summary. Não invente IDs nem descarte informações necessárias.'},{role:'user',content:JSON.stringify(reviewRequest)}],'review').then(function(review){return inspectPlan(review,first);});
+ }
 });
-}).then(function(result){lastPlan=result.cuts;lastManifest=result.snapshot;lastCoverage=result.coverage;removedDuplicates=result.removed;lastRetake=result.retake;
- reportState.state='awaiting_approval';eventLog('ready','Plano seguro validado, aguardando aprovação');pending={done:done,previewId:null,previewCuts:null,previewLayout:null,originalTranscript:deepCopy(transcript),config:result.config};cards();
+}).then(function(result){assertUnchangedTranscript(fingerprint);return host('fsNarrativeBetaSnapshot',{}).then(function(fresh){if(fresh.signature!==result.snapshot.signature)fail('A timeline ou a mídia mudou durante a análise. Refaça a montagem.');return result;});}).then(function(result){lastPlan=result.cuts;lastManifest=result.snapshot;lastCoverage=result.coverage;removedDuplicates=result.removed;lastRetake=result.retake;
+ reportState.state='awaiting_approval';eventLog('ready','Plano validado para takes brutos, aguardando aprovação');pending={done:done,fingerprint:fingerprint,previewId:null,previewCuts:null,previewLayout:null,originalTranscript:deepCopy(transcript),config:result.config};cards();
 var missing=result.coverage.filter(function(x){return x.status==='missing';}).length;var retakeInfo=result.retake&&result.retake.nearGroupsCount||0;var semantics=result.retake&&result.retake.semanticGroupCount||0;
 progress(missing?('Revisão necessária: '+missing+' parte(s) do roteiro não localizada(s). Assista à prévia.'):('Montagem pronta: '+retakeInfo+' grupo(s) técnicos e '+semantics+' semântico(s) avaliados. Nenhum take apagado. Confira a prévia.'));
-el('nb-approve').disabled=true;view('pending'); }).catch(function(e){failureDiagnostic(e,'montagem');view('ready');progress('Montagem interrompida: '+e.message);done({ok:false,erro:'Montagem Inteligente: '+e.message});});}
+el('nb-approve').disabled=true;view('pending'); }).catch(function(e){failureDiagnostic(e,'montagem');view('ready');progress('Montagem interrompida: '+e.message);done({ok:false,erro:'Montagem Inteligente: '+e.message});}).then(function(){isBusy=false;});}
 
 root.fsAutoEditNarrativa=run;
-root.fsNarrativeBeta={localRetakePairs:localRetakePairs,verifySemanticGroups:verifySemanticGroups,semanticRequest:semanticRequest,buildRetakeHints:buildRetakeHints,strongRetakePlanGuard:strongRetakePlanGuard,editorialNormalize:editorialNormalize,ideaAudit:ideaAudit,silenceHints:silenceHints,analyzeRetakes:analyzeRetakes,retakeContext:retakeContext,narrativeGuard:narrativeGuard,analyzeOnly:analyzeOnly,transcriptFingerprint:transcriptFingerprint,groupWords:groupWords,validate:validate,parseScript:parseScript,buildPayload:buildPayload,dedupePlan:dedupePlan,coverageReport:coverageReport,nearDuplicate:nearDuplicate,readConfig:readConfig,settings:settings,remapTranscript:remapTranscript,createPreview:preview,approve:approve,skip:skip,get pending(){return !!pending;}};
+root.fsNarrativeBeta={localRetakePairs:localRetakePairs,verifySemanticGroups:verifySemanticGroups,semanticRequest:semanticRequest,buildRetakeHints:buildRetakeHints,strongRetakePlanGuard:strongRetakePlanGuard,editorialNormalize:editorialNormalize,ideaAudit:ideaAudit,silenceHints:silenceHints,analyzeRetakes:analyzeRetakes,retakeContext:retakeContext,narrativeGuard:narrativeGuard,analyzeOnly:analyzeOnly,transcriptFingerprint:transcriptFingerprint,assertTranscriptIdentity:assertTranscriptIdentity,groupWords:groupWords,validate:validate,parseScript:parseScript,buildPayload:naturalPayload,dedupePlan:dedupePlan,coverageReport:coverageReport,nearDuplicate:nearDuplicate,readConfig:effectiveConfig,configure:configure,settings:settings,remapTranscript:remapTranscript,createPreview:preview,approve:approve,skip:skip,get pending(){return !!pending;}};
 if(typeof document!=='undefined'){if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',addUI);else addUI();}
 })(typeof window!=='undefined'?window:this);

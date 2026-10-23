@@ -19,95 +19,42 @@
               cobre a falha silenciosa (script que trava sem lançar erro).
          ==================================================================== -->
     <script>
-    (function () {
-        var jaMostrou = false;
-        // O CARTÃO SÓ APARECE SE O PAINEL NÃO MONTOU (22/08, lição na hora:
-        // um erro TARDIO e inofensivo — o defineProperty do fim do main.js —
-        // fez o cartão cobrir um painel que estava são. Erro que acontece
-        // depois da interface existir não é tela branca: ele é anotado e
-        // aparece só no diagnóstico, sem tapar a tela de quem está
-        // trabalhando.
-        var anotados = [];
-        function montou() {
-            try {
-                return !!document.querySelector('.sidebar-tab, #dyn-panel, #dynamic-categories-container');
-            } catch (e) { return false; }
+(function () {
+    'use strict';
+    var errors = [], shown = false;
+    window.CaptionIALoadErrors = errors;
+    function report(title, detail) {
+        errors.push({title: title, detail: String(detail || '')});
+        if (window.CaptionIAReady || shown) return;
+        function show() {
+            if (window.CaptionIAReady || shown || !document.body) return;
+            shown = true;
+            var card = document.createElement('section');
+            card.id = 'captionia-load-error';
+            card.setAttribute('role', 'alert');
+            card.style.cssText = 'position:fixed;inset:16px;z-index:999999;background:#1a1e27;color:#edf3ff;padding:24px;border:1px solid #485440;border-radius:12px;overflow:auto;font:13px/1.7 Segoe UI,sans-serif';
+            var h = document.createElement('h2'); h.textContent = title;
+            var p = document.createElement('p'); p.textContent = 'O painel encontrou um problema ao iniciar. Copie os detalhes para analisar ou recarregue o painel.';
+            var pre = document.createElement('pre'); pre.style.cssText = 'white-space:pre-wrap;word-break:break-word';
+            pre.textContent = errors.map(function (x) { return x.title + '\n' + x.detail; }).join('\n\n');
+            var button = document.createElement('button'); button.textContent = 'Recarregar painel';
+            button.style.cssText = 'background:#c5f277;color:#1b2610;padding:10px 16px;border-radius:8px';
+            button.addEventListener('click', function () { window.location.reload(); });
+            card.appendChild(h); card.appendChild(p); card.appendChild(pre); card.appendChild(button); document.body.appendChild(card);
         }
-        function cartao(titulo, detalhe) {
-            if (jaMostrou) { return; }
-            anotados.push(titulo + ' | ' + detalhe);
-            try { window.FS_ERROS = anotados; } catch (e0) {}
-            if (montou()) { return; }   // painel de pé: não tapa a tela
-            jaMostrou = true;
-            try {
-                var d = document.createElement('div');
-                d.id = 'fs-erro-fatal';
-                d.style.cssText = 'position:fixed;inset:0;z-index:999999;background:#151515;color:#ddd;'
-                    + 'font:12px/1.6 -apple-system,Segoe UI,Arial,sans-serif;padding:18px;overflow:auto;';
-                var texto = 'Caption IA ' + (window.FS_VERSAO || '') + '
-' + titulo + '
-' + detalhe
-                    + '
-' + navigator.userAgent;
-                d.innerHTML =
-                    '<div style="font-size:14px;font-weight:700;color:#E8A33D;margin-bottom:8px;">'
-                  + 'O painel não conseguiu abrir</div>'
-                  + '<div style="margin-bottom:10px;">' + titulo + '</div>'
-                  + '<pre style="white-space:pre-wrap;word-break:break-word;background:#0e0e0e;border:1px solid #333;'
-                  + 'border-radius:6px;padding:8px;font-size:11px;color:#bbb;">' + detalhe + '</pre>'
-                  + '<div style="margin:10px 0;color:#aaa;">Tente nesta ordem:<br>'
-                  + '1. Feche e abra o Premiere.<br>'
-                  + '2. Se continuar, desinstale e instale de novo pelo instalador oficial.<br>'
-                  + '3. Se ainda assim continuar, mande o texto abaixo pro suporte do Caption IA.</div>'
-                  + '<button id="fs-erro-copiar" style="background:#E8A33D;color:#151515;border:none;'
-                  + 'border-radius:6px;padding:7px 12px;font-size:12px;cursor:pointer;">Copiar detalhes</button>';
-                (document.body || document.documentElement).appendChild(d);
-                var b = document.getElementById('fs-erro-copiar');
-                if (b) {
-                    b.addEventListener('click', function () {
-                        var ta = document.createElement('textarea');
-                        ta.value = texto;
-                        d.appendChild(ta);
-                        ta.select();
-                        try { document.execCommand('copy'); b.textContent = 'Copiado'; } catch (e) { b.textContent = 'Selecione o texto acima'; }
-                        d.removeChild(ta);
-                    });
-                }
-            } catch (e) {}
-        }
-        window.addEventListener('error', function (ev) {
-            // erro de SCRIPT que não carregou (src quebrado) vem sem message
-            if (ev && ev.target && ev.target.tagName === 'SCRIPT') {
-                cartao('Um arquivo do painel não carregou.', 'script: ' + (ev.target.src || '?'));
-                return;
-            }
-            var m = (ev && ev.message) ? ev.message : 'erro desconhecido';
-            var onde = (ev && ev.filename) ? (ev.filename + ':' + ev.lineno + ':' + ev.colno) : '';
-            cartao('Erro ao carregar o painel.', m + (onde ? ('
-' + onde) : ''));
-        }, true);
-        window.addEventListener('unhandledrejection', function (ev) {
-            var m = '';
-            try { m = String((ev && ev.reason && (ev.reason.message || ev.reason)) || ''); } catch (e) {}
-            cartao('Uma tarefa do painel falhou.', m);
-        });
-        // rede de segurança: painel que não montou em 8s também tem nome
-        setTimeout(function () {
-            if (montou()) { return; }
-            var pintou = false;
-            try { pintou = document.body && document.body.children.length > 3; } catch (e2) {}
-            if (pintou) { return; }
-            cartao('O painel abriu mas não montou a interface.',
-                'Nenhum elemento da tela foi criado em 8 segundos.'
-                + (anotados.length ? ('
-
-Erros anotados:
-' + anotados.join('
-')) : ''));
-        }, 8000);
-    })();
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', show); else show();
+    }
+    window.addEventListener('error', function (event) {
+        if (event.target && event.target.tagName === 'SCRIPT') { report('Um arquivo do painel não carregou.', event.target.src); return; }
+        report('Falha ao iniciar o Caption IA.', (event.message || 'Erro desconhecido') + '\n' + (event.filename || '') + ':' + (event.lineno || 0));
+    }, true);
+    window.addEventListener('unhandledrejection', function (event) { report('Uma tarefa do painel falhou.', event.reason && (event.reason.message || event.reason) || 'Erro desconhecido'); });
+    window.setTimeout(function () { if (!window.CaptionIAReady) report('A interface não terminou de iniciar.', 'Abra o console de depuração para conferir os arquivos carregados.'); }, 15000);
+})();
     </script>
+    <script src="js/captionia-config.js"></script>
     <script src="js/CSInterface.js"></script>
+    <script src="js/captionia-branding.js"></script>
     <script src="js/cloud_core.js"></script>
     <!-- o cofre entra ANTES do main.js: ele devolve as chaves que o cache
          novo do CEP nao tem, e o main.js ja le as preferencias inteiras -->
@@ -130,6 +77,7 @@ Erros anotados:
     <script src="js/premiere_fix.js"></script>
     <script src="js/transcription.js"></script>
     <script id="cia-cloud-audio-script" src="js/cloud_audio_panel.js"></script>
+    <script src="js/captionia-timebase.js"></script>
     <script src="js/sfx_scheduler.js"></script>
     <script src="js/sfx_media_store.js"></script>
     <script src="js/sfx_dual_tracks.js"></script>
@@ -142,6 +90,7 @@ Erros anotados:
     <script src="js/autodistribute.js"></script>
     <script src="js/painel.js"></script>
     <script src="js/repeticoes.js"></script>
+    <script src="js/speech-cuts.js"></script>
     <script src="js/autocut.js"></script>
     <script src="js/autocut_warp_guard.js"></script>
     <script src="js/autoedit.js"></script>
@@ -151,10 +100,19 @@ Erros anotados:
     <script src="js/fxpresets.js"></script>
     <script src="js/animtexto.js"></script>
     <script src="js/dinamica.js"></script>
+    <script src="js/captionia-diagnostics.js"></script>
+    <script src="js/captionia-bridge.js"></script>
+    <script src="js/captionia-split.js"></script>
+    <script src="js/captionia-split-ui.js"></script>
     <script src="js/guias.js"></script>
     <script src="js/clientes.js"></script>
     <script src="js/colorpicker.js"></script>
     <script src="js/gradiente.js"></script>
+    <link rel="stylesheet" href="css/captionia-workspace.css?v=1">
+    <link rel="stylesheet" href="css/captionia-neon.css?v=2">
+    <!-- Identidade visual unificada com a plataforma: carregada por ultimo -->
+    <link rel="stylesheet" href="css/captionia-brand-2026.css?v=1">
+    <script src="js/captionia-workspace.js"></script>
 </head>
 <body>
 
@@ -1000,6 +958,17 @@ Erros anotados:
                  acompanha ela: a lei "corte >= difusão" evita a borda da
                  mídia aparecer no meio do gradiente. -->
             <div class="dyn-sec" data-dyn-sec="teladividida">
+<div class="captionia-guidance"><strong>1. Selecione os vídeos · 2. Confira o layout · 3. Aplique na cópia.</strong><br>Use dois ou quatro clipes simultâneos, com início e fim alinhados, em trilhas diferentes.</div>
+<div class="fs-bloco" style="margin-top:0"><div class="fs-bloco-titulo">Organizar o quadro</div>
+<div class="form-field"><label for="td-v2-preset">Layout</label><select id="td-v2-preset" style="width:100%"><option value="side-by-side">Dois vídeos · lado a lado</option><option value="top-bottom">Dois vídeos · topo e baixo</option><option value="grid-2x2">Quatro vídeos · grade 2 × 2</option></select></div>
+<div class="form-field"><label for="td-v2-fit">Enquadramento</label><select id="td-v2-fit" style="width:100%"><option value="fit">Ajustar · mostrar a imagem inteira</option><option value="fill">Preencher · recortar as sobras</option></select></div>
+<button type="button" id="btn-td-v2-preview" class="btn-secondary" style="width:100%;margin-top:8px">Analisar seleção</button>
+<div id="td-v2-preview" style="margin-top:12px;font-size:11px;color:var(--text-3)">A prévia mostra a posição de cada vídeo antes de aplicar.</div>
+<button type="button" id="btn-td-v2-apply" class="fs-acao" style="width:100%;margin-top:12px" disabled>Aplicar em uma cópia da sequência</button>
+<div id="td-v2-reframe" class="fs-bloco" hidden style="margin-top:14px"><div class="fs-bloco-titulo">Ajustar cada vídeo depois da divisão</div><p style="font-size:11px;line-height:1.5;color:var(--text-2)">Selecione uma célula abaixo. O Premiere permite ajustar a área visível em <b>Propriedades → Cortar</b>. Se a API expuser Crop, os controles aqui também poderão aplicar o reenquadramento.</p><div id="td-v2-pane-list"></div></div>
+<button type="button" id="btn-td-v2-restore" class="btn-secondary" style="width:100%;margin-top:8px" hidden>Voltar à sequência original</button>
+<div id="td-v2-status" class="transcribe-status" role="status" aria-live="polite" style="margin-top:10px"></div></div>
+<details id="captionia-split-window" style="margin-top:16px"><summary style="font-size:11px;color:var(--text-3);cursor:pointer;padding:8px 0">Janela com bordas suaves</summary>
                 <span class="transcribe-hint" style="display:block;margin-bottom:10px;">Selecione <b>dois clipes</b>, um sobre o outro. O de cima vira a <b>janela</b>; o de baixo desce pra mostrar o rosto. Sem cruzamento no tempo, o plugin empilha sozinho.</span>
 
                 <div class="fs-bloco" style="--fs-cor:var(--brand-warn);margin-top:0;">
@@ -1071,7 +1040,8 @@ Erros anotados:
                     </div>
                 </div>
                 <div id="td-status" class="transcribe-status" style="margin-top:8px;"></div>
-            </div>
+            </details>
+</div>
 
             <div class="dyn-sec" data-dyn-sec="presets">
             <!-- SÓ O QUE O ALUNO CARREGA (30/08): a varredura automática do
@@ -1843,10 +1813,10 @@ Erros anotados:
                          (09/08/2026): "somente as mais precisas". -->
                     <select id="autosfx-granularity" style="width:100%;">
                         <option value="linha">1 som por linha, no tempo que o modelo anima</option>
-                        <option value="sync">1 som por palavra do bloco</option>
+                        <option value="sync">Por palavra (exato quando há WORD_TIMINGS)</option>
                         <option value="capsync">1 som por bloco de legenda</option>
                     </select>
-                    <span class="transcribe-hint" id="autosfx-gran-hint">Lê os blocos que estão na timeline e conta as palavras de cada um. Bloco com 3 palavras recebe 3 sons.</span>
+                    <span class="transcribe-hint" id="autosfx-gran-hint">Sincroniza pelos WORD_TIMINGS do Word Highlight; sem esse modelo, usa inícios reais da fala quando disponíveis. Legenda exibida inteira recebe um único disparo, sem inventar timings.</span>
                 </div>
                 <!-- O PASSO ENTRE PALAVRAS (06/09/2026, Victor: "três efeitos sonoros
                      quase na sequência um do outro, uns três quadros"). Só no modo por

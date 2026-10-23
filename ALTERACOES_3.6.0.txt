@@ -1,0 +1,45 @@
+CAPTION IA 3.6.0 — PREVIA DE DESENVOLVIMENTO (branch dev)
+============================================================
+
+BLOCO 1 — CORTE E SFX
+- Novo js/captionia-timebase.js: conversão por timebase da sequência Adobe,
+  alinhamento de palavras aos limites dos quadros e mapeamento de eventos de
+  um vídeo bruto para uma prévia editada.
+- SFX por palavra não aplica o cooldown de 0,85 s dos disparos por bloco.
+- Ajuste manual dos SFX agora usa a duração real do frame consultada no Premiere.
+- Legendas Word Highlight que foram inseridas com sucesso disponibilizam seus
+  WORD_TIMINGS para os SFX posteriores, quando o bloco/seq correspondem.
+- Sem WORD_TIMINGS, o modo clássico continua estimando os tempos e informa
+  isso na prévia. Dois sons no mesmo quadro não têm entrada visual distinta.
+
+BLOCO 2 — TELA DIVIDIDA
+- Passa a tolerar arredondamento de até 1 frame nos limites dos clipes;
+  rejeita divergências maiores e preserva o original.
+- Padrão de pixels quadrados para mídia sem metadados de interpretação.
+- Tempo limite para ponte host em vez de painel aguardando para sempre.
+- Prévia visual identificada como ESQUEMÁTICA. Modo Ajustar usa Movimento;
+  modo Preencher segue dependendo de Crop/QE legado quando habilitado.
+
+BLOCO 3 — MONTAGEM INTELIGENTE E RETAKES
+- Tolerância para timestamps nas bordas dos clipes calculada a partir da
+  duração real do frame, não de um valor fixo para todo FPS.
+- Retakes contraditórios em negações ou números não são unidos por análise
+  semântica automática.
+- Evita enviar requisição editorial acima do limite conhecido do backend.
+- Ponte de operações de prévia com timeout e diagnósticos sem conteúdo privado.
+- Sequências multicâmera, com efeitos complexos ou fora de V1/A1 continuam
+  fora do executor por subclipes; não foram prometidas como suportadas.
+
+BLOCO 4 — UX E DESEMPENHO
+- Observer de interface agrupa mutações em frames para reduzir atualizações.
+- Evita múltiplos timers concorrentes de onboarding.
+- Indicadores de SFX distinguem eventos visuais medidos dos estimados.
+- Nova ponte js/captionia-bridge.js registra operação e duração sem payload.
+- Base de migração futura a UXP documentada; esta versão permanece CEP.
+
+INTEGRIDADE
+- hostscript.jsxbin preservado integralmente.
+- Não inclui chaves API, senhas ou arquivos de estado locais.
+- O pacote não foi executado no Premiere neste ambiente.
+- Testes Node automatizados passaram; testes com vídeo real são obrigatórios
+  antes de publicar na branch main ou liberar a usuários finais.

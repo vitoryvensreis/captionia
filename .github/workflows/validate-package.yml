@@ -26,6 +26,9 @@ jobs:
       - name: Validate release
         run: node scripts/validate-release.js
 
+      - name: Verify client timing, split, narrative and UX regression tests
+        run: node --test CaptionIA/tests/*.test.*
+
       - name: Verify client narrative UX and privacy
         run: node scripts/test-montagem-cliente.js
 

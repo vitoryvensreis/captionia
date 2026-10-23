@@ -4,34 +4,36 @@
 ============================================================================ */
 
 :root {
-    --bg-0: #0B1220;           /* fundo mais escuro (body) */
-    --bg-1: #0F1B2D;           /* header, footer, sidebar */
-    --bg-2: #14243A;           /* cards/hover */
-    --bg-3: #1E3350;           /* borda sutil / inputs */
-    --bg-4: #294463;           /* inputs ativos */
-    --border: #263C59;
-    --border-strong: #36577E;
+    --bg-0: #090d12;
+    --bg-1: #0f141b;
+    --bg-2: #111a22;
+    --bg-3: #1a2430;
+    --bg-4: #222d39;
+    --bg-5: #2a3847;
+    --border: rgba(255,255,255,0.12);
+    --border-strong: rgba(245,158,11,0.45);
 
-    --text:   #EAF2FF;
-    --text-2: #A9BED8;
-    --text-3: #6F89A8;
+    --text: #edf3ff;
+    --text-2: #d5dfe9;
+    --text-3: #9aa8b8;
 
-    --brand:        #60A5FA;   /* prata VF */
-    --brand-accent: #3B82F6;   /* branco/cinza (Caption IA) */
-    --brand-warn:   #f59e0b;   /* amarelo (highlight/favoritos) */
-    --brand-green:  #22c55e;
-    --brand-red:    #ef4444;
+    --brand: #f5a623;
+    --brand-accent: #f59e0b;
+    --brand-warn: #f5a623;
+    --brand-green: #22c55e;
+    --brand-red: #ef4444;
 
     --success: #4ade80;
-    --danger:  #f87171;
-    --warn:    #fb923c;
+    --danger: #f87171;
+    --warn: #fb923c;
 
-    --r-sm: 4px;
-    --r-md: 6px;
-    --r-lg: 8px;
+    --r-sm: 6px;
+    --r-md: 10px;
+    --r-lg: 14px;
 
-    --shadow-card: 0 2px 8px rgba(0,0,0,0.3);
-    --shadow-modal: 0 10px 40px rgba(0,0,0,0.6);
+    --shadow-card: 0 10px 30px rgba(0,0,0,0.32);
+    --shadow-modal: 0 18px 48px rgba(0,0,0,0.55);
+    --glow: 0 0 0 1px rgba(245,166,35,0.2), 0 12px 26px rgba(245,166,35,0.12);
 }
 
 /* ============================================================================
@@ -58,25 +60,18 @@
 html, body {
     margin: 0; padding: 0;
     height: 100%;
-    background: var(--bg-0);
+    background: linear-gradient(180deg, #dfe3e8 0%, #d7dbe0 100%);
     color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     font-size: 12px;
     overflow: hidden;
     user-select: none;
 }
-/* O PAINEL NUNCA ROLA COMO PÁGINA (12/08/2026 — o bug que o Victor via
-   como "o painel sobe e fica uma borda preta embaixo").
-   `overflow: hidden` esconde a barra mas NÃO impede a rolagem
-   programática: ao clicar num toggle, o navegador rolava o documento pra
-   trazer o controle focado à vista, o cabeçalho saía da tela e sobrava o
-   fundo preto embaixo do rodapé. Medido: 100px de deslocamento.
-   Travar o body no viewport mata a classe inteira de erro — o que precisa
-   rolar (a área de cada painel) tem overflow próprio e continua rolando. */
 body {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
     width: 100%;
+    padding: 18px;
 }
 
 button {
@@ -147,10 +142,14 @@ select option { background: #1f1f24; color: var(--text); }
 .app-shell {
     display: flex;
     flex-direction: column;
-    height: 100vh;
-    width: 100vw;
-    background: var(--bg-0);
+    height: calc(100vh - 36px);
+    width: 100%;
+    background: linear-gradient(180deg, rgba(11,14,20,0.98), rgba(15,20,28,0.98));
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 18px;
     overflow: hidden;
+    box-shadow: var(--shadow-card);
+    position: relative;
 }
 
 .app-shell.hidden { display: none; }
@@ -169,22 +168,27 @@ select option { background: #1f1f24; color: var(--text); }
     display: grid;
     grid-template-columns: auto 1fr auto;
     align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
-    background: var(--bg-1);
+    gap: 12px;
+    padding: 10px 14px;
+    background: linear-gradient(180deg, rgba(15,20,25,1), rgba(16,18,24,1));
     border-bottom: 1px solid var(--border);
-    min-height: 44px;
+    min-height: 58px;
+    box-shadow: inset 0 -1px 0 rgba(255,255,255,0.04);
 }
 
 .header-brand {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 4px 8px;
-    border-radius: var(--r-md);
+    padding: 6px 10px;
+    border-radius: 10px;
     transition: background 0.15s;
+    border: 1px solid transparent;
 }
-.header-brand:hover { background: var(--bg-2); }
+.header-brand:hover {
+    background: rgba(255,255,255,0.02);
+    border-color: rgba(255,255,255,0.06);
+}
 
 .brand-mark {
     width: 22px;
@@ -196,7 +200,7 @@ select option { background: #1f1f24; color: var(--text); }
 
 .brand-text {
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: 0.4px;
     color: var(--text);
     white-space: nowrap;
@@ -210,40 +214,49 @@ select option { background: #1f1f24; color: var(--text); }
 
 .search-icon {
     position: absolute;
-    left: 10px;
+    left: 12px;
     color: var(--text-3);
     pointer-events: none;
 }
 
 #global-search {
     width: 100%;
-    padding: 6px 10px 6px 30px;
-    border-radius: var(--r-md);
-    background: var(--bg-3);
-    border: 1px solid var(--border);
+    padding: 8px 12px 8px 34px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.08);
     font-size: 12px;
+    color: var(--text);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
 }
-#global-search:focus { border-color: rgba(255,255,255,0.3); }
+#global-search:focus {
+    border-color: rgba(245,166,35,0.55);
+    background: rgba(255,255,255,0.04);
+    box-shadow: 0 0 0 2px rgba(245,166,35,0.12);
+}
 
 .header-actions {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 8px;
 }
 
 .icon-btn {
-    width: 30px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: var(--r-md);
+    border-radius: 10px;
     color: var(--text-2);
-    transition: background 0.15s, color 0.15s;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.06);
+    transition: all 0.15s ease;
 }
 .icon-btn:hover {
-    background: var(--bg-2);
-    color: var(--text);
+    background: rgba(245,166,35,0.08);
+    color: var(--brand-warn);
+    border-color: rgba(245,166,35,0.25);
 }
 
 /* Slider de zoom */
@@ -298,13 +311,14 @@ select option { background: #1f1f24; color: var(--text); }
 /* ---- SIDEBAR ---- */
 
 .app-sidebar {
-    background: var(--bg-1);
-    border-right: 1px solid var(--border);
+    background: linear-gradient(180deg, rgba(15,20,26,0.98), rgba(11,14,20,0.98));
+    border-right: 1px solid rgba(255,255,255,0.08);
     display: flex;
     flex-direction: column;
     overflow: hidden;
     min-height: 0;
     height: 100%;
+    padding: 10px 8px 8px;
 }
 
 .sidebar-tabs {
@@ -320,17 +334,23 @@ select option { background: #1f1f24; color: var(--text); }
     align-items: center;
     justify-content: center;
     gap: 5px;
-    padding: 6px 8px;
-    border-radius: var(--r-md);
+    padding: 8px 10px;
+    border-radius: 10px;
     color: var(--text-2);
     font-size: 11px;
-    font-weight: 500;
-    transition: background 0.15s, color 0.15s;
+    font-weight: 600;
+    transition: all 0.15s ease;
+    border: 1px solid transparent;
 }
-.sidebar-tab:hover { background: var(--bg-2); color: var(--text); }
-.sidebar-tab.active {
-    background: var(--bg-3);
+.sidebar-tab:hover {
+    background: rgba(255,255,255,0.04);
     color: var(--text);
+}
+.sidebar-tab.active {
+    background: rgba(245,166,35,0.12);
+    color: var(--brand-warn);
+    border-color: rgba(245,166,35,0.25);
+    box-shadow: var(--glow);
 }
 .sidebar-tab[data-filter="favorites"].active { color: var(--brand-warn); }
 
@@ -460,36 +480,44 @@ details[open] > summary .tree-chevron { transform: rotate(90deg); }
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    background: var(--bg-0);
-    min-height: 0;           /* crítico pro overflow funcionar no grid filho */
+    background:
+        radial-gradient(circle at top left, rgba(245,166,35,0.08), transparent 18%),
+        linear-gradient(180deg, rgba(10,13,18,1), rgba(10,12,18,1));
+    min-height: 0;
     min-width: 0;
+    border-left: 1px solid rgba(255,255,255,0.04);
 }
 
 .preset-grid {
     flex: 1 1 auto;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 8px 12px 16px;
+    padding: 12px 12px 18px;
     display: flex;
     flex-direction: column;
-    gap: 0;
+    gap: 10px;
     min-height: 0;
 }
 
 /* Seção por categoria */
 .tpl-section {
-    margin-bottom: 16px;
+    margin-bottom: 12px;
+    background: rgba(255,255,255,0.015);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: 10px 10px 12px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
 }
 
 /* Fileira horizontal com scroll */
 .tpl-row {
     display: flex;
     flex-direction: row;
-    flex-wrap: wrap;           /* WRAP — todos visíveis, sem scroll horizontal */
-    gap: 8px;
+    flex-wrap: wrap;
+    gap: 10px;
     overflow-x: hidden;
     overflow-y: visible;
-    padding-bottom: 4px;
+    padding: 2px 0 0;
 }
 
 /* Zoom controla quantas colunas aparecem por linha */
@@ -615,30 +643,30 @@ details[open] > summary .tree-chevron { transform: rotate(90deg); }
 
 .grid-group-header {
     grid-column: 1 / -1;
-    margin: 18px 0 8px;
-    padding: 7px 10px;
+    margin: 2px 0 10px;
+    padding: 9px 12px;
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 1px;
-    color: var(--text-2);
+    color: var(--text);
     text-transform: uppercase;
-    background: var(--bg-2);
-    border-radius: var(--r-sm);
-    border-left: 2px solid rgba(255,255,255,0.35);
-    /* Força novo grupo sempre em linha separada no grid */
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
 }
 
 /* Card de template */
 .template-wrapper {
     position: relative;
     aspect-ratio: 16/9;
-    background: #111;
-    border-radius: var(--r-lg);
+    background: linear-gradient(180deg, #11161b, #0a0d12);
+    border-radius: 12px;
     overflow: hidden;
     cursor: pointer;
-    box-shadow: var(--shadow-card);
-    transition: transform 0.15s, box-shadow 0.15s;
-    border: 1px solid var(--border);
+    box-shadow: 0 10px 18px rgba(0,0,0,0.18);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    border: 1px solid rgba(255,255,255,0.08);
 }
 
 /* Placeholder quando thumb não existe */
@@ -661,9 +689,9 @@ details[open] > summary .tree-chevron { transform: rotate(90deg); }
     );
 }
 .template-wrapper:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
-    border-color: rgba(255,255,255,0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 14px 26px rgba(0,0,0,0.28), 0 0 0 1px rgba(245,166,35,0.12);
+    border-color: rgba(245,166,35,0.32);
 }
 
 .template-preview-image,
@@ -2329,33 +2357,42 @@ body.fs-dev .fs-nodev-only { display: none !important; }
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 3px;
-    padding: 5px 8px;
-    background: var(--bg-2);
-    border-bottom: 1px solid var(--border);
+    gap: 8px;
+    padding: 8px 10px 10px;
+    background: linear-gradient(180deg, rgba(17,21,27,0.96), rgba(15,18,22,0.96));
+    border-bottom: 1px solid rgba(255,255,255,0.08);
     flex: 0 0 auto;
 }
 .fs-toolbar-sep {
     width: 1px;
     align-self: stretch;
     min-height: 18px;
-    background: var(--border);
+    background: rgba(255,255,255,0.08);
     margin: 0 2px;
 }
-/* O rótulo manda na largura: sem esticar, sem espremer, sem cortar. */
 .fs-toolbar .sidebar-tab {
     flex: 0 0 auto !important;
     width: auto;
     min-width: 0;
     white-space: nowrap;
     overflow: visible;
-    padding: 5px 7px;
-    gap: 4px;
-    border-radius: var(--r-md);
+    padding: 7px 12px;
+    gap: 6px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.015);
+    color: var(--text-2);
+    transition: all 0.18s ease;
+}
+.fs-toolbar .sidebar-tab:hover {
+    background: rgba(255,255,255,0.04);
+    color: var(--text);
+    border-color: rgba(255,255,255,0.08);
 }
 .fs-toolbar .sidebar-tab span {
     overflow: visible;
     text-overflow: clip;
+    font-weight: 600;
 }
 /* Painel bem estreito: a barra rola na horizontal em vez de virar uma
    pilha alta que come a área dos modelos. */
@@ -3006,6 +3043,8 @@ body.fs-dev .fs-nodev-only { display: none !important; }
 .sidebar-tab.active {
     background: rgba(245, 158, 11, 0.14);
     color: var(--brand-warn);
+    border-color: rgba(245, 158, 11, 0.28);
+    box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.1), 0 12px 24px rgba(245, 158, 11, 0.12);
 }
 .sidebar-tab.active svg { color: var(--brand-warn); }
 

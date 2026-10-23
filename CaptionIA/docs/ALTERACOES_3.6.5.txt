@@ -1,0 +1,7 @@
+Caption IA 3.6.5 DEV — correções dirigidas pelos prints do Premiere
+
+1. Montagem: filtro anti-cintilação localizado (valor neutro 0) reconhecido, preservando verificação dos outros parâmetros.
+2. Tela Dividida: após criar a cópia, controles por faixa para selecionar o clipe e reenquadrar quando o Premiere expõe os quatro parâmetros intrínsecos de Crop à ponte CEP.
+3. Caso não sejam expostos, selecionar V1/V2 abre a seleção no Premiere e informa como ajustar Propriedades → Cortar, sem simular sucesso do Crop.
+4. O preenchimento inicial ainda utiliza o recorte nas bordas do quadro e pode cortar rostos. Controles automáticos de Crop dependem do Premiere expor os quatro parâmetros ao CEP.
+5. Originais intactos; hostscript.jsxbin preservado. Testes automatizados não substituem execução no Premiere.

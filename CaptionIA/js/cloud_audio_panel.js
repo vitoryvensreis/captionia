@@ -45,7 +45,7 @@ function exportTimeline(){
  var root=typeof w.secureExtensionPath==='string'&&w.secureExtensionPath?w.secureExtensionPath:
           typeof w.extensionPath==='string'?w.extensionPath:'';
  if(!root)return Promise.reject(Error('Pasta do plugin não encontrada para exportar áudio.'));
- var path=require('path'),fs=require('fs');
+  var path=require('path'),fs=require('fs'),audioRegions=null;
  var preset=path.join(root,'presets','fs_audio_leve.epr');
  if(!fs.existsSync(preset))preset=path.join(root,'presets','fs_audio.epr');
  if(!fs.existsSync(preset))return Promise.reject(Error('Preset de exportação de áudio ausente.'));
@@ -55,11 +55,12 @@ function exportTimeline(){
  return host('fsRegioesDeAudio('+track+')').then(function(regions){
   if(regions.ok&&regions.clipes===0)throw Error('Não há áudio na trilha selecionada.');
   if(regions.alvoMudo)throw Error('A trilha selecionada está silenciada.');
+   if(regions.ok&&Array.isArray(regions.regioes))audioRegions=regions.regioes;
   say('Exportando áudio leve da sequência...');
   return host('fsExportAudioTrilha('+JSON.stringify(preset.replace(/\\/g,'/'))+',0,'+track+')');
  }).then(function(result){
   if(!result.path)throw Error('Premiere não retornou o áudio exportado.');
-  return {file:result.path,temporary:true};
+   return {file:result.path,temporary:true,audioRegions:audioRegions};
  });
 }
 function upload(file,token,lang){
@@ -117,9 +118,20 @@ function captions(words){
   return cues;
  });
 }
-function save(result,seq,cues){
+function save(result,seq,cues,audioRegions){
  result._fsSeq=seq;result._fsQuando=Date.now();
  w._fsLastResp=result;w._fsRespOriginal=null;w._fsCortesTotal=0;
+  w._fsDerivaCorte=null;
+  w._fsAudioRegions=Array.isArray(audioRegions)?audioRegions.filter(function(region){
+   return region&&typeof region.s==='number'&&typeof region.e==='number'&&isFinite(region.s)&&isFinite(region.e)&&region.s>=0&&region.e>region.s;
+  }):null;
+  if(w._fsAudioRegions&&!w._fsAudioRegions.length)w._fsAudioRegions=null;
+  try{
+   localStorage.removeItem('framespeed_resp_original');
+   localStorage.removeItem('framespeed_cortes_total');
+   if(w._fsAudioRegions)localStorage.setItem('framespeed_audio_regions',JSON.stringify(w._fsAudioRegions));
+   else localStorage.removeItem('framespeed_audio_regions');
+  }catch(e){}
  try{localStorage.setItem('framespeed_last_resp',JSON.stringify(result));}catch(e){}
  w.premiereSrtData=cues;
  try{
@@ -151,7 +163,7 @@ function execute(mode){
  }).then(function(bundle){
   return owner().then(function(now){
    if(now!==seq)throw Error('Sequência mudou durante a transcrição. Resultado descartado.');
-   save(bundle.result,seq,bundle.cues);
+    save(bundle.result,seq,bundle.cues,fileInfo&&fileInfo.audioRegions);
    say('✓ '+bundle.result.words.length+' palavras e '+bundle.cues.length+' legendas preparadas. Abra Legendas para escolher os templates.');
    return{words:bundle.result.words.length,captions:bundle.cues.length};
   });
