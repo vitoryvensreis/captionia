@@ -56,12 +56,37 @@
         var txt=value.replace(/\s/g,'').replace(',','.').replace(/%$/,'');
         return /^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)$/.test(txt)&&Math.abs(Number(txt))<=.0001;
     }
+    // Native audio parameters vary with Premiere language and channel layout.
+    // Reject ambiguous values: subclips recreate source audio without clip effects.
+    function neutralAudioSwitch(value){
+        return value===false||value===0||value==='0'||normalized(value)==='false'||normalized(value)==='falso'||normalized(value)==='desativado';
+    }
+    function neutralAudioLevel(value){
+        if(typeof value==='number')return isFinite(value)&&Math.abs(value-1)<.00001;
+        if(typeof value!=='string')return false;
+        var text=value.replace(/^\s+|\s+$/g,'').replace(',','.');
+        if(/^[-+]?(?:0+(?:\.0+)?|\.0+)\s*dB$/i.test(text))return true;
+        if(!/^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)$/.test(text))return false;
+        return Math.abs(Number(text)-1)<.00001;
+    }
+    function neutralAudioPan(value){
+        if(typeof value==='number')return isFinite(value)&&Math.abs(value)<.00001;
+        if(typeof value!=='string')return false;
+        var text=value.replace(/^\s+|\s+$/g,'').replace(',','.').replace(/%$/,'');
+        return /^[-+]?(?:0+(?:\.0+)?|\.0+)$/.test(text);
+    }
+    function audioLevelLabel(label){
+        return /^(?:level|nivel|volume|nivel (?:de|do) (?:audio|volume)|volume (?:do|de|da) (?:clipe|clip|canal|canais)|volume (?:esquerdo|direito)|canal (?:esquerdo|direito)|(?:left|right)(?: channel)?|(?:esquerda|direita)|(?:channel|canal) [0-9]+)$/.test(label);
+    }
+    function audioPanLabel(label){
+        return /^(?:balance|balanco|pan|panoramica|panoramico|panoramizador|panoramizacao|panoramica (?:do|de) (?:clipe|clip|audio)|balanco (?:do|de) audio)$/.test(label);
+    }
     function plainClipState(clip,isAudio,media){
         var result=[],i,j,component,p,label,name,v,allowed,center;
         if(!clip.components)throw Error('Não foi possível verificar os efeitos do take.');
         for(i=0;i<clip.components.numItems;i++){
             component=clip.components[i];name=normalized(component.displayName);var match=String(component.matchName||'');
-            allowed=isAudio?/^(volume|channel volume|volume do canal|panner|panoramica|panoramico|panoramizador)$/.test(name):/^(motion|movimento|opacity|opacidade|time remapping|remapeamento de tempo)$/.test(name);
+            allowed=isAudio?/^(volume|channel volume|volume (?:do|de|dos) canais?|panner|panoramica|panoramico|panoramizador)$/.test(name):/^(motion|movimento|opacity|opacidade|time remapping|remapeamento de tempo)$/.test(name);
             if(!allowed)throw Error('A montagem por subclipes não preserva o efeito "'+component.displayName+'". Use takes brutos ou faça uma cópia renderizada para esta etapa.');
             var props=[];
             for(j=0;j<component.properties.numItems;j++){
@@ -96,12 +121,30 @@
                     else throw Error('Máscaras/ajustes de Opacidade não são preservados na montagem.');
                 }else if(name==='time remapping'||name==='remapeamento de tempo'){
                     if(!/^(speed|velocidade)$/.test(label)||Math.abs(Number(v)-100)>.01)throw Error('Remapeamento de tempo não é preservado na montagem.');
-                }else if(/^(volume|channel volume|volume do canal)$/.test(name)){
-                    if(/^(bypass|ignorar|desvio)$/.test(label)){if(v)throw Error('Bypass de áudio alterado.');}
-                    else if(/^(level|nivel|left|right|esquerda|direita|channel [0-9]+|canal [0-9]+)$/.test(label)){if(Math.abs(Number(v)-1)>.00001)throw Error('Volume do take alterado. Renderize uma cópia para preservar o tratamento.');}
-                    else throw Error('Ajuste de áudio não reconhecido: '+p.displayName+'. Não consigo preservá-lo por subclipe.');
-                }else if(/^(balance|balanco|pan|panoramica)$/.test(label)){if(Math.abs(Number(v))>.00001)throw Error('Panorama de áudio alterado não é preservado.');}
-                else throw Error('Panorama de áudio não reconhecido; a montagem foi bloqueada para preservar seu tratamento.');
+                }else if(/^(volume|channel volume|volume (?:do|de|dos) canais?)$/.test(name)){
+                    // Diagnostic records only a property label/type/value, never speech or media paths.
+                    var matchLabel=normalized(p.matchName||''),effectiveLabel=label;
+                    if(!(/^(bypass|ignorar|desvio|mute|mudo|silenciar|silenciado)$/.test(label)||audioLevelLabel(label)||audioPanLabel(label))){
+                        if(/^(bypass|level|volume|mute|pan|balance)$/.test(matchLabel)||audioLevelLabel(matchLabel)||audioPanLabel(matchLabel))effectiveLabel=matchLabel;
+                    }
+                    hostNote('audio.property',name.slice(0,35)+' / '+label.slice(0,50)+' = '+debugValue(v).slice(0,32));
+                    if(/^(bypass|ignorar|desvio|mute|mudo|silenciar|silenciado)$/.test(effectiveLabel)){
+                        if(!neutralAudioSwitch(v))throw Error('O take contém bypass/silenciamento alterado ('+p.displayName+': '+debugValue(v)+').');
+                    }else if(audioLevelLabel(effectiveLabel)){
+                        if(!neutralAudioLevel(v))throw Error('Volume do take alterado ou sem leitura neutra ('+p.displayName+': '+debugValue(v)+'). Renderize uma cópia para preservar o tratamento.');
+                    }else if(audioPanLabel(effectiveLabel)){
+                        if(!neutralAudioPan(v))throw Error('Panorama de áudio alterado ('+p.displayName+': '+debugValue(v)+').');
+                    }else{
+                        hostNote('audio.unknown','component='+name+' prop='+label.slice(0,65)+' type='+typeof v+' value='+debugValue(v));
+                        throw Error('Ajuste de áudio não reconhecido: '+p.displayName+' ('+debugValue(v)+'). Não consigo preservá-lo por subclipe.');
+                    }
+                }else if(audioPanLabel(label)){
+                    hostNote('audio.property',name.slice(0,35)+' / '+label.slice(0,50)+' = '+debugValue(v).slice(0,32));
+                    if(!neutralAudioPan(v))throw Error('Panorama de áudio alterado não é preservado ('+p.displayName+': '+debugValue(v)+').');
+                }else{
+                    hostNote('audio.unknown','component='+name+' prop='+label.slice(0,65)+' type='+typeof v+' value='+debugValue(v));
+                    throw Error('Panorama de áudio não reconhecido: '+p.displayName+' ('+debugValue(v)+'). A montagem foi bloqueada para preservar seu tratamento.');
+                }
             }
             result.push({matchName:match,name:String(component.displayName),properties:props});
         }
