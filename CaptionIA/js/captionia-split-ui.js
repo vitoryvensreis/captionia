@@ -2,7 +2,7 @@
     'use strict';
     var prepared = null, waiting = false;
     function el(id) { return d.getElementById(id); }
-    function message(text, error) { var status = el('td-v2-status'); if (status) { status.textContent = text; status.style.color = error ? 'var(--danger)' : 'var(--text-2)'; } }
+    function message(text, error) { var status = el('td-v2-status'); if (status) { status.textContent = text; status.style.color = error ? 'var(--danger)' : 'var(--text-2)'; } if(error&&w.CaptionIADiagnostics)w.CaptionIADiagnostics.record('split.ui','failed',{code:'SPLIT_UI',detail:String(text).slice(0,180)}); }
     function busy(value) {
         waiting = value;
         ['btn-td-v2-preview', 'td-v2-preset', 'td-v2-fit'].forEach(function (id) { if (el(id)) el(id).disabled = value; });

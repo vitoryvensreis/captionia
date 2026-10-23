@@ -8,8 +8,10 @@
   fsNarrativeBetaSnapshot:1,fsNarrativeBetaPreview:1,
   fsNarrativeBetaValidatePreview:1,fsNarrativeBetaRestore:1,fsNarrativeBetaCloneForRetake:1
  };
- var log=[];
- function record(action,status,elapsed){log.push({action:action,status:status,ms:elapsed,at:new Date().toISOString()});if(log.length>45)log.shift();}
+ function record(action,status,elapsed,err){
+  if(root&&root.CaptionIADiagnostics)root.CaptionIADiagnostics.record('premiere.'+action,status,{elapsedMs:elapsed,code:err?'HOST_OPERATION_FAILED':null,detail:err||null});
+ }
+
  function invoke(name,data,options){return new Promise(function(resolve,reject){
   if(!allow[name])return reject(Error('Operação Adobe não autorizada: '+name));
   var cs=root.csInterface;
@@ -19,7 +21,7 @@
   var timer=setTimeout(function(){finish(Error('O Premiere não respondeu à operação '+name+'. Verifique o estado da sequência antes de repetir.'));},timeout);
   function finish(error,value){
    if(settled)return;settled=true;clearTimeout(timer);
-   record(name,error?'failed':'ok',Date.now()-started);
+   record(name,error?'failed':'ok',Date.now()-started,error&&error.message);
    if(error)reject(error);else resolve(value);
   }
   try{cs.evalScript(name+'('+JSON.stringify(JSON.stringify(data||{}))+')',function(raw){
@@ -31,7 +33,7 @@
    }catch(e){finish(e);}
   });}catch(e){finish(e);}
  });}
- var api=Object.freeze({call:invoke,recent:function(){return log.slice();},version:'3.6.0'});
+ var api=Object.freeze({call:invoke,recent:function(){return root&&root.CaptionIADiagnostics?root.CaptionIADiagnostics.recent():[];},version:'3.6.1'});
  if(typeof module!=='undefined'&&module.exports)module.exports=api;
  if(root)root.CaptionIABridge=api;
 })(typeof window!=='undefined'?window:null);

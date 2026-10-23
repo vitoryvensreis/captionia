@@ -24,7 +24,10 @@ function silenceHints(words,clips){var result=[], last=null;
   if(last&&last.clipIndex===target.index&&a-last.end>=.45){result.push({start:last.end,end:a,duration:Math.round((a-last.end)*1000)/1000,after:String(last.word||'').slice(0,50),before:String(w.word||'').slice(0,50)});}
   last={end:b,clipIndex:target.index,word:w.word};
  });return result.slice(0,350);}
-function eventLog(phase,details){reportState.events.push({time:new Date().toISOString(),phase:phase,details:String(details||'').slice(0,1800)});}
+function eventLog(phase,details){
+ reportState.events.push({time:new Date().toISOString(),phase:phase,details:String(details||'').slice(0,1800)});
+ if(root.CaptionIADiagnostics)root.CaptionIADiagnostics.record('narrative.'+String(phase).replace(/[^a-z0-9_-]/gi,'-'),'info',{phase:phase});
+}
 function safeRetakes(entry){if(!entry)return null;return {groupCount:(entry.groups||[]).length,semanticGroupCount:(entry.semanticGroups||[]).length,semanticStatus:entry.semanticStatus||'not-run',semanticError:entry.semanticError||null,semanticGroups:(entry.semanticGroups||[]).slice(0,70),farCount:(entry.far||[]).length,groups:(entry.groups||[]).slice(0,60).map(function(g){return {takes:(g.takes||[]).map(function(t){return {start:t.ini,end:t.fim,text:String(t.texto||'').slice(0,1000),complete:!!t.completa};}),recommendation:g.sugestao&&g.sugestao.motivo||'',warning:g.aviso||'',similarity:g.notas||[]};})};}
 // Relatorios de diagnóstico e upload foram retirados da distribuição pública.
 // Erros da montagem permanecem visíveis no próprio painel.
@@ -32,6 +35,7 @@ function failureDiagnostic(e,phase){
  reportState.state='error';
  reportState.error={phase:phase||'narrative',message:String(e&&e.message||e),time:new Date().toISOString()};
  eventLog('error',reportState.error.message);
+ if(root.CaptionIADiagnostics)root.CaptionIADiagnostics.record('narrative.failed','failed',{code:'NARRATIVE_FAILED',phase:phase,detail:reportState.error.message});
  return null;
 }
 function resetReport(transcript,config){reportState={state:'analyzing',events:[],error:null};eventLog('start','Montagem '+(config&&config.mode||'livre'));}
@@ -141,11 +145,13 @@ function analyzeOnly(done){
    var lexical=entry.groups.length,local=(entry.localGroups||[]).length,sem=(entry.semanticGroups||[]).length;
    var warn=entry.semanticStatus==='fallback'?' · IA semântica indisponível; usei detecção por palavras':entry.semanticStatus==='partial'?' · análise parcial':'';
    eventLog('retake','Tradicional: '+lexical+'; semelhantes: '+local+'; por sentido: '+sem+warn);
+   if(root.CaptionIADiagnostics)root.CaptionIADiagnostics.record('retake.analysis',entry.semanticStatus==='ok'?'ok':'warning',{phase:entry.semanticStatus,code:'RETAKE_ANALYSIS',count:lexical+local+sem});
    done({ok:true,resumo:lexical+' grupo(s) tradicional(is), '+local+' por texto e '+sem+' por sentido; sem cortes'+warn});
   }).catch(function(err){
    var old=root._fsNarrativeRetakeHints;
     if(old&&data&&old.source===resp&&old.fingerprint===fingerprint&&transcriptFingerprint(root._fsLastResp)===fingerprint){old.semanticStatus='fallback';old.semanticError=String(err.message||err).slice(0,250);reportState.retakes=safeRetakes(old);
      eventLog('retake-fallback',old.semanticError);
+     if(root.CaptionIADiagnostics)root.CaptionIADiagnostics.record('retake.analysis','warning',{phase:'fallback',code:'GROQ_SEMANTIC_FALLBACK'});
      return done({ok:true,resumo:old.groups.length+' grupo(s) tradicional(is), sem cortes · análise avançada indisponível: '+old.semanticError});}
    failureDiagnostic(err,'retake');done({ok:false,erro:'Retake (análise): '+err.message});
   });

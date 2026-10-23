@@ -44,7 +44,14 @@
                     else throw Error('Parâmetro de Movimento não reconhecido: '+p.displayName+'. Não consigo garantir a preservação.');
                 }else if(name==='opacity'||name==='opacidade'){
                     if(label==='opacity'||label==='opacidade'){if(Math.abs(Number(v)-100)>.01)throw Error('Opacidade alterada não é preservada na montagem.');}
-                    else if(label==='blend mode'||label==='modo de mesclagem'){if(!(v===18||normalized(v)==='normal'))throw Error('Modo de mesclagem alterado ou não reconhecido.');}
+                    else if(label==='blend mode'||label==='modo de mesclagem'){
+                        // CEP can expose either its UI enum, a numeric enum or the
+                        // localized label. Never block an untouched Normal blend
+                        // solely because getValue() used another representation.
+                        var blend=normalized(v).replace(/^\s+|\s+$/g,''),code=Number(v);
+                        if(!(blend==='normal'||blend==='padrao'||blend==='default'||(isFinite(code)&&(code===0||code===1||code===18))))
+                            throw Error('Modo de mesclagem diferente de Normal ou sem identificação segura (tipo '+typeof v+', valor '+String(v).slice(0,24)+'). Ajuste o clipe para Normal antes de montar.');
+                    }
                     else throw Error('Máscaras/ajustes de Opacidade não são preservados na montagem.');
                 }else if(name==='time remapping'||name==='remapeamento de tempo'){
                     if(!/^(speed|velocidade)$/.test(label)||Math.abs(Number(v)-100)>.01)throw Error('Remapeamento de tempo não é preservado na montagem.');

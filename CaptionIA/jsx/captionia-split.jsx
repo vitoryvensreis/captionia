@@ -57,8 +57,26 @@ function crop(clip,track,index,values,expectedID){
  if(typeof qe==='undefined')app.enableQE();if(typeof qe==='undefined')throw Error('Preencher requer o Crop do adaptador QE (não documentado). Use Ajustar para trabalhar só com Movimento da API pública.');
  var effect=qe.project.getVideoEffectByName('Crop');if(!effect)effect=qe.project.getVideoEffectByName('Cortar');if(!effect)effect=qe.project.getVideoEffectByName('Recortar');if(!effect)throw Error('Efeito Crop não localizado. Use Ajustar.');
  var count=clip.components.numItems,qt=qeSequence(expectedID).getVideoTrackAt(track),target=null;
- for(var i=0;i<qt.numItems;i++){var item=qt.getItemAt(i);if(item&&item.start&&Math.abs(sec(item.start)-sec(clip.start))<.001&&String(item.name)===String(clip.name)){if(target)throw Error('Correspondência ambígua no efeito Crop.');target=item;}}
- if(!target||!target.addVideoEffect)throw Error('Não consegui localizar o clipe no adaptador Crop. Use Ajustar.');qeSequence(expectedID);target.addVideoEffect(effect);
+ // QE may return localized names or timecode values. Match timeline frame boundaries
+ // first; refuse ambiguities rather than attaching Crop to the wrong clip.
+ if(!qt)throw Error('Adaptador Crop não encontrou a faixa de vídeo V'+(track+1)+'. Use Ajustar.');
+ var fpsFrame=Number(app.project.activeSequence.timebase)/TICKS;
+ var maxDelta=isFinite(fpsFrame)&&fpsFrame>0?fpsFrame*.55:.020;
+ var matching=[],qeItems=[];
+ for(var i=0;i<qt.numItems;i++){
+  var item=qt.getItemAt(i);if(!item||typeof item.addVideoEffect!=='function')continue;
+  qeItems.push(item);
+  var start=sec(item.start),end=sec(item.end),sourceStart=sec(clip.start),sourceEnd=sec(clip.end);
+  if(!isFinite(start)||!isFinite(sourceStart)||Math.abs(start-sourceStart)>maxDelta)continue;
+  if(isFinite(end)&&isFinite(sourceEnd)&&Math.abs(end-sourceEnd)>maxDelta)continue;
+  matching.push(item);
+ }
+ if(matching.length===1)target=matching[0];
+ // Some QE builds do not expose numeric times at all. A single video clip on
+ // the mapped track is unambiguous; otherwise do not guess.
+ if(!target&&matching.length===0&&qeItems.length===1&&index===0&&app.project.activeSequence.videoTracks[track].clips.numItems===1)target=qeItems[0];
+ if(!target)throw Error('Crop não identificou um clipe único na V'+(track+1)+' (QE: '+qeItems.length+', correspondências: '+matching.length+'). Use Ajustar.');
+ qeSequence(expectedID);target.addVideoEffect(effect);
  if(clip.components.numItems!==count+1)throw Error('Premiere não confirmou a adição do efeito Crop.');
  var component=clip.components[clip.components.numItems-1];
  var left=property(component,['left','esquerda']),right=property(component,['right','direita']),top=property(component,['top','topo','superior']),bottom=property(component,['bottom','inferior','base']);

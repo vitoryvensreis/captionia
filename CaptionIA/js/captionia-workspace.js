@@ -33,6 +33,16 @@
             if (name === 'home') tabs[i].classList.remove('active');
             tabs[i].setAttribute('aria-current', tabs[i].getAttribute('data-filter') === name ? 'page' : 'false');
         }
+        var modelFilters=byId('captionia-model-filters');
+        if(modelFilters){
+            modelFilters.hidden=name!=='all'&&name!=='favorites';
+            var filters=modelFilters.querySelectorAll('[data-model-filter]');
+            for(var m=0;m<filters.length;m++){
+                var selected=filters[m].getAttribute('data-model-filter')===name;
+                filters[m].classList.toggle('active',selected);
+                filters[m].setAttribute('aria-pressed',selected?'true':'false');
+            }
+        }
         var text = routes[name];
         if (text) { byId('captionia-view-title').textContent = text[0]; byId('captionia-view-description').textContent = text[1]; }
     }
@@ -90,6 +100,20 @@
         context.innerHTML = '<div><h1 id="captionia-view-title"></h1><p id="captionia-view-description"></p></div><button type="button" data-captionia-tutorial>Ajuda guiada</button>';
         main.parentNode.insertBefore(context, main);
         var labels = { all: 'Modelos', autoedit: 'Edição guiada', 'auto-aplicar': 'Legendas', autocut: 'Cortes', dinamica: 'Imagem', 'copiar-estilo': 'Estilos', 'sfx-auto': 'Sons' };
+        // Favoritos becomes an in-page filter of Modelos (not a crowded top tab).
+        var favoriteTab=nav.querySelector('.sidebar-tab[data-filter="favorites"]');
+        var modelTab=nav.querySelector('.sidebar-tab[data-filter="all"]');
+        if(favoriteTab&&modelTab){
+            var modelFilters=d.createElement('div');modelFilters.id='captionia-model-filters';modelFilters.className='captionia-model-filters';
+            modelFilters.innerHTML='<button type="button" data-model-filter="all">Todos os modelos</button><button type="button" data-model-filter="favorites">★ Favoritos</button>';
+            context.appendChild(modelFilters);
+            modelFilters.addEventListener('click',function(ev){
+                var target=ev.target.closest('[data-model-filter]');if(!target)return;
+                var mode=target.getAttribute('data-model-filter');
+                var tab=mode==='favorites'?favoriteTab:modelTab;
+                tab.click();
+            });
+        }
         var tabs = nav.querySelectorAll('.sidebar-tab');
         for (var i = 0; i < tabs.length; i++) (function (tab) {
             var filter = tab.getAttribute('data-filter'), span = tab.querySelector('span');
