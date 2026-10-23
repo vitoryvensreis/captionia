@@ -213,6 +213,38 @@ const animatedAudio=property('Volume',1);animatedAudio.isTimeVarying=()=>true;
 f.original.audioTracks[0].clips[0].components[0].properties.push(animatedAudio);
 assert.match(f.call('fsNarrativeBetaSnapshot').error,/keyframes/);
 
+// Real Premiere PT-BR regression 23/10: native Volume/Volume=false is a
+// boolean control field. It must not be interpreted as zero gain/muted audio.
+f=fixture('jsx/narrative-beta.jsx');
+const nativeVolume=f.original.audioTracks[0].clips[0].components[0];
+nativeVolume.properties.unshift(property('Volume',false));
+const nativeAudioSnapshot=f.call('fsNarrativeBetaSnapshot');
+assert.equal(nativeAudioSnapshot.ok,true,nativeAudioSnapshot.error);
+assert.ok(nativeAudioSnapshot.hostTrace.some(x=>x.phase==='audio.volume-flag'));
+assert.ok(nativeAudioSnapshot.hostTrace.some(x=>x.phase==='audio.property'&&x.detail.includes('volume = false')));
+nativeVolume.properties[0].setValue(true);
+assert.match(f.call('fsNarrativeBetaSnapshot').error,/Estado booleano de Volume alterado/);
+nativeVolume.properties[0].setValue(false);
+nativeVolume.properties[1].setValue(0.5);
+assert.match(f.call('fsNarrativeBetaSnapshot').error,/Volume do take alterado/);
+// Without an independently verified Level/Nivel, a false flag alone is NOT enough.
+f=fixture('jsx/narrative-beta.jsx');
+f.original.audioTracks[0].clips[0].components[0].properties=collection([property('Volume',false)]);
+const noGain=f.call('fsNarrativeBetaSnapshot');
+assert.equal(noGain.ok,false);
+assert.match(noGain.error,/não foi possível confirmar Nível\/Level/);
+assert.ok(noGain.hostTrace.some(x=>x.phase==='audio.level-unverified'));
+// Some Premiere CEP versions expose zero dB as 0.177827941 (15 dB offset).
+f=fixture('jsx/narrative-beta.jsx');
+f.original.audioTracks[0].clips[0].components[0].properties=collection([property('Volume',false),property('Level',0.17782793939114)]);
+assert.equal(f.call('fsNarrativeBetaSnapshot').ok,true,'0 dB native level with neutral Volume=false must pass');
+f.original.audioTracks[0].clips[0].components[0].properties[1].setValue(0.25);
+assert.match(f.call('fsNarrativeBetaSnapshot').error,/Volume do take alterado/);
+// Gain values with no explicit Level identity must not be treated as a 0 dB offset.
+f=fixture('jsx/narrative-beta.jsx');
+f.original.audioTracks[0].clips[0].components[0].properties=collection([property('Volume',0.17782793939114)]);
+assert.match(f.call('fsNarrativeBetaSnapshot').error,/Volume do take alterado/);
+
 // Regression from real Premiere PT-BR logs, 23 Oct 2026.
 f=fixture('jsx/narrative-beta.jsx');
 f.original.videoTracks[0].clips[0].components[0].properties.push(property('Filtro anti-cintilação',0));
