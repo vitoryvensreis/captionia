@@ -17,7 +17,7 @@
   var item={n:++seq,at:new Date().toISOString(),action:action,status:/^(ok|start|failed|warning|info)$/.test(status)?status:'info'};
   if(meta&&typeof meta==='object'){
    item.meta={};Object.keys(meta).slice(0,7).forEach(function(k){
-    if(!/^(code|detail|elapsedMs|phase|operation|count|mode|result)$/.test(k))return;
+    if(!/^(code|detail|elapsedMs|phase|operation|count|mode|result|track|before|after|matched|qeCount|step)$/.test(k))return;
     var v=meta[k];if(typeof v==='number'&&isFinite(v))item.meta[k]=v;
     else if(typeof v==='string'||typeof v==='boolean')item.meta[k]=sanitize(v);
    });
@@ -26,7 +26,7 @@
  }
  function recent(){return events.slice();}
  function exportLog(){
-  var payload=JSON.stringify({product:'Caption IA',version:'3.6.1-dev',events:recent()},null,2);
+  var payload=JSON.stringify({product:'Caption IA',version:'3.6.3-dev',events:recent()},null,2);
   try{
    var fs=require('fs'),path=require('path'),os=require('os');
    var dir=path.join(process.env.LOCALAPPDATA||os.tmpdir(),'CaptionIA','Logs');
@@ -43,7 +43,7 @@
   var layer=doc.createElement('div');layer.id='cia-diag-overlay';layer.className='cia-diag-overlay';
   var panel=doc.createElement('section');panel.className='cia-diag-panel';panel.setAttribute('role','dialog');panel.setAttribute('aria-label','Diagnóstico Caption IA');
   panel.innerHTML='<div class="cia-diag-head"><strong>Diagnóstico de operações</strong><button type="button" data-diag="close" aria-label="Fechar">×</button></div>'+
-   '<p>Registra somente etapas técnicas; não salva transcrição, mídia nem chaves. Últimos 120 eventos.</p>'+
+   '<p>Etapas do Premiere, verificações de efeito, tempos de execução e erro. Não inclui mídia, falas nem chaves. Últimos 120 eventos.</p>'+
    '<pre id="cia-diag-output"></pre><div class="cia-diag-actions"><button type="button" data-diag="export">Salvar relatório</button><button type="button" data-diag="clear">Limpar</button></div><small id="cia-diag-feedback"></small>';
   layer.appendChild(panel);doc.body.appendChild(layer);
   function paint(){doc.getElementById('cia-diag-output').textContent=recent().slice(-60).map(function(e){return e.at+' · '+e.action+' · '+e.status+(e.meta?' · '+JSON.stringify(e.meta):'');}).join('\n')||'Nenhum evento registrado.';}

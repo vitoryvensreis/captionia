@@ -1,8 +1,10 @@
 /* Caption IA split screen. ES3 / Premiere ExtendScript. Original TrackItems are never moved or rebuilt. */
 (function(){
 var TICKS=254016000000;
-function response(value){value.ok=true;return JSON.stringify(value);}
-function error(e){return JSON.stringify({ok:false,error:String(e&&e.message||e)});}
+var hostTrace=[];
+function hostNote(phase,detail){if(hostTrace.length<32)hostTrace.push({phase:String(phase).slice(0,54),detail:String(detail||'').slice(0,110)});}
+function response(value){value.ok=true;value.hostTrace=hostTrace.slice(0);hostTrace=[];return JSON.stringify(value);}
+function error(e){var result={ok:false,error:String(e&&e.message||e),code:'SPLIT_HOST_GUARD',hostTrace:hostTrace.slice(0)};hostTrace=[];return JSON.stringify(result);}
 function sec(value){return Number(value&&value.seconds!==undefined?value.seconds:value);}
 function seq(){var s=app.project.activeSequence;if(!s)throw Error('Abra uma sequência do Premiere.');return s;}
 function byID(id){for(var i=0;i<app.project.sequences.numSequences;i++){var s=app.project.sequences[i];if(String(s.sequenceID)===String(id))return s;}throw Error('A sequência original não está mais neste projeto.');}
@@ -92,16 +94,38 @@ function crop(clip,track,index,values,expectedID){
  // is unambiguous. Never fall back when two or more real clips are present.
  if(!target&&matching.length===0&&qeItems.length===1&&
      app.project.activeSequence.videoTracks[track].clips.numItems===1&&index===0)target=qeItems[0];
+ hostNote('crop.match','track='+track+' qe='+rawCount+' real='+qeItems.length+' matched='+matching.length+' target='+(!!target));
  if(!target)throw Error('Crop não identificou clipe único na V'+(track+1)+
      ' (itens QE: '+rawCount+', clipes reais: '+qeItems.length+', correspondências: '+matching.length+'). Use Ajustar ou revise a seleção.');
- qeSequence(expectedID);target.addVideoEffect(effect);
- if(clip.components.numItems!==count+1)throw Error('Premiere não confirmou a adição do efeito Crop.');
- var component=clip.components[clip.components.numItems-1];
+ // QE and the public DOM do not always refresh their component list synchronously.
+ // Add ONCE only, then read back the matching new Crop effect. Never retry insertion
+ // blindly, because a delayed Premiere refresh might cause duplicate effects.
+ qeSequence(expectedID);var addResult=target.addVideoEffect(effect);
+ hostNote('crop.add','track='+track+' before='+count+' qeReturn='+typeof addResult);
+ function findNewCrop(){
+  var current=app.project.activeSequence.videoTracks[track].clips[index];
+  if(!current||!current.components)return null;
+  var n=current.components.numItems;
+  hostNote('crop.probe','track='+track+' before='+count+' after='+n);
+  for(var ci=count;ci<n;ci++){
+   var candidate=current.components[ci],nm=normalize(candidate.displayName),id=String(candidate.matchName||'');
+   if(/crop/i.test(id)||/^(crop|cortar|recortar)$/.test(nm))return candidate;
+  }
+  return null;
+ }
+ var component=findNewCrop();
+ // 3 bounded read-only refreshes (<=360 ms), without modifying the source sequence.
+ for(var probe=0;!component&&probe<3;probe++){
+  if(typeof $!=='undefined'&&typeof $.sleep==='function')$.sleep(120);
+  component=findNewCrop();
+ }
+ if(!component)throw Error('O QE não disponibilizou o Crop no DOM após a inserção (V'+(track+1)+', antes='+count+'). Use Ajustar. Veja o diagnóstico para a fase crop.probe.');
+ hostNote('crop.verified','track='+track+' component='+String(component.matchName||'Crop').slice(0,32));
  var left=property(component,['left','esquerda']),right=property(component,['right','direita']),top=property(component,['top','topo','superior']),bottom=property(component,['bottom','inferior','base']);
  if(!left||!right||!top||!bottom)throw Error('Parâmetros Crop não reconhecidos. Use Ajustar.');
  propSet(left,values.left,'recorte esquerdo');propSet(right,values.right,'recorte direito');propSet(top,values.top,'recorte superior');propSet(bottom,values.bottom,'recorte inferior');
 }
-function apply(args){var original=seq(),fresh=inspect();if(String(args.sequenceID)!==String(original.sequenceID)||args.signature!==fresh.signature)throw Error('A seleção ou sequência mudou. Prepare a tela dividida novamente.');
+function apply(args){hostTrace=[];hostNote('split.start','checking selected tracks');var original=seq(),fresh=inspect();hostNote('split.selection','clips='+fresh.clips.length+' frameMs='+Math.round(fresh.frameDuration*1000));if(String(args.sequenceID)!==String(original.sequenceID)||args.signature!==fresh.signature)throw Error('A seleção ou sequência mudou. Prepare a tela dividida novamente.');
  var presets={'side-by-side':2,'top-bottom':2,'grid-2x2':4};if(!presets[args.preset]||!args.items||args.items.length!==presets[args.preset]||args.items.length!==fresh.clips.length||(args.fit!=='fit'&&args.fit!=='fill'))throw Error('Plano de layout inválido.');
  var columns=args.preset==='top-bottom'?1:2,rows=args.preset==='side-by-side'?1:2,tracks={},base=fresh.clips[0];
  for(i=0;i<fresh.clips.length;i++){var check=fresh.clips[i];if(tracks[check.track])throw Error('Cada vídeo precisa ocupar uma faixa diferente.');tracks[check.track]=true;if(Math.abs(check.start-base.start)>fresh.frameDuration*1.01||Math.abs(check.end-base.end)>fresh.frameDuration*1.01)throw Error('Alinhe início e fim dos vídeos no mesmo frame antes de dividir a tela.');}
@@ -109,21 +133,37 @@ function apply(args){var original=seq(),fresh=inspect();if(String(args.sequenceI
  if(!original.clone())throw Error('Não consegui criar a cópia de segurança. Nenhum clipe foi ajustado.');
  for(i=0;i<app.project.sequences.numSequences;i++)if(!ids[String(app.project.sequences[i].sequenceID)]){target=app.project.sequences[i];break;}
  if(!target)throw Error('Não localizei o clone. A sequência original está preservada.');
+ hostNote('split.clone','created=1 copyActive='+String(target.sequenceID!==original.sequenceID));
  target.name='Caption IA • Tela dividida • '+new Date().getTime();
- try{app.project.openSequence(target.sequenceID);requireActive(target.sequenceID);for(i=0;i<args.items.length;i++){
+ try{app.project.openSequence(target.sequenceID);requireActive(target.sequenceID);var effectiveFit=args.fit,warning='';for(i=0;i<args.items.length;i++){
   var entry=args.items[i],ref=fresh.clips[i];if(entry.track!==ref.track||entry.index!==ref.index||entry.nodeId!==ref.nodeId)throw Error('Plano não corresponde à seleção.');
   // Recompute geometry on the host from the current media; never trust client scale/crop values.
   var slotW=fresh.width/columns,slotH=fresh.height/rows,sx=slotW*fresh.pixelAspect/(ref.width*ref.pixelAspect),sy=slotH/ref.height,scale=args.fit==='fill'?Math.max(sx,sy):Math.min(sx,sy);
   var pos=[(i%columns+.5)/columns,(Math.floor(i/columns)+.5)/rows];
   c=target.videoTracks[entry.track].clips[entry.index];var m=motionState(c),position=m.normalized?pos:[pos[0]*fresh.width,pos[1]*fresh.height];
+  if(effectiveFit==='fit')scale=Math.min(sx,sy);
   if(!isFinite(scale)||scale<=0||scale*100>10000)throw Error('Enquadramento inválido.');
-  requireActive(target.sequenceID);propSet(m.scale,scale*100,'escala');propSet(m.position,position,'posição');
-  if(args.fit==='fill'){var cropX=Math.max(0,(1-slotW*fresh.pixelAspect/(ref.width*ref.pixelAspect*scale))*50),cropY=Math.max(0,(1-slotH/(ref.height*scale))*50);crop(c,entry.track,entry.index,{left:cropX,right:cropX,top:cropY,bottom:cropY},target.sequenceID);}
+  requireActive(target.sequenceID);hostNote('split.motion','track='+entry.track+' mode='+args.fit+' scale='+Math.round(scale*1000)/10);propSet(m.scale,scale*100,'escala');propSet(m.position,position,'posição');
+  if(effectiveFit==='fill'){
+   var cropX=Math.max(0,(1-slotW*fresh.pixelAspect/(ref.width*ref.pixelAspect*scale))*50),cropY=Math.max(0,(1-slotH/(ref.height*scale))*50);
+   try{crop(c,entry.track,entry.index,{left:cropX,right:cropX,top:cropY,bottom:cropY},target.sequenceID);}
+   catch(cropError){
+    // The new native Crop UI is not guaranteed to be exposed via CEP/QE.
+    // Only downgrade safely when the FIRST clip's Crop failed: nothing
+    // was cropped in any earlier cell and no original clip was touched.
+    if(i!==0||!/^(O QE não disponibilizou|Preencher requer o Crop|Efeito Crop não localizado)/.test(String(cropError&&cropError.message||'')))throw cropError;
+    effectiveFit='fit';warning='O Premiere não disponibilizou o efeito Crop. A cópia foi criada no modo Ajustar (sem recorte), mantendo a original intacta.';
+    hostNote('split.fallback','first crop unavailable, applied public Motion Fit');
+    scale=Math.min(sx,sy);
+    propSet(m.scale,scale*100,'escala sem Crop');
+   }
+  }
  }
- return {originalId:String(original.sequenceID),sequenceID:String(target.sequenceID),name:String(target.name),count:args.items.length,created:true,originalPreserved:true};
+ hostNote('split.finished','clips='+args.items.length+' requested='+args.fit+' actual='+effectiveFit);
+ return {originalId:String(original.sequenceID),sequenceID:String(target.sequenceID),name:String(target.name),count:args.items.length,created:true,originalPreserved:true,fitApplied:effectiveFit,requestedFit:args.fit,degraded:effectiveFit!==args.fit,warning:warning};
  }catch(e){app.project.openSequence(original.sequenceID);throw Error('Tela dividida cancelada; original preservada. A cópia incompleta permanece no projeto para revisão. '+e.message);}
 }
-$.global.captioniaSplitInspect=function(){try{return response(inspect());}catch(e){return error(e);}};
+$.global.captioniaSplitInspect=function(){try{hostTrace=[];hostNote('inspect.start','reading selected Premiere clips');return response(inspect());}catch(e){return error(e);}};
 $.global.captioniaSplitApply=function(payload){try{return response(apply(JSON.parse(payload)));}catch(e){return error(e);}};
 $.global.captioniaSplitRestore=function(payload){try{var args=JSON.parse(payload),s=byID(args.sequenceID);app.project.openSequence(s.sequenceID);return response({restored:true,sequenceID:String(s.sequenceID)});}catch(e){return error(e);}};
 })();

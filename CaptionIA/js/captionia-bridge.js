@@ -12,6 +12,16 @@
   if(root&&root.CaptionIADiagnostics)root.CaptionIADiagnostics.record('premiere.'+action,status,{elapsedMs:elapsed,code:err?'HOST_OPERATION_FAILED':null,detail:err||null});
  }
 
+ function trackHostTrace(name,trace){
+  if(!Array.isArray(trace)||!root||!root.CaptionIADiagnostics)return;
+  trace.slice(-32).forEach(function(step){
+   if(!step||typeof step!=='object')return;
+   root.CaptionIADiagnostics.record('premiere.host-step','info',{
+    operation:name,phase:String(step.phase||'host').slice(0,55),
+    detail:String(step.detail||'').slice(0,110)
+   });
+  });
+ }
  function invoke(name,data,options){return new Promise(function(resolve,reject){
   if(!allow[name])return reject(Error('Operação Adobe não autorizada: '+name));
   var cs=root.csInterface;
@@ -28,12 +38,13 @@
    try{
     if(!raw||raw==='EvalScript error.')throw Error('Ponte Adobe não conseguiu executar '+name+'.');
     var value=JSON.parse(String(raw));
+    if(value)trackHostTrace(name,value.hostTrace);
     if(!value||value.ok!==true)throw Error(value&&value.error||'A operação não foi confirmada no Premiere.');
     finish(null,value);
    }catch(e){finish(e);}
   });}catch(e){finish(e);}
  });}
- var api=Object.freeze({call:invoke,recent:function(){return root&&root.CaptionIADiagnostics?root.CaptionIADiagnostics.recent():[];},version:'3.6.1'});
+ var api=Object.freeze({call:invoke,recent:function(){return root&&root.CaptionIADiagnostics?root.CaptionIADiagnostics.recent():[];},version:'3.6.3'});
  if(typeof module!=='undefined'&&module.exports)module.exports=api;
  if(root)root.CaptionIABridge=api;
 })(typeof window!=='undefined'?window:null);

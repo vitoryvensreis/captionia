@@ -2,8 +2,10 @@
    Strict single talking-head track + linked audio guard. Original sequence NEVER edited here. */
 (function(){
     var TICKS=254016000000;
-    function ok(o){o.ok=true;return JSON.stringify(o);}
-    function error(msg){return JSON.stringify({ok:false,error:String(msg)});}
+    var hostTrace=[];
+    function hostNote(phase,detail){if(hostTrace.length<22)hostTrace.push({phase:String(phase).slice(0,48),detail:String(detail||'').slice(0,105)});}
+    function ok(o){o.ok=true;o.hostTrace=hostTrace.slice(0);hostTrace=[];return JSON.stringify(o);}
+    function error(msg){var result={ok:false,error:String(msg),code:'NARRATIVE_HOST_GUARD',hostTrace:hostTrace.slice(0)};hostTrace=[];return JSON.stringify(result);}
     function byID(id){var seqs=app.project.sequences;for(var i=0;i<seqs.numSequences;i++){var s=seqs[i];if(String(s.sequenceID)===String(id))return s;}return null;}
     function active(){return app&&app.project&&app.project.activeSequence;}
     function secs(v){return Number(v&&v.seconds!==undefined?v.seconds:v);}
@@ -56,10 +58,12 @@
                 if(p.isTimeVarying&&p.isTimeVarying())throw Error('O take contém animação em '+component.displayName+'. A prévia não pode preservar esses keyframes.');
                 v=p.getValue();props.push({name:String(p.displayName),value:v});
                 if(name==='motion'||name==='movimento'){
+                    // Only technical Adobe property metadata; never log a clip name, media path or dialogue.
+                    hostNote('motion.property',label.slice(0,45)+' = '+debugValue(v).slice(0,32));
                     if(label==='position'||label==='posicao'||label==='anchor point'||label==='ponto de ancoragem'){
                         center=v&&v.length===2&&((Math.abs(Number(v[0])-.5)<.001&&Math.abs(Number(v[1])-.5)<.001)||(Math.abs(Number(v[0])-media.width/2)<.1&&Math.abs(Number(v[1])-media.height/2)<.1));
                         if(!center)throw Error('O take tem enquadramento alterado. A montagem por subclipes não preserva Movimento; use takes brutos.');
-                    }else if(/^(scale|escala|scale width|largura da escala|largura de escala)$/.test(label)){if(!neutralScale(v))throw Error('O take contém escala alterada ou sem leitura segura ('+p.displayName+': '+debugValue(v)+'). Use takes brutos na Montagem.');}
+                    }else if(/^(scale|escala|scale width|largura da escala|largura de escala|dimensionar largura|dimensao largura)$/.test(label)){if(!neutralScale(v))throw Error('O take contém escala alterada ou sem leitura segura ('+p.displayName+': '+debugValue(v)+'). Use takes brutos na Montagem.');}
                     else if(/^(rotation|rotacao|anti-flicker filter|filtro anticintilacao|filtro anticintilante)$/.test(label)){if(Math.abs(Number(v))>.001)throw Error('O take contém rotação/filtro de Movimento alterado.');}
                     else if(label==='uniform scale'||label==='escala uniforme'){if(!v)throw Error('Escala não uniforme não é preservada na montagem.');}
                     else throw Error('Parâmetro de Movimento não reconhecido: '+p.displayName+'. Não consigo garantir a preservação.');
@@ -256,7 +260,7 @@
     }
     $.global.fsNarrativeBetaCloneForRetake=function(payload){try{return ok(cloneForRetake(JSON.parse(payload)));}catch(e){return error(e.message);}};
     $.global.fsNarrativeBetaValidatePreview=function(payload){try{return ok(validatePreview(JSON.parse(payload)));}catch(e){return error(e.message);}};
-    $.global.fsNarrativeBetaSnapshot=function(){try{return ok(snapshot());}catch(e){return error(e.message);}};
-    $.global.fsNarrativeBetaPreview=function(payload){try{if(typeof JSON==='undefined')throw Error('JSON indisponível no ExtendScript.');return ok(makePreview(JSON.parse(payload)));}catch(e){return error(e.message);}};
+    $.global.fsNarrativeBetaSnapshot=function(){try{hostTrace=[];hostNote('snapshot.start','checking source tracks and effect defaults');return ok(snapshot());}catch(e){return error(e.message);}};
+    $.global.fsNarrativeBetaPreview=function(payload){try{hostTrace=[];hostNote('preview.start','verify clone and source intervals');if(typeof JSON==='undefined')throw Error('JSON indisponível no ExtendScript.');return ok(makePreview(JSON.parse(payload)));}catch(e){return error(e.message);}};
     $.global.fsNarrativeBetaRestore=function(payload){try{var d=JSON.parse(payload),seq=byID(d.sequenceID);if(!seq)throw Error('Sequência anterior não encontrada');if(!d.sourceSignature||snapshot(seq).signature!==d.sourceSignature)throw Error('A original mudou desde a análise. Refaça a transcrição antes de continuar o Auto Edit.');app.project.openSequence(seq.sequenceID);return ok({restored:true});}catch(e){return error(e.message);}};
 })();

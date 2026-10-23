@@ -45,7 +45,7 @@ let originalAudio=JSON.stringify(f.original.audioTracks[0].clips.map(c=>[c.nodeI
 let applied=f.call('captioniaSplitApply',prepared);assert.equal(applied.ok,true);assert.equal(f.state.clones,1);assert.equal(f.original.videoTracks[0].clips[0].components[0].properties[1].getValue(),100);assert.equal(f.project.activeSequence.videoTracks[0].clips[0].components[0].properties[1].getValue(),50);assert.equal(JSON.stringify(f.original.audioTracks[0].clips.map(c=>[c.nodeId,c.start,c.end,c.inPoint,c.outPoint])),originalAudio);
 assert.equal(f.call('captioniaSplitRestore',{sequenceID:'original'}).ok,true);
 f.original.videoTracks[0].clips[0].start.seconds=1;assert.match(f.call('captioniaSplitApply',prepared).error,/mudou/);assert.equal(f.state.clones,1);
-f.original.videoTracks[0].clips[0].start.seconds=0;prepared=split.plan(f.call('captioniaSplitInspect'),{preset:'side-by-side',fit:'fill'});let failed=f.call('captioniaSplitApply',prepared);assert.equal(failed.ok,false);assert.match(failed.error,/original preservada/);assert.equal(f.project.activeSequence.sequenceID,'original');
+f.original.videoTracks[0].clips[0].start.seconds=0;prepared=split.plan(f.call('captioniaSplitInspect'),{preset:'side-by-side',fit:'fill'});let failed=f.call('captioniaSplitApply',prepared);assert.equal(failed.ok,true);assert.equal(failed.degraded,true);assert.equal(failed.fitApplied,'fit');assert.match(failed.warning,/Crop/);assert.equal(f.original.videoTracks[0].clips[0].components[0].properties[1].getValue(),100);assert.equal(f.project.activeSequence.videoTracks[0].clips[0].components[0].properties[1].getValue(),50);assert.ok(failed.hostTrace.some(s=>s.phase==='split.fallback'));f.project.openSequence('original');
 prepared=split.plan(f.call('captioniaSplitInspect'),{preset:'side-by-side',fit:'fit'});prepared.items[0].scale=9999;applied=f.call('captioniaSplitApply',prepared);assert.equal(applied.ok,true);assert.equal(f.project.activeSequence.videoTracks[0].clips[0].components[0].properties[1].getValue(),50);
 f=fixture('jsx/captionia-split.jsx');f.original.videoTracks.push(f.track([f.clip(f.media('m2'),'video')]));f.state.attributeMetadata=true;assert.equal(f.call('captioniaSplitInspect').ok,true);
 prepared=split.plan(f.call('captioniaSplitInspect'),{preset:'side-by-side',fit:'fill'});f.project.openSequence=function(){};
@@ -89,6 +89,16 @@ for(const neutral of [1,'100%',[100,100],[1,1]]){
 f=fixture('jsx/narrative-beta.jsx');
 f.original.videoTracks[0].clips[0].components[0].properties[1].setValue(125);
 assert.match(f.call('fsNarrativeBetaSnapshot').error,/escala alterada.*125/);
+
+// Premiere Portuguese localization labels Scale Width as Dimensionar largura.
+// Reject genuine transforms, but accept the default 100% in talking-head takes.
+f=fixture('jsx/narrative-beta.jsx');
+f.original.videoTracks[0].clips[0].components[0].properties.push(property('Dimensionar largura',100));
+let ptSnapshot=f.call('fsNarrativeBetaSnapshot');
+assert.equal(ptSnapshot.ok,true,ptSnapshot.error);
+assert.ok(ptSnapshot.hostTrace.some(s=>s.phase==='motion.property'&&s.detail.includes('dimensionar largura')));
+f.original.videoTracks[0].clips[0].components[0].properties.at(-1).setValue(160);
+assert.match(f.call('fsNarrativeBetaSnapshot').error,/escala alterada.*Dimensionar largura/);
 
 // The legacy Favorites sub-navigation must move below Sua biblioteca context.
 const workspaceSource=source('js/captionia-workspace.js');

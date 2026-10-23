@@ -1,0 +1,15 @@
+CAPTION IA 3.6.3 DEV — LOGS TÉCNICOS E COMPATIBILIDADE PREMIERE (23/10/2026)
+
+1. MONTAGEM: reconhece o controle padrão `Dimensionar largura` no Premiere português como Scale Width. A validação continua rejeitando escala realmente alterada, pois a montagem por subclipe não transfere efeitos.
+2. TELA DIVIDIDA: identifica clipe QE conforme 3.6.2, insere efeito Crop apenas uma vez e aguarda atualizações de leitura do DOM (3 leituras de até 120 ms). Exige prova de que o componente Crop está presente antes de modificar parâmetros.
+3. ALTERNATIVA FUNCIONAL: quando o primeiro Crop falha por indisponibilidade segura, conclui a cópia usando apenas Movimento/Ajustar. A interface informa claramente que o modo Preencher foi substituído; nunca altera a sequência original nem tenta aplicar Crop às cegas.
+4. DIAGNÓSTICOS: passos de host detalhados (inspeção, clone, mapeamento QE, resultado da inserção, confirmação DOM, fallback, propriedades técnicas de Movimento), duração e código de erro, com no máximo 120 eventos e sanitização. Salve pelo ícone ◉ do painel.
+5. DIAGNÓSTICO NÃO É HOMOLOGAÇÃO: ainda exige testes no Premiere real, principalmente Preencher. O QE é API não documentada. Adobe UXP 25.6+ tem inserção documentada de efeitos por matchName e ações transacionais; migração será um projeto próprio, não uma substituição silenciosa do CEP.
+
+REFERÊNCIAS OFICIAIS:
+https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/videofilterfactory/
+https://github.com/AdobeDocs/uxp-premiere-pro-samples/blob/main/sample-panels/premiere-api/src/effects.ts
+https://github.com/Adobe-CEP/Samples/blob/master/PProPanel/ReadMe.md
+https://helpx.adobe.com/premiere/desktop/edit-projects/intro-to-editing/edit-video-using-the-properties-panel.html
+
+ATENÇÃO: sem teste integrado no Premiere Pro neste ambiente; testes locais com DOM simulado não garantem que o QE permitirá inserir Crop.
