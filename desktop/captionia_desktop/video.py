@@ -108,30 +108,65 @@ def extract_mp3(input_path: Path, start: float, length: float, output: Path) -> 
 
 
 def render_video(input_path: Path, output_path: Path, cuts: list[dict],
-                 has_audio: bool, size: tuple[int, int], subtitle_filename: str,
-                 cwd: Path, progress: Callable[[float], None] | None = None) -> None:
+                 has_audio: bool, size: tuple[int, int], subtitle_filename: str | None,
+                 cwd: Path, progress: Callable[[float], None] | None = None,
+                 *, zoom_mode: str = "desligado", zoom_strength: float = 1.10,
+                 zoom_every_cut: bool = False) -> None:
+    """Render one local MP4; zoom is FFmpeg-native, not an Adobe effect.
+
+    When requested, the zoom resets at the beginning of every alternate cut.
+    With a single continuous segment, it animates once from the start.
+    """
     if not cuts:
         raise VideoError("Sem cortes para renderização.")
     width, height = size
     if width < 100 or height < 100 or width % 2 or height % 2:
         raise VideoError("Resolução de saída inválida.")
+    if zoom_mode not in ("desligado", "suave", "impacto"):
+        raise VideoError("Efeito de zoom desconhecido.")
+    if not 1.01 <= zoom_strength <= 1.20:
+        raise VideoError("Intensidade do zoom fora do limite seguro.")
     chains, concat_inputs = [], []
     for i, cut in enumerate(cuts):
         a, b = float(cut["source_start"]), float(cut["source_end"])
         if b <= a:
             raise VideoError("Intervalo inválido no plano de cortes.")
-        chains.append(f"[0:v]trim=start={a:.6f}:end={b:.6f},setpts=PTS-STARTPTS,setsar=1[v{i}]")
+        video_part = f"[0:v]trim=start={a:.6f}:end={b:.6f},setpts=PTS-STARTPTS,setsar=1"
+        if zoom_mode != "desligado":
+            # Scale and pad before zoom, so the subject starts uncropped. Each
+            # zoompan filter receives independent frames and has no across-cut
+            # state. Input and output FPS stay 30 for AV sync.
+            video_part += (f",scale={width}:{height}:force_original_aspect_ratio=decrease,"
+                           f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=0x0D0911,fps=30")
+            selected = zoom_every_cut or i % 2 == 0 or len(cuts) == 1
+            if selected:
+                expression = (f"min(zoom+{min(.025, (zoom_strength-1)/8):.5f},{zoom_strength:.4f})"
+                              if zoom_mode == "suave" else f"{zoom_strength:.4f}")
+                video_part += (f",zoompan=z='{expression}':"
+                               "x='(iw-iw/zoom)/2':y='(ih-ih/zoom)/2':"
+                               f"d=1:s={width}x{height}:fps=30")
+            video_part += ",format=yuv420p"
+        chains.append(video_part + f"[v{i}]")
         concat_inputs.append(f"[v{i}]")
         if has_audio:
             chains.append(f"[0:a:0]atrim=start={a:.6f}:end={b:.6f},asetpts=PTS-STARTPTS[a{i}]")
             concat_inputs.append(f"[a{i}]")
     chains.append("".join(concat_inputs)+f"concat=n={len(cuts)}:v=1:a={1 if has_audio else 0}"+
                   ("[concatv][concata]" if has_audio else "[concatv]"))
-    # Always contain within the output canvas; never silently crop the presenter's face.
-    vf = (f"[concatv]scale={width}:{height}:force_original_aspect_ratio=decrease,"
-          f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=0x0D0911,"
-          f"fps=30,format=yuv420p,ass=filename={subtitle_filename}[rendered]")
-    chains.append(vf)
+    if zoom_mode != "desligado":
+        vf = "[concatv]format=yuv420p"
+    else:
+        # For exports with no zoom, retain the established contain-within-canvas
+        # behavior to avoid unintentionally cropping faces in vertical output.
+        vf = (f"[concatv]scale={width}:{height}:force_original_aspect_ratio=decrease,"
+              f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=0x0D0911,"
+              "fps=30,format=yuv420p")
+    if subtitle_filename:
+        # A filename here is internal and fixed (captions.ass), never a user path.
+        if subtitle_filename != "captions.ass":
+            raise VideoError("Arquivo de legendas interno inválido.")
+        vf += ",ass=filename=captions.ass"
+    chains.append(vf + "[rendered]")
     args = ["-i", str(input_path), "-filter_complex", ";".join(chains),
             "-map", "[rendered]"]
     if has_audio:

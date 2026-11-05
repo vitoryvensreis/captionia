@@ -1,5 +1,5 @@
 #define AppName "Caption IA Desktop"
-#define AppVersion "1.0.0-beta.1"
+#define AppVersion "1.1.0-beta.1"
 #define AppPublisher "Caption IA"
 #define AppExe "CaptionIA-Desktop.exe"
 
@@ -12,7 +12,7 @@ DefaultDirName={localappdata}\Programs\Caption IA Desktop
 DefaultGroupName=Caption IA Desktop
 PrivilegesRequired=lowest
 OutputDir=..\dist_installer
-OutputBaseFilename=CaptionIA-Desktop-Setup-Windows-1.0.0-beta
+OutputBaseFilename=CaptionIA-Desktop-Setup-Windows-1.1.0-beta
 SetupIconFile=..\assets\captionia.ico
 UninstallDisplayIcon={app}\{#AppExe}
 Compression=lzma2

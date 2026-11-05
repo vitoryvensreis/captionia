@@ -1,4 +1,4 @@
-# Caption IA Desktop · Beta 1.0
+# Caption IA Desktop · Beta 1.1
 
 Aplicativo independente do Adobe Premiere Pro, para Windows e macOS.
 
@@ -10,10 +10,26 @@ Aplicativo independente do Adobe Premiere Pro, para Windows e macOS.
    - **Montagem Inteligente IA:** identifica/ordena trechos a partir da transcrição;
    - **Cortes automáticos:** remove os intervalos de silêncio entre trechos reconhecidos;
    - **Somente legendar:** preserva o vídeo completo.
-4. Escolha estilo de legenda, formato de tela e pasta de saída.
-5. Clique em **Processar e renderizar vídeo**.
+4. Ative independentemente **Montagem/cortes**, **Legendas** e **Zoom**. É possível deixar só zoom, só legendas ou combinar os três.
+5. Se habilitar legendas, selecione um estilo, cores do texto/destaque e tamanho da fonte; importe templates `.mogrt` adicionais quando desejado.
+6. Configure zoom suave ou impacto, força 6%, 10% ou 15%, alternando entre cortes ou aplicando a todos.
+7. Escolha formato de tela/pasta e clique em **Processar e renderizar vídeo**.
 
-O programa devolve o **vídeo MP4 final, já com as legendas**, e uma pasta complementar com `legendas.srt`, `legendas.ass`, `cortes.csv`, `projeto.captionia.json` e `timeline.fcpxml` (intercâmbio experimental).
+O programa devolve o **vídeo MP4 final** com os recursos ativados e uma pasta com `cortes.csv`, `projeto.captionia.json` e `timeline.fcpxml` (experimental). `legendas.srt` e `legendas.ass` são gerados somente se legendas estiverem habilitadas.
+
+## Templates MOGRT do Premiere (compatibilidade de metadados)
+
+O Desktop já inclui as **duas identidades MOGRT diferentes** encontradas no arquivo do usuário:
+
+- `CAPTIONIA_WORD_HIGHLIGHT.mogrt`: recriação nativa de realce de palavras, configurável por cores.
+- `bloco_legenda.mogrt` (`01 word top-down`): recriação simples de entrada vertical por palavra.
+
+Os MOGRTs armazenados são arquivos do próprio projeto. O aplicativo **lê `definition.json`, controles expostos e miniatura PNG** e identifica os presets conhecidos. Em **Importar template .MOGRT** ele também cataloga arquivos personalizados, com aviso claro. Templates que não reconhecemos são catalogados, porém renderizados no fallback genérico clássico.
+
+**Limitação importante:** `project.aegraphic`, expressões After Effects, máscaras, plugins Adobe e animações complexas NÃO são interpretados nem renderizados pelo Python/FFmpeg. Os estilos são aproximações independentes em ASS/libass; não existe garantia de fidelidade quadro a quadro ao MOGRT original. Não necessita do Premiere instalado.
+
+Há ainda cinco templates nativos: Palavra ativa, Clássico, Minimalista, Impacto Pop, Box Tarja.
+
 
 ## Como funciona
 
@@ -39,9 +55,9 @@ A biblioteca `imageio-ffmpeg` inclui o binário FFmpeg usado para importação, 
 
 ## Criar instaladores
 
-**Windows:** instale Python 3.12 e Inno Setup 6. Execute `powershell -ExecutionPolicy Bypass -File packaging/build-win.ps1`. Saída: `dist_installer/CaptionIA-Desktop-Setup-Windows-1.0.0-beta.exe`.
+**Windows:** instale Python 3.12 e Inno Setup 6. Execute `powershell -ExecutionPolicy Bypass -File packaging/build-win.ps1`. Saída: `dist_installer/CaptionIA-Desktop-Setup-Windows-1.1.0-beta.exe`.
 
-**macOS:** instale Python 3.12 (com `venv`) e execute `bash packaging/build-mac.sh` em um Mac. Saída: `dist_installer/CaptionIA-Desktop-macOS-<arquitetura>.dmg`.
+**macOS:** instale Python 3.12 (com `venv`) e execute `bash packaging/build-mac.sh` em um Mac. Saída: `dist_installer/CaptionIA-Desktop-macOS-1.1.0-<arquitetura>.dmg`.
 
 O workflow `.github/workflows/build-desktop.yml` executa esses processos automaticamente nos runners Windows e macOS do GitHub Actions e disponibiliza os resultados na seção **Artifacts** da execução. Para baixar os binários compilados, abra a execução do workflow.
 
@@ -49,10 +65,12 @@ O workflow `.github/workflows/build-desktop.yml` executa esses processos automat
 
 ## Limites da versão Beta
 
-- Não replica presets Adobe MOGRT; a legendar ASS é uma implementação independente.
+- Não executa os renderizadores Adobe MOGRT; importa metadados e reproduz estilos de forma aproximada em ASS/libass.
 - Modo de cortes automáticos usa tempos de palavras; não interpreta todos os sons ou pausas sem fala.
 - A Montagem Inteligente aplica critérios e validações inspirados no algoritmo do plugin e os endpoints existentes, **não é um porte byte a byte** do editor Premiere e seus efeitos.
 - A revisão editorial é automática. Para decisões críticas, revisar o vídeo final antes de enviar ao cliente.
+- Zoom opera sobre o centro da imagem, sem rastreamento de rosto, e pode cortar bordas. Pré-visualize o resultado antes da entrega.
+- Se Montagem e Legendas estiverem desativadas, a transcrição/Groq é pulada. A verificação de licença continua obrigatória.
 - FCPXML é apenas um formato de intercâmbio experimental; não substitui projetos nativos `.prproj`, `.drp` ou `.aep`.
 - A Groq e a plataforma aplicam limites de áudio e processamento e podem rejeitar chamadas.
 - O login da API consome uma vaga de dispositivo da licença, conforme as regras existentes do site.

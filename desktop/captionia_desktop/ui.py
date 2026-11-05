@@ -5,12 +5,12 @@ import platform
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QThread, Signal, QTimer, QUrl
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtGui import QDesktopServices, QPixmap, QColor
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QFrame, QWidget, QLabel, QLineEdit,
     QVBoxLayout, QHBoxLayout, QGridLayout, QPushButton, QComboBox,
     QProgressBar, QFileDialog, QStackedWidget, QMessageBox, QTextEdit,
-    QScrollArea, QSizePolicy,
+    QScrollArea, QSizePolicy, QCheckBox, QColorDialog,
 )
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtMultimediaWidgets import QVideoWidget
@@ -18,6 +18,7 @@ from PySide6.QtMultimediaWidgets import QVideoWidget
 from .api import CaptionApi
 from .pipeline import run_pipeline
 from .video import probe_video
+from .templates import catalog, import_mogrt
 
 SITE = "https://caption.escotilhaprodutora.com"
 
@@ -48,6 +49,11 @@ QProgressBar::chunk { background:#E83C86; border-radius:6px; }
 QScrollArea { border:0; }
 QScrollBar:vertical { width:8px; background:#191120; }
 QScrollBar::handle:vertical { background:#614064; border-radius:4px; }
+QCheckBox { color:#F6ECF7; font-weight:650; padding:5px 0; }
+QCheckBox::indicator { width:20px; height:20px; }
+QCheckBox::indicator:unchecked { background:#181021; border:1px solid #8C658C; border-radius:5px; }
+QCheckBox::indicator:checked { background:#E83C86; border:1px solid #FD9FC9; border-radius:5px; }
+
 """
 
 
@@ -87,17 +93,16 @@ class RenderWorker(QThread):
     done = Signal(str)
     failed = Signal(str)
 
-    def __init__(self, api, source, output, mode, captions, format_name, objective):
+    def __init__(self, api, source, output, settings):
         super().__init__()
         self.api = api
-        self.params = (source, output, mode, captions, format_name, objective)
+        self.source, self.output, self.settings = source, output, settings
 
     def run(self):
         try:
-            path = run_pipeline(self.params[0], self.params[1], self.api,
-                                edit_mode=self.params[2], caption_style=self.params[3],
-                                output_format=self.params[4], objective=self.params[5],
-                                status=lambda message, percent: self.stage.emit(message, percent))
+            path = run_pipeline(self.source, self.output, self.api,
+                                status=lambda message, percent: self.stage.emit(message, percent),
+                                **self.settings)
             self.done.emit(str(path))
         except Exception as exc:
             self.failed.emit(str(exc))
@@ -110,7 +115,7 @@ class CaptionDesktopWindow(QMainWindow):
         self.source: Path | None = None
         self.last_output: Path | None = None
         self.worker: QThread | None = None
-        self.setWindowTitle("Caption IA Desktop — Vídeo inteligente")
+        self.setWindowTitle("Caption IA Desktop 1.1 — Templates e Zoom")
         self.setMinimumSize(1050, 720)
         self.resize(1240, 790)
         self.setStyleSheet(QSS)
@@ -135,7 +140,7 @@ class CaptionDesktopWindow(QMainWindow):
         row.addWidget(mark)
         row.addSpacing(6)
         row.addWidget(label("CAPTION IA", "Brand"))
-        row.addWidget(label("DESKTOP  /  BETA 1.0", "Eyebrow"))
+        row.addWidget(label("DESKTOP  /  BETA 1.1", "Eyebrow"))
         row.addStretch()
         return frame, row
 
@@ -217,30 +222,83 @@ class CaptionDesktopWindow(QMainWindow):
         self.file_name = label("Nenhum vídeo selecionado", "Muted")
         self.file_name.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         controls.addWidget(self.file_name)
-        controls.addWidget(label("01   MODO DE EDIÇÃO", "Section"))
+        controls.addWidget(label("01   ESCOLHA O QUE O CAPTION IA FAZ", "Section"))
+        self.enable_cuts = QCheckBox("✂  Montagem e cortes automáticos")
+        self.enable_cuts.setChecked(True)
+        controls.addWidget(self.enable_cuts)
         self.mode = QComboBox()
-        self.mode.addItem("Montagem Inteligente IA — cortes e narrativa", "inteligente")
+        self.mode.addItem("Montagem Inteligente IA — narrativa e melhores falas", "inteligente")
         self.mode.addItem("Cortes automáticos — remover silêncios", "silencios")
-        self.mode.addItem("Somente legendar — manter vídeo inteiro", "completo")
         controls.addWidget(self.mode)
-        controls.addWidget(label("02   LEGENDAS", "Section"))
+        self.enable_cuts.toggled.connect(self.mode.setEnabled)
+
+        self.enable_captions = QCheckBox("▤  Gerar legendas no vídeo")
+        self.enable_captions.setChecked(True)
+        controls.addWidget(self.enable_captions)
+        controls.addWidget(label("02   TEMPLATE DE LEGENDA", "Section"))
         self.style = QComboBox()
-        self.style.addItem("Destaque rosa — palavra ativa", "destaque")
-        self.style.addItem("Clássico — branco com contorno", "classico")
-        self.style.addItem("Minimalista — texto limpo", "minimalista")
+        self._templates = {}
+        self.refresh_templates()
         controls.addWidget(self.style)
-        controls.addWidget(label("03   ENQUADRAMENTO FINAL", "Section"))
+        self.style.currentIndexChanged.connect(self.update_template_preview)
+        self.import_btn = button("＋  Importar template .MOGRT")
+        self.import_btn.clicked.connect(self.import_template)
+        controls.addWidget(self.import_btn)
+        self.template_description = label("", "Muted")
+        controls.addWidget(self.template_description)
+        self.template_image = QLabel()
+        self.template_image.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.template_image.setMaximumHeight(116)
+        controls.addWidget(self.template_image)
+
+        controls.addWidget(label("CORES E TAMANHO DAS LEGENDAS", "Eyebrow"))
+        self.text_color = "#FFFFFF"
+        self.highlight_color = "#FE398E"
+        colors = QHBoxLayout()
+        self.text_color_btn = button("Texto  ■  #FFFFFF")
+        self.text_color_btn.clicked.connect(lambda: self.pick_color("text"))
+        self.accent_color_btn = button("Destaque  ■  #FE398E")
+        self.accent_color_btn.clicked.connect(lambda: self.pick_color("highlight"))
+        colors.addWidget(self.text_color_btn)
+        colors.addWidget(self.accent_color_btn)
+        controls.addLayout(colors)
+        self.font_scale = QComboBox()
+        for value in (70, 80, 90, 100, 110, 120, 130, 140):
+            self.font_scale.addItem(f"Tamanho das legendas · {value}%", value)
+        self.font_scale.setCurrentIndex(3)
+        controls.addWidget(self.font_scale)
+        self.enable_captions.toggled.connect(self._toggle_captions)
+
+        controls.addWidget(label("03   ZOOM AUTOMÁTICO", "Section"))
+        self.enable_zoom = QCheckBox("＋  Ativar zoom nos cortes")
+        self.enable_zoom.setChecked(False)
+        controls.addWidget(self.enable_zoom)
+        self.zoom_mode = QComboBox()
+        self.zoom_mode.addItem("Zoom suave — aproximação progressiva", "suave")
+        self.zoom_mode.addItem("Zoom de impacto — aproximação imediata", "impacto")
+        controls.addWidget(self.zoom_mode)
+        self.zoom_strength = QComboBox()
+        for label_text, value in (("Leve · 6%", 1.06), ("Padrão · 10%", 1.10), ("Forte · 15%", 1.15)):
+            self.zoom_strength.addItem(label_text, value)
+        self.zoom_strength.setCurrentIndex(1)
+        controls.addWidget(self.zoom_strength)
+        self.zoom_every_cut = QCheckBox("Aplicar zoom em todos os cortes (em vez de alternar)")
+        controls.addWidget(self.zoom_every_cut)
+        self.enable_zoom.toggled.connect(self._toggle_zoom)
+        self._toggle_zoom(False)
+        self.update_template_preview()
+        controls.addWidget(label("04   ENQUADRAMENTO FINAL", "Section"))
         self.format = QComboBox()
         self.format.addItem("Manter resolução e proporção originais", "original")
         self.format.addItem("Reels / TikTok — vertical 1080×1920", "vertical")
         self.format.addItem("YouTube — horizontal 1920×1080", "horizontal")
         controls.addWidget(self.format)
-        controls.addWidget(label("04   OBJETIVO EDITORIAL (OPCIONAL)", "Section"))
+        controls.addWidget(label("05   OBJETIVO EDITORIAL (OPCIONAL)", "Section"))
         self.goal = QTextEdit()
         self.goal.setPlaceholderText("Ex.: selecione a melhor versão de cada fala, preserve a abertura e o fechamento. Não remova informações essenciais.")
         self.goal.setFixedHeight(88)
         controls.addWidget(self.goal)
-        controls.addWidget(label("05   PASTA DE ENTREGA", "Section"))
+        controls.addWidget(label("06   PASTA DE ENTREGA", "Section"))
         target_row = QHBoxLayout()
         self.destination = QLineEdit(str(Path.home() / "Documents" / "CaptionIA-Desktop"))
         target_btn = button("Escolher…")
@@ -296,7 +354,7 @@ class CaptionDesktopWindow(QMainWindow):
         right.addLayout(player_bar)
         right.addSpacing(14)
         right.addWidget(label("SAÍDA FINAL", "Section"))
-        right.addWidget(label("✓ MP4 renderizado com cortes e legendas\n✓ Legendas .SRT e .ASS editáveis\n✓ Projeto .captionia.json e lista de cortes\n✓ Timeline .FCPXML experimental para intercâmbio", "Subtitle"))
+        right.addWidget(label("✓ MP4 renderizado com os recursos ativados\n✓ Legendas .SRT e .ASS quando habilitadas\n✓ Projeto .captionia.json com escolhas, cores e zoom\n✓ Timeline .FCPXML experimental para intercâmbio", "Subtitle"))
         self.open_output = button("Abrir pasta do último vídeo exportado")
         self.open_output.clicked.connect(self.open_last_output)
         self.open_output.setEnabled(False)
@@ -304,6 +362,77 @@ class CaptionDesktopWindow(QMainWindow):
         content.addWidget(right_panel, 1)
         outer.addLayout(content, 1)
         return root
+
+    def refresh_templates(self):
+        selected = self.style.currentData() if self.style.count() else "destaque"
+        entries = catalog()
+        self._templates = {item.id: item for item in entries}
+        self.style.blockSignals(True)
+        self.style.clear()
+        for item in entries:
+            self.style.addItem(f"{item.name}  ·  {item.origin}", item.id)
+        index = self.style.findData(selected)
+        self.style.setCurrentIndex(index if index >= 0 else 0)
+        self.style.blockSignals(False)
+
+    def _toggle_captions(self, active: bool):
+        for widget in (self.style, self.import_btn, self.text_color_btn,
+                       self.accent_color_btn, self.font_scale):
+            widget.setEnabled(active)
+
+    def _toggle_zoom(self, active: bool):
+        for widget in (self.zoom_mode, self.zoom_strength, self.zoom_every_cut):
+            widget.setEnabled(active)
+
+    def pick_color(self, kind: str):
+        old = self.text_color if kind == "text" else self.highlight_color
+        color = QColorDialog.getColor(QColor(old), self, "Escolher cor da legenda", QColorDialog.ColorDialogOption.DontUseNativeDialog)
+        if not color.isValid():
+            return
+        value = color.name().upper()
+        if kind == "text":
+            self.text_color = value
+            self.text_color_btn.setText(f"Texto  ■  {value}")
+        else:
+            self.highlight_color = value
+            self.accent_color_btn.setText(f"Destaque  ■  {value}")
+        self.update_template_preview()
+
+    def update_template_preview(self):
+        item = self._templates.get(self.style.currentData())
+        if not item:
+            return
+        self.template_description.setText(item.description)
+        self.template_image.clear()
+        if item.preview and item.preview.is_file():
+            image = QPixmap(str(item.preview))
+            if not image.isNull():
+                self.template_image.setPixmap(image.scaled(344, 110,
+                     Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        elif item.renderer in ("destaque", "impacto", "word_highlight"):
+            self.template_image.setText("Prévia:  LEGENDA COM DESTAQUE")
+            self.template_image.setStyleSheet(f"color: {self.highlight_color}; font-size:19px; font-weight:800;")
+        else:
+            self.template_image.setText("Prévia do template no vídeo final")
+            self.template_image.setStyleSheet(f"color: {self.text_color}; font-size:16px; font-weight:700;")
+
+    def import_template(self):
+        filename, _ = QFileDialog.getOpenFileName(self, "Importar arquivo MOGRT", str(Path.home()), "Adobe MOGRT (*.mogrt)")
+        if not filename:
+            return
+        try:
+            item = import_mogrt(Path(filename))
+        except (OSError, ValueError) as exc:
+            QMessageBox.warning(self, "MOGRT não importado", str(exc))
+            return
+        self.refresh_templates()
+        idx = self.style.findData(item.id)
+        if idx >= 0:
+            self.style.setCurrentIndex(idx)
+        QMessageBox.information(self, "Template catalogado",
+            "O arquivo MOGRT foi lido e incluído na biblioteca.\n\n"
+            "O Desktop RECRIA o estilo com FFmpeg/libass; não executa o motor do After Effects "
+            "e não garante animações ou efeitos idênticos ao original.")
 
     def try_restore(self):
         self._start_login(restore=True)
@@ -378,9 +507,20 @@ class CaptionDesktopWindow(QMainWindow):
         self.pick_btn.setEnabled(False)
         self.progress.setValue(1)
         self.current_status.setText("Iniciando…")
-        worker = RenderWorker(self.api, self.source, Path(self.destination.text()),
-                              self.mode.currentData(), self.style.currentData(),
-                              self.format.currentData(), self.goal.toPlainText())
+        options = {
+            "edit_mode": self.mode.currentData() if self.enable_cuts.isChecked() else "completo",
+            "enable_captions": self.enable_captions.isChecked(),
+            "caption_style": self.style.currentData(),
+            "caption_color": self.text_color,
+            "highlight_color": self.highlight_color,
+            "font_scale": self.font_scale.currentData(),
+            "zoom_mode": self.zoom_mode.currentData() if self.enable_zoom.isChecked() else "desligado",
+            "zoom_strength": self.zoom_strength.currentData(),
+            "zoom_every_cut": self.zoom_every_cut.isChecked(),
+            "output_format": self.format.currentData(),
+            "objective": self.goal.toPlainText(),
+        }
+        worker = RenderWorker(self.api, self.source, Path(self.destination.text()), options)
         self.worker = worker
         worker.stage.connect(self.render_stage)
         worker.done.connect(self.render_complete)
