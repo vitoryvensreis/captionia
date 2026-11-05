@@ -11,9 +11,9 @@ AppPublisher={#AppPublisher}
 DefaultDirName={localappdata}\Programs\Caption IA Desktop
 DefaultGroupName=Caption IA Desktop
 PrivilegesRequired=lowest
-OutputDir=dist_installer
+OutputDir=..\dist_installer
 OutputBaseFilename=CaptionIA-Desktop-Setup-Windows-1.0.0-beta
-SetupIconFile=assets\captionia.ico
+SetupIconFile=..\assets\captionia.ico
 UninstallDisplayIcon={app}\{#AppExe}
 Compression=lzma2
 SolidCompression=yes
@@ -28,7 +28,7 @@ Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortugue
 Name: "desktopicon"; Description: "Criar atalho na Área de Trabalho"; GroupDescription: "Atalhos:"; Flags: unchecked
 
 [Files]
-Source: "dist\CaptionIA-Desktop\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist\CaptionIA-Desktop\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{autoprograms}\Caption IA Desktop"; Filename: "{app}\{#AppExe}"
