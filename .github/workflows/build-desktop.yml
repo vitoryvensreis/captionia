@@ -28,7 +28,7 @@ jobs:
       - name: Unit tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
       - name: FFmpeg end-to-end render (fake transcription, no external API)
-        run: python tests/smoke_render.py
+        run: PYTHONPATH=. python tests/smoke_render.py
 
   windows:
     name: Windows x64 installer
